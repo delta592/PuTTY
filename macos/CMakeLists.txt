@@ -5,6 +5,8 @@
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
+include(${CMAKE_CURRENT_SOURCE_DIR}/platform_sources.cmake)
+
 # Swift / Objective-C toolchain (Phase 1.3).
 cmake_policy(SET CMP0157 NEW)
 set(CMAKE_Swift_LANGUAGE_VERSION 6)
@@ -22,6 +24,4 @@ function(putty_macos_configure_swift_target target)
 endfunction()
 
 add_subdirectory(bridge)
-
-# GUI application targets (PuTTY.app, etc.) are added under macos/PuTTY/
-# in Phase 1.4, guarded by the macos platform selection in setup.cmake.
+add_subdirectory(PuTTY)

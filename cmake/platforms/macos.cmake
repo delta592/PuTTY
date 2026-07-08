@@ -77,6 +77,7 @@ else()
 endif()
 
 include_directories(${CMAKE_SOURCE_DIR}/charset)
+include_directories(${CMAKE_SOURCE_DIR}/unix)
 
 set(extra_dirs charset)
 

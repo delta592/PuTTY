@@ -170,13 +170,13 @@ target_link_libraries(putty-app PRIVATE
 
 ### 1.4 Stub application target
 
-- [ ] Add `PuTTY.app` CMake target producing a minimal `NSApplication` that launches an empty `NSWindow`.
-- [ ] Embed `Info.plist` with:
+- [x] Add `PuTTY.app` CMake target producing a minimal `NSApplication` that launches an empty `NSWindow`.
+- [x] Embed `Info.plist` with:
   - `LSMinimumSystemVersion` = `15.0`
   - Bundle identifier e.g. `org.tartarus.projects.putty.macputty`
   - Application category `public.app-category.developer-tools`
-- [ ] Link stub app against core static libraries (`utils`, `eventloop`, …) to validate the link graph early.
-- [ ] Add `BUILDINFO_PLATFORM "macOS (AppKit)"` define in `macos/platform.h`.
+- [x] Link stub app against core static libraries (`utils`, `eventloop`, …) to validate the link graph early.
+- [x] Add `BUILDINFO_PLATFORM "macOS (AppKit)"` define in `macos/platform.h`.
 
 ### 1.5 Icon and asset pipeline
 
