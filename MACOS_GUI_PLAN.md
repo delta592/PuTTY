@@ -144,15 +144,15 @@ target_link_libraries(putty-app PRIVATE
 
 ### 1.1 Repository layout
 
-- [ ] Create `macos/` top-level platform directory.
-- [ ] Create subdirectories:
+- [x] Create `macos/` top-level platform directory.
+- [x] Create subdirectories:
   - `macos/bridge/` — C headers and glue for Swift
   - `macos/platform/` — C files adapted from `unix/` (non-GTK)
   - `macos/PuTTY/` — PuTTY.app Swift sources, assets, `Info.plist`
   - `macos/pterm/` — placeholder for Phase 7
   - `macos/puttygen/` — placeholder for Phase 7
   - `macos/Resources/` — shared `.xcassets`, localizable strings
-- [ ] Add `cmake/platforms/macos.cmake` parallel to `unix.cmake` / `windows.cmake`.
+- [x] Add `cmake/platforms/macos.cmake` parallel to `unix.cmake` / `windows.cmake`.
 
 ### 1.2 CMake platform selection
 
