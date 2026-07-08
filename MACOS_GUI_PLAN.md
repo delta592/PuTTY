@@ -40,6 +40,8 @@ The `macos/` tree contains:
 
 CLI tools (`plink`, `pscp`, `psftp`, …) continue to build via the existing `unix/` platform on macOS unless/until they are moved to share the `macos/` C shims.
 
+Release GUI builds produce **Universal 2** `.app` bundles: one fat Mach-O executable per application containing both `arm64` and `x86_64` slices, configured via `PUTTY_MACOS_UNIVERSAL` and `CMAKE_OSX_ARCHITECTURES` (see Phase 1.7 and Build system integration).
+
 ### Why not extend the GTK/macOS path?
 
 The repository already contains an unfinished **GTK-on-Quartz** approach (`OSX_GTK`, `puttyapp`, `gtk-mac-bundler`). That path is intentionally **not** part of this plan. A native AppKit front end provides better macOS integration (menus, sandboxing, Keychain, VoiceOver, system clipboard conventions) and avoids bundling GTK.
@@ -57,7 +59,7 @@ The project FAQ records that an earlier native Cocoa port failed due to **slow t
 
 ## Target deliverables
 
-At completion, a macOS GUI build should produce signed, notarized `.app` bundles:
+At completion, a macOS GUI build should produce signed, notarized **Universal 2** `.app` bundles — each containing a single Mach-O executable with both **arm64** (Apple Silicon) and **x86_64** (Intel) slices, so one build artifact runs natively on either architecture.
 
 | Application | Role | Priority |
 |-------------|------|----------|
@@ -66,7 +68,7 @@ At completion, a macOS GUI build should produce signed, notarized `.app` bundles
 | **PuTTYgen.app** | Key generation / conversion | P2 |
 | **Pageant.app** or system-agent integration | SSH agent / askpass | P2 |
 
-CLI binaries remain available via the existing Unix platform build.
+CLI binaries remain available via the existing Unix platform build (single-arch per host is acceptable for CLI; GUI release artifacts must be Universal 2).
 
 ---
 
@@ -78,8 +80,11 @@ CLI binaries remain available via the existing Unix platform build.
 |--------|---------|---------|
 | `PUTTY_MACOS_GUI` | `OFF` | Enable Swift/AppKit front end on Darwin |
 | `PUTTY_MACOS_DEPLOYMENT_TARGET` | `15.0` | Minimum macOS version |
+| `PUTTY_MACOS_UNIVERSAL` | `ON` | Build Universal 2 binaries (`arm64` + `x86_64`) for GUI `.app` targets |
 | `PUTTY_MACOS_SIGN_IDENTITY` | empty | Developer ID or ad-hoc signing identity |
 | `PUTTY_MACOS_NOTarize` | `OFF` | Run notarization post-build (requires credentials) |
+
+When `PUTTY_MACOS_UNIVERSAL=ON`, CMake sets `CMAKE_OSX_ARCHITECTURES` to `arm64;x86_64` for the GUI build, producing a **single fat Mach-O** inside each `.app` bundle (`Contents/MacOS/<executable>`). When `OFF`, only the host's native architecture is built (faster local iteration).
 
 ### Toolchain requirements
 
@@ -87,17 +92,31 @@ CLI binaries remain available via the existing Unix platform build.
 - **CMake 3.28+** (matches project minimum; Swift support requires 3.15+ but recent CMake is strongly preferred)
 - **Ninja** or **Xcode** generator
 - **Swift 6** toolchain (bundled with Xcode 16)
+- **Universal 2 builds** require an Xcode installation whose macOS SDK supports both `arm64` and `x86_64` (standard on Apple Silicon and Intel Macs with current Xcode)
 
 ### Typical build commands
 
 ```bash
-# Configure GUI build (from repository root)
+# Configure GUI build — Universal 2 (default: arm64 + x86_64 in one .app)
 cmake -B build-macos-gui -G Ninja \
   -DCMAKE_BUILD_TYPE=Release \
   -DPUTTY_MACOS_GUI=ON \
+  -DPUTTY_MACOS_UNIVERSAL=ON \
   -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0
 
 cmake --build build-macos-gui
+
+# Verify the app executable is Universal 2
+lipo -info build-macos-gui/PuTTY.app/Contents/MacOS/PuTTY
+# Expected: Architectures in the fat file: x86_64 arm64
+
+# Fast local dev build — native architecture only
+cmake -B build-macos-gui-dev -G Ninja \
+  -DCMAKE_BUILD_TYPE=Debug \
+  -DPUTTY_MACOS_GUI=ON \
+  -DPUTTY_MACOS_UNIVERSAL=OFF
+
+cmake --build build-macos-gui-dev
 
 # Install .app bundles to CMAKE_INSTALL_PREFIX (default /usr/local)
 cmake --build build-macos-gui --target install
@@ -124,6 +143,13 @@ Key CMake settings for all GUI targets:
 set(CMAKE_OSX_DEPLOYMENT_TARGET "15.0" CACHE STRING "Minimum macOS version")
 set(CMAKE_Swift_LANGUAGE_VERSION "6")
 
+# Universal 2: one fat Mach-O with arm64 + x86_64 slices (release default)
+if(PUTTY_MACOS_UNIVERSAL)
+  set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "" FORCE)
+else()
+  set(CMAKE_OSX_ARCHITECTURES "${CMAKE_HOST_SYSTEM_PROCESSOR}" CACHE STRING "" FORCE)
+endif()
+
 # Example framework linkage
 target_link_libraries(putty-app PRIVATE
   "-framework AppKit"
@@ -135,6 +161,8 @@ target_link_libraries(putty-app PRIVATE
   guiterminal eventloop sshclient otherbackends settings network crypto utils charset
 )
 ```
+
+All static libraries linked into GUI `.app` targets inherit `CMAKE_OSX_ARCHITECTURES`, so the final bundle executable contains matching slices for C, Objective-C, and Swift object code without a separate `lipo` merge step.
 
 ---
 
@@ -189,8 +217,17 @@ target_link_libraries(putty-app PRIVATE
 - [ ] Add a **Building on macOS (GUI)** section to `README` referencing this plan.
 - [ ] Document required Xcode version, command-line tools, and `xcode-select` setup.
 - [ ] Document coexistence: GUI build (`PUTTY_MACOS_GUI=ON`) vs CLI/GTK build (default `unix`).
+- [ ] Document Universal 2 vs single-arch dev builds (`PUTTY_MACOS_UNIVERSAL=ON/OFF`) and the `lipo -info` verification step.
 
-**Phase 1 exit criteria:** `cmake --build` produces `PuTTY.app` that launches on macOS 15+, links the PuTTY C libraries, and displays an empty window.
+### 1.7 Universal Binary (Universal 2) configuration
+
+- [ ] Add `PUTTY_MACOS_UNIVERSAL` cache option (default `ON`) to `cmake/platforms/macos.cmake`.
+- [ ] When `PUTTY_MACOS_UNIVERSAL=ON`, set `CMAKE_OSX_ARCHITECTURES` to `arm64;x86_64` for the GUI build tree.
+- [ ] When `PUTTY_MACOS_UNIVERSAL=OFF`, default to the host native architecture only (fast iteration).
+- [ ] Ensure `CMAKE_OSX_ARCHITECTURES` is applied before any target is defined so all C/Swift static libraries and `.app` executables share the same slice set.
+- [ ] Add a CMake custom target (e.g. `verify-universal`) that runs `lipo -info` on each GUI `.app` executable and fails if either `arm64` or `x86_64` is missing.
+
+**Phase 1 exit criteria:** `cmake --build` produces `PuTTY.app` that launches on macOS 15+, links the PuTTY C libraries, and displays an empty window. With `PUTTY_MACOS_UNIVERSAL=ON`, `lipo -info` reports both `arm64` and `x86_64` slices in `PuTTY.app/Contents/MacOS/PuTTY`.
 
 ---
 
@@ -257,6 +294,7 @@ In `cmake/platforms/macos.cmake`:
 - [ ] Run standard Unix feature checks from `unix.cmake` (poll, `posix_openpt`, `getaddrinfo`, …).
 - [ ] Add `find_library` for Security, CoreFoundation, IOKit, SystemConfiguration.
 - [ ] Set `NOT_X_WINDOWS` ON unconditionally.
+- [ ] Wire `PUTTY_MACOS_UNIVERSAL` → `CMAKE_OSX_ARCHITECTURES` (see Phase 1.7).
 - [ ] Implement `installed_program()` equivalent that installs `.app` bundles on macOS.
 
 **Phase 2 exit criteria:** All C platform modules compile; CLI tools (`plink`, `pscp`, …) link against `macos/` platform when `PUTTY_MACOS_GUI=ON`; session files read/write under Application Support.
@@ -514,6 +552,7 @@ PuTTY's settings are defined once in portable `config.c` using `ctrl_*` helpers 
 
 - [ ] Extract shared Swift package / static framework `PuttyMacUI` for `TerminalView`, config UI, bridge wrappers.
 - [ ] Per-app targets only differ in `Info.plist`, icons, and app constants (`use_event_log`, etc.).
+- [ ] All release `.app` bundles (PuTTY, pterm, PuTTYgen) must be Universal 2 when `PUTTY_MACOS_UNIVERSAL=ON`; shared libraries must not hard-code a single architecture.
 
 **Phase 7 exit criteria:** PuTTY, pterm, and PuTTYgen run as independent `.app` bundles; agent strategy documented and minimally functional.
 
@@ -531,7 +570,7 @@ Standard structure for each `.app`:
 PuTTY.app/
   Contents/
     Info.plist
-    MacOS/PuTTY          # Swift executable
+    MacOS/PuTTY          # Universal 2 Mach-O (arm64 + x86_64 slices)
     Resources/
       PuTTY.icns
       Assets.car
@@ -543,12 +582,15 @@ PuTTY.app/
 - [ ] CMake `install(TARGETS putty-app BUNDLE …)` with `MACOSX_BUNDLE_INFO_PLIST`.
 - [ ] Set `CFBundleShortVersionString` from PuTTY version macros / git describe.
 - [ ] Add `NSPrincipalClass = NSApplication`.
+- [ ] Post-build / install verification: `lipo -info` on each `.app` executable confirms Universal 2 (`x86_64` and `arm64` present).
+- [ ] Bundle `Resources/` assets (`.icns`, `Assets.car`, localizations) are architecture-neutral; no per-arch resource forks required.
 
 ### 8.2 Code signing
 
 - [ ] Ad-hoc sign for local dev: `codesign --force --deep --sign -`.
 - [ ] Release: sign with **Developer ID Application** certificate (`PUTTY_MACOS_SIGN_IDENTITY`).
 - [ ] Enable **Hardened Runtime** (`-o runtime`).
+- [ ] Verify `codesign --display --verbose` reports both architectures for Universal 2 bundles (`Authority=…`, `Format=app bundle with Mach-O universal (x86_64 arm64)`).
 - [ ] Create entitlements plists:
   - `PuTTY.entitlements` — network client, optional user-selected file access
   - Avoid sandbox initially unless requirements demand it
@@ -562,9 +604,10 @@ PuTTY.app/
 ### 8.4 DMG / distribution (optional)
 
 - [ ] CMake custom target to assemble `.dmg` with Applications symlink.
+- [ ] Ship a **single Universal 2** `.app` per application in the DMG (not separate Intel/ARM downloads).
 - [ ] Align with existing upstream release process (`Buildscr` integration or separate `release-macos.sh`).
 
-**Phase 8 exit criteria:** Signed PuTTY.app passes `spctl -a -vv`; notarized build installs on macOS 15 without security warnings.
+**Phase 8 exit criteria:** Signed Universal 2 PuTTY.app passes `spctl -a -vv`; `lipo -info` and `codesign --display --verbose` confirm both slices; notarized build installs on macOS 15 on Intel and Apple Silicon without security warnings.
 
 ---
 
@@ -576,7 +619,8 @@ PuTTY.app/
 
 - [ ] Run existing C unit tests (`testcrypt`, `test_terminal`, …) on macOS CI with `PUTTY_MACOS_GUI=ON`.
 - [ ] Add macOS-specific UI tests (XCTest) for launch, connect (mock server), config save/load.
-- [ ] Manual matrix: Intel vs Apple Silicon, light/dark mode, multiple monitors, Spaces.
+- [ ] Manual matrix on **native Intel** (x86_64 slice), **native Apple Silicon** (arm64 slice), and cross-arch smoke (Universal 2 `.app` copied between machine types); light/dark mode, multiple monitors, Spaces.
+- [ ] Confirm performance gate (Phase 4) on Apple Silicon; spot-check on Intel.
 
 ### 9.2 Accessibility
 
@@ -617,12 +661,16 @@ PuTTY.app/
 ### 10.1 Continuous integration
 
 - [ ] Add macOS runner job: configure with `-DPUTTY_MACOS_GUI=ON`, build all app targets.
+- [ ] Release / mainline artifact job: `-DPUTTY_MACOS_UNIVERSAL=ON`; verify with `lipo -info` on each `.app`.
+- [ ] Optional fast PR job: `-DPUTTY_MACOS_UNIVERSAL=OFF` (native arch only) for shorter compile times; full Universal 2 gate on merge to main.
+- [ ] Fallback if single-runner universal cross-compile is impractical: build `arm64` and `x86_64` separately on matching runners, then `lipo -create` into one `.app` executable before signing (document in `Buildscr.macos`).
 - [ ] Run C test suite.
-- [ ] Artifact-upload unsigned `.app` bundles for QA.
+- [ ] Artifact-upload unsigned Universal 2 `.app` bundles for QA.
 
 ### 10.2 Release integration
 
 - [ ] Extend `Buildscr` or add `Buildscr.macos` for official release binaries.
+- [ ] Release builds always produce Universal 2 `.app` bundles (`PUTTY_MACOS_UNIVERSAL=ON`).
 - [ ] Version stamping in `Info.plist` synchronized with `cmake_commit.c` / version headers.
 
 ### 10.3 Contribution guidelines
@@ -718,6 +766,8 @@ MACOS_GUI_PLAN.md          ← this document
 | Code signing / notarization friction | Phase 8 early prototyping on Developer ID; document ad-hoc dev workflow |
 | App Sandbox requirements for App Store | Defer; direct distribution first with Hardened Runtime only |
 | CMake Swift support gaps | Pin CMake 3.28+; test Ninja and Xcode generators |
+| Universal 2 build time / CI complexity | Default `PUTTY_MACOS_UNIVERSAL=OFF` for local dev; single-config fat binary via `CMAKE_OSX_ARCHITECTURES`; optional per-arch CI + `lipo -create` fallback |
+| Universal binary signing / notarization | Sign once after fat binary is assembled; verify both slices with `lipo -info` and `codesign --display --verbose` before notarization |
 
 ---
 
@@ -738,4 +788,4 @@ MACOS_GUI_PLAN.md          ← this document
 
 ## Summary
 
-Adding a native macOS GUI is **large but structurally straightforward**: PuTTY already isolates platform UI behind vtables and a portable configuration model. The work splits naturally into a **C platform port** (mostly recycled from `unix/`), a **Swift/AppKit terminal view** (the critical path), and **CMake integration** for macOS 15 targeting. Following the phases above keeps CLI builds working, avoids the abandoned GTK-on-Quartz path, and front-loads the rendering performance risk that blocked the original Cocoa attempt.
+Adding a native macOS GUI is **large but structurally straightforward**: PuTTY already isolates platform UI behind vtables and a portable configuration model. The work splits naturally into a **C platform port** (mostly recycled from `unix/`), a **Swift/AppKit terminal view** (the critical path), and **CMake integration** for macOS 15 targeting with **Universal 2** release binaries (`arm64` + `x86_64` in one `.app`). Following the phases above keeps CLI builds working, avoids the abandoned GTK-on-Quartz path, and front-loads the rendering performance risk that blocked the original Cocoa attempt.
