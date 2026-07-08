@@ -8,6 +8,9 @@ set_target_properties(PuTTY PROPERTIES
   MACOSX_BUNDLE_BUNDLE_VERSION "0.0.0"
   MACOSX_BUNDLE_SHORT_VERSION_STRING "0.0.0")
 
+target_compile_options(PuTTY PRIVATE
+  "$<$<COMPILE_LANGUAGE:Swift>:-parse-as-library>")
+
 target_link_libraries(PuTTY PRIVATE
   "-framework AppKit"
   putty-macos-bridge
@@ -15,3 +18,4 @@ target_link_libraries(PuTTY PRIVATE
 
 putty_macos_configure_swift_target(PuTTY)
 putty_macos_add_app_resources(PuTTY PuTTY.icns)
+putty_macos_register_gui_app(PuTTY)

@@ -1,6 +1,8 @@
 # Platform configuration for the native macOS (AppKit) GUI build.
 #
 # Selected when PUTTY_MACOS_GUI=ON on Darwin (see cmake/setup.cmake).
+# Universal 2 / CMAKE_OSX_ARCHITECTURES is configured in cmake/macos_early.cmake
+# before project() (Phase 1.7).
 
 set(PUTTY_MACOS_DEPLOYMENT_TARGET "15.0"
   CACHE STRING "Minimum macOS version for GUI targets")

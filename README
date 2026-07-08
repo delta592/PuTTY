@@ -124,37 +124,35 @@ Universal 2 (Intel + Apple Silicon) release builds
 
 Release GUI builds should produce a single Universal 2 .app bundle: one
 Mach-O executable containing both arm64 (Apple Silicon) and x86_64
-(Intel) slices. Enable this with PUTTY_MACOS_UNIVERSAL=ON (the default
-for release configurations once Phase 1.7 is complete):
+(Intel) slices. Use the Xcode generator (Swift requires it for fat
+binaries); PUTTY_MACOS_UNIVERSAL=ON is the default:
 
-  cmake -B build-macos-gui -G Ninja \
+  cmake -B build-macos-gui -G Xcode \
     -DCMAKE_BUILD_TYPE=Release \
     -DPUTTY_MACOS_GUI=ON \
     -DPUTTY_MACOS_UNIVERSAL=ON \
     -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0
 
-  cmake --build build-macos-gui
+  cmake --build build-macos-gui --config Release
 
-Until PUTTY_MACOS_UNIVERSAL is wired into cmake/platforms/macos.cmake
-(Phase 1.7), pass the architecture list explicitly:
-
-  cmake -B build-macos-gui -G Ninja \
-    -DCMAKE_BUILD_TYPE=Release \
-    -DPUTTY_MACOS_GUI=ON \
-    -DCMAKE_OSX_ARCHITECTURES='arm64;x86_64' \
-    -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0
+Ninja builds are supported for fast single-architecture development
+(PUTTY_MACOS_UNIVERSAL=OFF). If PUTTY_MACOS_UNIVERSAL=ON is set with
+Ninja, CMake warns and builds the host architecture only.
 
 Verify that the app executable is Universal 2:
 
-  lipo -info build-macos-gui/PuTTY.app/Contents/MacOS/PuTTY
+  lipo -info build-macos-gui/Release/PuTTY.app/Contents/MacOS/PuTTY
 
-Expected output includes both x86_64 and arm64, for example:
+Or run the CMake verification target after building:
+
+  cmake --build build-macos-gui --config Release --target verify-universal
+
+Expected lipo output includes both x86_64 and arm64, for example:
 
   Architectures in the fat file: x86_64 arm64
 
 For day-to-day development on one machine, PUTTY_MACOS_UNIVERSAL=OFF
-(or a single-arch CMAKE_OSX_ARCHITECTURES) builds only the host
-architecture and is significantly faster.
+builds only the host architecture and is significantly faster.
 
 CLI-only build on macOS (unchanged)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

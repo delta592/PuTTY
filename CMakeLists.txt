@@ -1,5 +1,20 @@
 cmake_minimum_required(VERSION 3.7...3.28)
-project(putty LANGUAGES C)
+
+set(PUTTY_MACOS_GUI OFF
+  CACHE BOOL "Enable Swift/AppKit native GUI on macOS (Darwin only)")
+
+if(PUTTY_MACOS_GUI)
+  if(NOT APPLE)
+    message(FATAL_ERROR
+      "PUTTY_MACOS_GUI is only supported on Darwin (macOS)")
+  endif()
+  include(cmake/macos_early.cmake)
+  cmake_policy(SET CMP0157 NEW)
+  project(putty LANGUAGES C OBJC OBJCXX Swift)
+  set(CMAKE_Swift_LANGUAGE_VERSION 6)
+else()
+  project(putty LANGUAGES C)
+endif()
 
 set(CMAKE_C_STANDARD 99)
 

@@ -1,5 +1,7 @@
 import AppKit
 
+@main
+@MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var window: NSWindow?
 
@@ -20,8 +22,3 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         true
     }
 }
-
-let app = NSApplication.shared
-let delegate = AppDelegate()
-app.delegate = delegate
-_ = NSApplicationMain(CommandLine.argc, CommandLine.unsafeArgv)

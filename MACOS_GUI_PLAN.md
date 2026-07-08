@@ -221,11 +221,11 @@ All static libraries linked into GUI `.app` targets inherit `CMAKE_OSX_ARCHITECT
 
 ### 1.7 Universal Binary (Universal 2) configuration
 
-- [ ] Add `PUTTY_MACOS_UNIVERSAL` cache option (default `ON`) to `cmake/platforms/macos.cmake`.
-- [ ] When `PUTTY_MACOS_UNIVERSAL=ON`, set `CMAKE_OSX_ARCHITECTURES` to `arm64;x86_64` for the GUI build tree.
-- [ ] When `PUTTY_MACOS_UNIVERSAL=OFF`, default to the host native architecture only (fast iteration).
-- [ ] Ensure `CMAKE_OSX_ARCHITECTURES` is applied before any target is defined so all C/Swift static libraries and `.app` executables share the same slice set.
-- [ ] Add a CMake custom target (e.g. `verify-universal`) that runs `lipo -info` on each GUI `.app` executable and fails if either `arm64` or `x86_64` is missing.
+- [x] Add `PUTTY_MACOS_UNIVERSAL` cache option (default `ON`) to `cmake/platforms/macos.cmake`.
+- [x] When `PUTTY_MACOS_UNIVERSAL=ON`, set `CMAKE_OSX_ARCHITECTURES` to `arm64;x86_64` for the GUI build tree.
+- [x] When `PUTTY_MACOS_UNIVERSAL=OFF`, default to the host native architecture only (fast iteration).
+- [x] Ensure `CMAKE_OSX_ARCHITECTURES` is applied before any target is defined so all C/Swift static libraries and `.app` executables share the same slice set.
+- [x] Add a CMake custom target (e.g. `verify-universal`) that runs `lipo -info` on each GUI `.app` executable and fails if either `arm64` or `x86_64` is missing.
 
 **Phase 1 exit criteria:** `cmake --build` produces `PuTTY.app` that launches on macOS 15+, links the PuTTY C libraries, and displays an empty window. With `PUTTY_MACOS_UNIVERSAL=ON`, `lipo -info` reports both `arm64` and `x86_64` slices in `PuTTY.app/Contents/MacOS/PuTTY`.
 
@@ -294,7 +294,7 @@ In `cmake/platforms/macos.cmake`:
 - [ ] Run standard Unix feature checks from `unix.cmake` (poll, `posix_openpt`, `getaddrinfo`, …).
 - [ ] Add `find_library` for Security, CoreFoundation, IOKit, SystemConfiguration.
 - [ ] Set `NOT_X_WINDOWS` ON unconditionally.
-- [ ] Wire `PUTTY_MACOS_UNIVERSAL` → `CMAKE_OSX_ARCHITECTURES` (see Phase 1.7).
+- [x] Wire `PUTTY_MACOS_UNIVERSAL` → `CMAKE_OSX_ARCHITECTURES` (see Phase 1.7).
 - [ ] Implement `installed_program()` equivalent that installs `.app` bundles on macOS.
 
 **Phase 2 exit criteria:** All C platform modules compile; CLI tools (`plink`, `pscp`, …) link against `macos/` platform when `PUTTY_MACOS_GUI=ON`; session files read/write under Application Support.

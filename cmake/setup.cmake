@@ -21,8 +21,6 @@ set(PUTTY_COMPRESS_SCROLLBACK ON
   # disable it. So there's a #ifdef in terminal.c, and a cmake option
   # to enable that ifdef just in case it needs testing or debugging.
   CACHE BOOL "Store terminal scrollback in compressed form")
-set(PUTTY_MACOS_GUI OFF
-  CACHE BOOL "Enable Swift/AppKit native GUI on macOS (Darwin only)")
 
 set(STRICT OFF
   CACHE BOOL "Enable extra compiler warnings and make them errors")
@@ -85,10 +83,6 @@ set(extra_dirs)
 if(CMAKE_SYSTEM_NAME MATCHES "Windows" OR WINELIB)
   set(platform windows)
 elseif(PUTTY_MACOS_GUI)
-  if(NOT CMAKE_SYSTEM_NAME MATCHES "Darwin")
-    message(FATAL_ERROR
-      "PUTTY_MACOS_GUI is only supported on Darwin (macOS)")
-  endif()
   set(platform macos)
 else()
   set(platform unix)
