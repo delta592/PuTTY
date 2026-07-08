@@ -208,9 +208,9 @@ All static libraries linked into GUI `.app` targets inherit `CMAKE_OSX_ARCHITECT
 
 ### 1.5 Icon and asset pipeline
 
-- [ ] Integrate `icons/macicon.py` into CMake custom commands to generate `PuTTY.icns` / `Pterm.icns`.
-- [ ] Add generated `.icns` files to app bundle `Resources/`.
-- [ ] Create `Assets.xcassets` for accent colours / dark-mode toolbar icons (macOS 15 appearance).
+- [x] Integrate `icons/macicon.py` into CMake custom commands to generate `PuTTY.icns` / `Pterm.icns`.
+- [x] Add generated `.icns` files to app bundle `Resources/`.
+- [x] Create `Assets.xcassets` for accent colours / dark-mode toolbar icons (macOS 15 appearance).
 
 ### 1.6 Documentation and developer setup
 

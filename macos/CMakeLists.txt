@@ -6,6 +6,7 @@
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/platform_sources.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/icons.cmake)
 
 # Swift / Objective-C toolchain (Phase 1.3).
 cmake_policy(SET CMP0157 NEW)

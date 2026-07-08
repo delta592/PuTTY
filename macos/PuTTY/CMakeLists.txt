@@ -14,3 +14,4 @@ target_link_libraries(PuTTY PRIVATE
   guiterminal eventloop sshclient otherbackends settings network crypto utils)
 
 putty_macos_configure_swift_target(PuTTY)
+putty_macos_add_app_resources(PuTTY PuTTY.icns)
