@@ -156,10 +156,10 @@ target_link_libraries(putty-app PRIVATE
 
 ### 1.2 CMake platform selection
 
-- [ ] Extend `cmake/setup.cmake` to set `platform` to `macos` when `PUTTY_MACOS_GUI` is `ON` and `CMAKE_SYSTEM_NAME` matches `Darwin`.
-- [ ] Add `add_subdirectory(macos)` from root `CMakeLists.txt` when `platform STREQUAL macos`.
-- [ ] Guard GUI targets so Linux/Windows configures remain unaffected.
-- [ ] Set `CMAKE_OSX_DEPLOYMENT_TARGET` to **15.0** by default via `PUTTY_MACOS_DEPLOYMENT_TARGET`.
+- [x] Extend `cmake/setup.cmake` to set `platform` to `macos` when `PUTTY_MACOS_GUI` is `ON` and `CMAKE_SYSTEM_NAME` matches `Darwin`.
+- [x] Add `add_subdirectory(macos)` from root `CMakeLists.txt` when `platform STREQUAL macos`.
+- [x] Guard GUI targets so Linux/Windows configures remain unaffected.
+- [x] Set `CMAKE_OSX_DEPLOYMENT_TARGET` to **15.0** by default via `PUTTY_MACOS_DEPLOYMENT_TARGET`.
 
 ### 1.3 Swift toolchain activation
 
