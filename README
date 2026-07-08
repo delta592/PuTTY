@@ -47,3 +47,120 @@ reports saying `it doesn't work' will waste your time as much as
 ours.
 
 See the file LICENCE for the licence conditions.
+
+
+Building on macOS (GUI)
+-----------------------
+
+PuTTY is gaining a native macOS GUI built with Swift and AppKit. The
+full phased plan is in MACOS_GUI_PLAN.md in the repository root.
+
+Prerequisites
+~~~~~~~~~~~~~
+
+  - macOS 15 (Sequoia) or later as the deployment target
+  - Xcode 16 or later (includes the Swift 6 toolchain and macOS 15 SDK)
+  - Xcode Command Line Tools: xcode-select --install
+  - Active developer directory pointing at Xcode (not CLT alone), e.g.:
+      sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+  - CMake 3.28 or later
+  - Ninja (recommended) or the Xcode generator
+  - Python 3 (used by the icon generation scripts at build time)
+
+Verify the toolchain before configuring:
+
+  xcode-select -p
+  xcrun --find swiftc && swiftc --version
+  cmake --version
+
+GUI build vs CLI / GTK build
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+On Darwin, CMake selects the platform according to PUTTY_MACOS_GUI:
+
+  PUTTY_MACOS_GUI=OFF (default)
+      Uses the existing unix/ platform. Builds CLI tools (plink, pscp,
+      psftp, …) and, if GTK is found, the legacy GTK-based putty and
+      pterm binaries. This is unchanged from a normal Unix/macOS build.
+
+  PUTTY_MACOS_GUI=ON
+      Uses the new macos/ platform. Builds the native AppKit GUI
+      (PuTTY.app, and further apps as they are added) plus CLI tools
+      linked against the macos/ C platform layer. Does not use GTK.
+
+Use separate build directories for GUI and CLI/GTK builds; do not
+reconfigure the same build tree between the two modes.
+
+Typical GUI build commands
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Release build (produces PuTTY.app):
+
+  cmake -B build-macos-gui -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DPUTTY_MACOS_GUI=ON \
+    -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0
+
+  cmake --build build-macos-gui
+
+The application bundle is written to build-macos-gui/PuTTY.app. Run it
+directly:
+
+  open build-macos-gui/PuTTY.app
+
+Fast local development build (native architecture only, shorter compile
+times):
+
+  cmake -B build-macos-gui-dev -G Ninja \
+    -DCMAKE_BUILD_TYPE=Debug \
+    -DPUTTY_MACOS_GUI=ON \
+    -DPUTTY_MACOS_UNIVERSAL=OFF \
+    -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0
+
+  cmake --build build-macos-gui-dev
+
+Universal 2 (Intel + Apple Silicon) release builds
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Release GUI builds should produce a single Universal 2 .app bundle: one
+Mach-O executable containing both arm64 (Apple Silicon) and x86_64
+(Intel) slices. Enable this with PUTTY_MACOS_UNIVERSAL=ON (the default
+for release configurations once Phase 1.7 is complete):
+
+  cmake -B build-macos-gui -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DPUTTY_MACOS_GUI=ON \
+    -DPUTTY_MACOS_UNIVERSAL=ON \
+    -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0
+
+  cmake --build build-macos-gui
+
+Until PUTTY_MACOS_UNIVERSAL is wired into cmake/platforms/macos.cmake
+(Phase 1.7), pass the architecture list explicitly:
+
+  cmake -B build-macos-gui -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DPUTTY_MACOS_GUI=ON \
+    -DCMAKE_OSX_ARCHITECTURES='arm64;x86_64' \
+    -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0
+
+Verify that the app executable is Universal 2:
+
+  lipo -info build-macos-gui/PuTTY.app/Contents/MacOS/PuTTY
+
+Expected output includes both x86_64 and arm64, for example:
+
+  Architectures in the fat file: x86_64 arm64
+
+For day-to-day development on one machine, PUTTY_MACOS_UNIVERSAL=OFF
+(or a single-arch CMAKE_OSX_ARCHITECTURES) builds only the host
+architecture and is significantly faster.
+
+CLI-only build on macOS (unchanged)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  cmake -B build-macos-cli -G Ninja
+  cmake --build build-macos-cli
+
+See MACOS_GUI_PLAN.md for signing, notarization, and further GUI
+targets (pterm.app, PuTTYgen.app) as they are added in later phases.

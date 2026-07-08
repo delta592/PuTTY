@@ -214,10 +214,10 @@ All static libraries linked into GUI `.app` targets inherit `CMAKE_OSX_ARCHITECT
 
 ### 1.6 Documentation and developer setup
 
-- [ ] Add a **Building on macOS (GUI)** section to `README` referencing this plan.
-- [ ] Document required Xcode version, command-line tools, and `xcode-select` setup.
-- [ ] Document coexistence: GUI build (`PUTTY_MACOS_GUI=ON`) vs CLI/GTK build (default `unix`).
-- [ ] Document Universal 2 vs single-arch dev builds (`PUTTY_MACOS_UNIVERSAL=ON/OFF`) and the `lipo -info` verification step.
+- [x] Add a **Building on macOS (GUI)** section to `README` referencing this plan.
+- [x] Document required Xcode version, command-line tools, and `xcode-select` setup.
+- [x] Document coexistence: GUI build (`PUTTY_MACOS_GUI=ON`) vs CLI/GTK build (default `unix`).
+- [x] Document Universal 2 vs single-arch dev builds (`PUTTY_MACOS_UNIVERSAL=ON/OFF`) and the `lipo -info` verification step.
 
 ### 1.7 Universal Binary (Universal 2) configuration
 
