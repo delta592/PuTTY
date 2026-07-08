@@ -163,10 +163,10 @@ target_link_libraries(putty-app PRIVATE
 
 ### 1.3 Swift toolchain activation
 
-- [ ] Call `enable_language(OBJC OBJCXX Swift)` from `macos/CMakeLists.txt`.
-- [ ] Set `CMAKE_Swift_LANGUAGE_VERSION` to 6.
-- [ ] Configure Swift module search paths to find `PuttyBridge` module.
-- [ ] Verify both **Ninja** and **Xcode** generators with a CI matrix entry (Phase 10).
+- [x] Call `enable_language(OBJC OBJCXX Swift)` from `macos/CMakeLists.txt`.
+- [x] Set `CMAKE_Swift_LANGUAGE_VERSION` to 6.
+- [x] Configure Swift module search paths to find `PuttyBridge` module.
+- [ ] Verify both **Ninja** and **Xcode** generators with a CI matrix entry (Phase 10). _(Verified locally with Ninja and Xcode; CI matrix deferred to Phase 10.)_
 
 ### 1.4 Stub application target
 

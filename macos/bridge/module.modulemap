@@ -1,0 +1,4 @@
+module PuttyBridge {
+    header "putty-bridge.h"
+    export *
+}
