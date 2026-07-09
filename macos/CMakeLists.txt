@@ -59,6 +59,7 @@ add_sources_from_current_dir(console
 
 add_sources_from_current_dir(settings
   platform/storage.c
+  platform/paths.c
   platform/stubs.c
   platform/gui-seat-list.c)
 
@@ -133,6 +134,7 @@ add_library(puttygen-common OBJECT
   platform/keygen-noise.c
   platform/no-gtk.c
   platform/noise.c
+  platform/paths.c
   platform/storage.c
   ${CMAKE_SOURCE_DIR}/sshpubk.c
   ${CMAKE_SOURCE_DIR}/sshrand.c)

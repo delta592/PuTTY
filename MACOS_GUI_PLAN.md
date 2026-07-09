@@ -268,13 +268,37 @@ Adapt from `unix/` with minimal changes:
 
 ### 2.3 Storage paths and sandboxing
 
-- [ ] Define canonical paths:
+- [x] Define canonical paths:
   - Sessions: `~/Library/Application Support/PuTTY/sessions/`
   - Host keys: `~/Library/Application Support/PuTTY/sshhostkeys`
   - Random seed: `~/Library/Application Support/PuTTY/putty.rnd`
   - Logs: user-configured; default under `~/Documents/` or app container if sandboxed
-- [ ] Document entitlements required if App Sandbox is enabled (Phase 9).
-- [ ] Implement `cleanup_all()` for macOS (registry equivalent: remove Application Support tree).
+- [x] Document entitlements required if App Sandbox is enabled (Phase 9).
+- [x] Implement `cleanup_all()` for macOS (registry equivalent: remove Application Support tree).
+
+**Canonical paths** are defined in `macos/platform/paths.h` and resolved by
+`macos/platform/storage.c`. `PUTTYDIR`, `PUTTYSESSIONS`, `PUTTYSSHHOSTKEYS`,
+`PUTTYRANDOMSEED`, and related environment variables continue to override
+individual locations. The default session log path helper is
+`putty_macos_default_log_path()` (`~/Documents/putty.log`); GUI front-end
+code should wire this through `platform_default_filename("LogFileName")` in
+Phase 5/6.
+
+**App Sandbox entitlements (Phase 8/9, if sandbox is enabled later):**
+
+| Entitlement | Purpose |
+|-------------|---------|
+| `com.apple.security.app-sandbox` | Enable App Sandbox |
+| `com.apple.security.network.client` | Outbound SSH/TCP connections |
+| `com.apple.security.network.server` | Local port forwarding / psusan (if needed) |
+| `com.apple.security.files.user-selected.read-write` | Import/export sessions, keys, logs via open/save panels |
+| `com.apple.security.files.bookmarks.app-scope` | Persistent access to user-granted directories |
+
+Non-sandboxed builds (the default for Phase 8) use the real user home for
+`~/Library/Application Support/PuTTY/`. Sandboxed `.app` bundles receive a
+container home from the system; the same relative paths apply inside that
+container. Avoid sandbox initially unless distribution requirements demand it
+(see Phase 8.2).
 
 ### 2.4 Font and filename helpers
 
