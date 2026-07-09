@@ -28,5 +28,24 @@
     <string>NSApplication</string>
     <key>NSHighResolutionCapable</key>
     <true/>
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLName</key>
+            <string>SSH URL</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>ssh</string>
+            </array>
+        </dict>
+        <dict>
+            <key>CFBundleURLName</key>
+            <string>PuTTY Session URL</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>putty</string>
+            </array>
+        </dict>
+    </array>
 </dict>
 </plist>

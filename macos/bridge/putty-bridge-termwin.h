@@ -371,6 +371,34 @@ bool putty_bridge_termwin_terminal_has_visible_text(const PuttyBridgeTermWin *bt
  */
 bool putty_bridge_termwin_change_settings(PuttyBridgeTermWin *btw);
 
+/**
+ * Session → Duplicate Session: open a new window with a copy of this
+ * termwin's Conf. No-op if conf is missing or not launchable.
+ */
+void putty_bridge_launch_duplicate_session(PuttyBridgeTermWin *btw);
+
+/**
+ * True when Restart Session is available (backend gone after remote exit).
+ */
+bool putty_bridge_termwin_can_restart(const PuttyBridgeTermWin *btw);
+
+/**
+ * Restart the session after remote exit (Phase 7.1). Returns false if
+ * restart is not available or backend start fails.
+ */
+bool putty_bridge_termwin_restart_session(PuttyBridgeTermWin *btw);
+
+/**
+ * Called when the remote session exits (or connection is destroyed) so
+ * Swift can enable Session → Restart Session.
+ */
+typedef void (*PuttyBridgeRemoteExitCallback)(void *ctx, int exitcode);
+
+void putty_bridge_termwin_set_remote_exit_callback(
+    PuttyBridgeTermWin *btw,
+    PuttyBridgeRemoteExitCallback callback,
+    void *ctx);
+
 /** Attach terminal window for sheet-modal security prompts (NSWindow *). */
 void putty_bridge_set_parent_window(void *nswindow);
 

@@ -35,6 +35,10 @@ static bool putty_bridge_cmdline_extra(
             *action = PUTTY_BRIDGE_CMDLINE_EXIT_OK;
             return true;
         }
+        if (!strcmp(p, "-cleanup")) {
+            *action = PUTTY_BRIDGE_CMDLINE_CLEANUP;
+            return true;
+        }
         if (has_ca_config_box &&
             (!strcmp(p, "-host-ca") || !strcmp(p, "-host_ca") ||
              !strcmp(p, "--host-ca") || !strcmp(p, "--host_ca"))) {
@@ -53,6 +57,10 @@ static bool putty_bridge_cmdline_extra(
         if (!strcmp(p, "-pgpfp")) {
             pgp_fingerprints();
             *action = PUTTY_BRIDGE_CMDLINE_EXIT_OK;
+            return true;
+        }
+        if (!strcmp(p, "-cleanup")) {
+            *action = PUTTY_BRIDGE_CMDLINE_CLEANUP;
             return true;
         }
         if (has_ca_config_box &&
@@ -173,9 +181,12 @@ void putty_bridge_print_help(FILE *fp)
                 "  --help            Display this text\n"
                 "  --version         Show version and build info\n"
                 "  -pgpfp            Display PGP key fingerprints\n"
+                "  -cleanup          Delete saved sessions and other PuTTY data\n"
                 "  -host-ca          Configure trusted SSH host CAs\n"
                 "\n"
                 "If no host or -load is given, the configuration dialog opens.\n"
+                "URL schemes ssh:// and putty:// are also accepted when opened\n"
+                "from the Finder or `open` (see Info.plist).\n"
                 ) < 0 || fflush(fp) < 0) {
         perror("output error");
         exit(1);

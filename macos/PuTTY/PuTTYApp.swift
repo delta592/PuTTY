@@ -21,6 +21,9 @@ enum PuTTYMain {
             exit(EXIT_SUCCESS)
         case PUTTY_BRIDGE_CMDLINE_EXIT_OK:
             exit(EXIT_SUCCESS)
+        case PUTTY_BRIDGE_CMDLINE_CLEANUP:
+            confirmAndCleanup()
+            exit(EXIT_SUCCESS)
         case PUTTY_BRIDGE_CMDLINE_HOST_CA:
             break
         default:
@@ -38,6 +41,28 @@ enum PuTTYMain {
             app.run()
         }
     }
+
+    /// Mirror Windows `putty -cleanup` confirmation, adapted for Application Support.
+    private static func confirmAndCleanup() {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "PuTTY Warning"
+        alert.informativeText =
+            "This procedure will remove ALL PuTTY data stored under\n"
+            + "Library/Application Support/PuTTY for the current user,\n"
+            + "including saved sessions, host keys, and the random seed file.\n"
+            + "\n"
+            + "THIS PROCESS WILL DESTROY YOUR SAVED SESSIONS.\n"
+            + "Are you really sure you want to continue?"
+        alert.addButton(withTitle: "Delete Data")
+        alert.addButton(withTitle: "Cancel")
+        // Need a running app for a proper modal; bootstrap briefly.
+        let app = NSApplication.shared
+        app.setActivationPolicy(.accessory)
+        if alert.runModal() == .alertFirstButtonReturn {
+            putty_bridge_cleanup_all()
+        }
+    }
 }
 
 @MainActor
@@ -47,6 +72,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let hostCaOnly: Bool
     /// Retained for the C open-session callback lifetime.
     private var openSessionBox: OpenSessionBox?
+    private weak var duplicateItem: NSMenuItem?
+    private weak var restartItem: NSMenuItem?
 
     init(initialConf: PuttyConfHandle?, initialConnect: Bool, hostCaOnly: Bool = false) {
         self.pendingConf = initialConf
@@ -95,6 +122,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             && NSApp.windows.contains { $0.isVisible } == false
     }
 
+    func application(_ application: NSApplication, open urls: [URL]) {
+        _ = application
+        for url in urls {
+            openURL(url)
+        }
+    }
+
     fileprivate func openSession(conf: PuttyConfHandle?, connect: Bool) {
         if conf == nil {
             NSApp.terminate(nil)
@@ -103,6 +137,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         SessionWindowController.openNew(conf: conf, connect: connect)
         putty_conf_free(conf)
         putty_bridge_session_window_opened()
+    }
+
+    private func openURL(_ url: URL) {
+        let conf = putty_conf_new()
+        let ok = url.absoluteString.withCString { cstr in
+            putty_bridge_conf_from_url(conf, cstr)
+        }
+        guard ok else {
+            putty_conf_free(conf)
+            NSSound.beep()
+            return
+        }
+        let connect = putty_conf_launchable(conf)
+        if connect {
+            SessionWindowController.openNew(conf: conf, connect: true)
+            putty_conf_free(conf)
+            putty_bridge_session_window_opened()
+        } else {
+            // Incomplete saved session: hand to start_app-style config box.
+            putty_bridge_start_app(conf, false)
+        }
     }
 
     private func installMenus() {
@@ -123,6 +178,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                                           action: #selector(newSession(_:)),
                                           keyEquivalent: "n")
         newItem.target = self
+
+        let dupItem = sessionMenu.addItem(
+            withTitle: "Duplicate Session",
+            action: #selector(duplicateSession(_:)),
+            keyEquivalent: "d")
+        dupItem.target = self
+        dupItem.keyEquivalentModifierMask = [.command, .shift]
+        duplicateItem = dupItem
+
+        let restartItem = sessionMenu.addItem(
+            withTitle: "Restart Session",
+            action: #selector(restartSession(_:)),
+            keyEquivalent: "r")
+        restartItem.target = self
+        restartItem.keyEquivalentModifierMask = [.command, .shift]
+        restartItem.isEnabled = false
+        self.restartItem = restartItem
+
+        SessionSavedSessionsMenu.shared.install(into: sessionMenu)
+        sessionMenu.addItem(NSMenuItem.separator())
+
         let changeItem = sessionMenu.addItem(
             withTitle: "Change Settings…",
             action: #selector(changeSettings(_:)),
@@ -146,9 +222,47 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.mainMenu = mainMenu
     }
 
+    func updateSessionActionMenus() {
+        let controller = NSApp.keyWindow?.windowController as? SessionWindowController
+        let termWin = controller?.activeTermWin
+        duplicateItem?.isEnabled = termWin != nil
+        if let termWin {
+            restartItem?.isEnabled = putty_bridge_termwin_can_restart(termWin)
+        } else {
+            restartItem?.isEnabled = false
+        }
+    }
+
     @objc private func newSession(_ sender: Any?) {
         _ = sender
         putty_bridge_launch_new_session()
+    }
+
+    @objc private func duplicateSession(_ sender: Any?) {
+        _ = sender
+        guard let controller = NSApp.keyWindow?.windowController
+                as? SessionWindowController,
+              let termWin = controller.activeTermWin else {
+            NSSound.beep()
+            return
+        }
+        putty_bridge_launch_duplicate_session(termWin)
+    }
+
+    @objc private func restartSession(_ sender: Any?) {
+        _ = sender
+        guard let controller = NSApp.keyWindow?.windowController
+                as? SessionWindowController,
+              let termWin = controller.activeTermWin else {
+            NSSound.beep()
+            return
+        }
+        if !putty_bridge_termwin_restart_session(termWin) {
+            NSSound.beep()
+            return
+        }
+        controller.refreshSpecialsMenu()
+        updateSessionActionMenus()
     }
 
     @objc private func changeSettings(_ sender: Any?) {

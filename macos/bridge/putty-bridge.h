@@ -182,6 +182,11 @@ typedef enum PuttyBridgeCmdlineAction {
     PUTTY_BRIDGE_CMDLINE_EXIT_OK,
     /** Show Host CA config (modal) then exit — `-host_ca` / `--host-ca`. */
     PUTTY_BRIDGE_CMDLINE_HOST_CA,
+    /**
+     * Confirm then delete Application Support data (`-cleanup`).
+     * Swift shows an NSAlert, then calls putty_bridge_cleanup_all().
+     */
+    PUTTY_BRIDGE_CMDLINE_CLEANUP,
 } PuttyBridgeCmdlineAction;
 
 /**
@@ -227,11 +232,37 @@ void putty_bridge_start_app(PuttyConf *conf, bool connect_immediately);
 /** Session → New Session: show initial config box with defaults. */
 void putty_bridge_launch_new_session(void);
 
+/** Session → Saved Sessions: open named session (or config if incomplete). */
+void putty_bridge_launch_saved_session(const char *session_name);
+
+/**
+ * Copy saved-session names (skips "Default Settings") into out[0..max_out-1].
+ * Each string is heap-allocated; free with putty_bridge_free_string().
+ * Returns the number of names written (may be less than total if truncated).
+ */
+size_t putty_bridge_copy_saved_session_names(char **out, size_t max_out);
+
+/** Free a string returned by putty_bridge_copy_saved_session_names(). */
+void putty_bridge_free_string(char *s);
+
+/**
+ * Delete all PuTTY Application Support data (sessions, host keys, seed).
+ * Used after the user confirms `-cleanup`.
+ */
+void putty_bridge_cleanup_all(void);
+
 /**
  * Show the Host CA configuration dialog modally (Phase 6.5).
  * Used by `-host-ca` / `--host_ca` and returns when the user closes it.
  */
 void putty_bridge_show_host_ca_config(void);
+
+/**
+ * Parse an ssh:// or putty:// URL into conf. Returns true on success.
+ * putty://load/SESSION or putty://SESSION loads a saved session;
+ * ssh://[user@]host[:port][/] sets host/user/port for SSH.
+ */
+bool putty_bridge_conf_from_url(PuttyConf *conf, const char *url);
 
 /** Headless smoke for launch / need-config decisions. Returns 0 on OK. */
 int putty_bridge_launch_smoke(void);

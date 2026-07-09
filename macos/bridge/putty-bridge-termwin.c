@@ -36,6 +36,8 @@ struct PuttyBridgeTermWin {
     void *specials_menu_ctx;
     PuttyBridgeEventLogCallback eventlog_callback;
     void *eventlog_ctx;
+    PuttyBridgeRemoteExitCallback remote_exit_callback;
+    void *remote_exit_ctx;
     char **events_initial;
     char **events_circular;
     int ninitial, ncircular, circular_first;
@@ -460,11 +462,20 @@ static void bridge_on_eventlog(void *ctx, const char *event)
     bridge_eventlog_append((PuttyBridgeTermWin *)ctx, event);
 }
 
+static void bridge_on_remote_exit(void *ctx, int exitcode)
+{
+    PuttyBridgeTermWin *btw = (PuttyBridgeTermWin *)ctx;
+
+    if (btw->remote_exit_callback)
+        btw->remote_exit_callback(btw->remote_exit_ctx, exitcode);
+}
+
 static void bridge_install_seat_callbacks(PuttyBridgeTermWin *btw)
 {
     static const MacGuiSeatCallbacks seat_callbacks = {
         .on_update_specials_menu = bridge_on_update_specials_menu,
         .on_eventlog = bridge_on_eventlog,
+        .on_remote_exit = bridge_on_remote_exit,
     };
 
     if (!btw || !btw->seat)
@@ -589,6 +600,39 @@ void putty_bridge_termwin_set_eventlog_callback(
         return;
     btw->eventlog_callback = callback;
     btw->eventlog_ctx = ctx;
+}
+
+void putty_bridge_termwin_set_remote_exit_callback(
+    PuttyBridgeTermWin *btw,
+    PuttyBridgeRemoteExitCallback callback,
+    void *ctx)
+{
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
+    if (!btw)
+        return;
+    btw->remote_exit_callback = callback;
+    btw->remote_exit_ctx = ctx;
+}
+
+bool putty_bridge_termwin_can_restart(const PuttyBridgeTermWin *btw)
+{
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
+    if (!btw || !btw->seat)
+        return false;
+    return mac_gui_seat_can_restart(btw->seat);
+}
+
+bool putty_bridge_termwin_restart_session(PuttyBridgeTermWin *btw)
+{
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
+    if (!btw || !btw->seat)
+        return false;
+    if (!mac_gui_seat_restart(btw->seat))
+        return false;
+    btw->demo_ldisc = mac_gui_seat_get_ldisc(btw->seat);
+    btw->conf = mac_gui_seat_get_conf(btw->seat);
+    seat_update_specials_menu(mac_gui_seat_get_seat(btw->seat));
+    return true;
 }
 
 size_t putty_bridge_termwin_eventlog_count(const PuttyBridgeTermWin *btw)
@@ -791,6 +835,21 @@ bool putty_bridge_termwin_change_settings(PuttyBridgeTermWin *btw)
                           bridge_after_change_settings, ctx);
     sfree(title);
     return true;
+}
+
+void putty_bridge_launch_duplicate_session(PuttyBridgeTermWin *btw)
+{
+    Conf *conf;
+
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
+    if (!btw || !btw->seat)
+        return;
+    conf = mac_gui_seat_get_conf(btw->seat);
+    if (!conf)
+        return;
+    if (dup_check_launchable && !conf_launchable(conf))
+        return;
+    launch_duplicate_session(conf);
 }
 
 bool putty_bridge_termwin_init_demo(PuttyBridgeTermWin *btw)

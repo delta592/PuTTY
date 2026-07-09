@@ -56,9 +56,11 @@ final class SessionWindowController: NSWindowController, NSWindowDelegate {
         if let termWin = scrollContainer.terminalView.termWin {
             SessionSpecialsMenu.shared.installCallback(for: self, termWin: termWin)
             SessionEventLog.shared.installCallback(for: self, termWin: termWin)
+            installRemoteExitCallback(termWin: termWin)
         }
         SessionSpecialsMenu.shared.setKeyController(self)
         SessionEventLog.shared.setKeyController(self)
+        (NSApp.delegate as? AppDelegate)?.updateSessionActionMenus()
     }
 
     func refreshSpecialsMenu() {
@@ -69,6 +71,18 @@ final class SessionWindowController: NSWindowController, NSWindowDelegate {
         _ = notification
         SessionSpecialsMenu.shared.setKeyController(self)
         SessionEventLog.shared.setKeyController(self)
+        (NSApp.delegate as? AppDelegate)?.updateSessionActionMenus()
+    }
+
+    private func installRemoteExitCallback(termWin: OpaquePointer) {
+        let ctx = Unmanaged.passUnretained(self).toOpaque()
+        putty_bridge_termwin_set_remote_exit_callback(
+            termWin, SessionRemoteExitBridge.onExit, ctx)
+    }
+
+    func sessionDidRemoteExit() {
+        refreshSpecialsMenu()
+        (NSApp.delegate as? AppDelegate)?.updateSessionActionMenus()
     }
 
     @objc func closeSession(_ sender: Any?) {
@@ -103,5 +117,16 @@ final class SessionWindowController: NSWindowController, NSWindowDelegate {
         SessionEventLog.shared.sessionWillClose(self)
         Self.openControllers.removeAll { $0 === self }
         putty_bridge_session_window_closed()
+        (NSApp.delegate as? AppDelegate)?.updateSessionActionMenus()
+    }
+}
+
+private enum SessionRemoteExitBridge {
+    static let onExit: @convention(c) (UnsafeMutableRawPointer?, Int32) -> Void = { ctx, _ in
+        guard let ctx else { return }
+        let controller = Unmanaged<SessionWindowController>.fromOpaque(ctx).takeUnretainedValue()
+        MainActor.assumeIsolated {
+            controller.sessionDidRemoteExit()
+        }
     }
 }

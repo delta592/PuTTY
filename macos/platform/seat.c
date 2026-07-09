@@ -729,6 +729,33 @@ int mac_gui_seat_output_smoke(void)
     return 0;
 }
 
+bool mac_gui_seat_can_restart(const MacGuiSeat *seat)
+{
+    if (!seat || !seat->conf || !seat->term)
+        return false;
+    if (seat->started || seat->backend)
+        return false;
+    if (!seat->exited)
+        return false;
+    return conf_launchable(seat->conf);
+}
+
+bool mac_gui_seat_restart(MacGuiSeat *seat)
+{
+    if (!mac_gui_seat_can_restart(seat))
+        return false;
+
+    if (seat->logctx)
+        logevent(seat->logctx, "----- Session restarted -----");
+    term_pwron(seat->term, false);
+    seat->exited = false;
+    if (!mac_gui_seat_start(seat)) {
+        seat->exited = true;
+        return false;
+    }
+    return true;
+}
+
 bool mac_gui_seat_is_active(MacGuiSeat *seat)
 {
     return seat && seat->started && !seat->exited;

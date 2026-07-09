@@ -900,10 +900,25 @@ see [Phase 6.1–6.5 gate](#phase-61-65-gate-putty-mac-config-gate).
 
 ### 7.1 PuTTY.app completion
 
-- [ ] Multi-window **File → New Session**, **Duplicate Session**, **Restart Session**.
-- [ ] Saved sessions submenu on menu bar.
-- [ ] `-pgpfp`, `-cleanup` command-line switches.
-- [ ] URL scheme handler (`putty://` or `ssh://` registration in `Info.plist`) — optional stretch.
+- [x] Multi-window **Session → New Session**, **Duplicate Session**, **Restart Session**.
+- [x] Saved sessions submenu on menu bar.
+- [x] `-pgpfp`, `-cleanup` command-line switches.
+- [x] URL scheme handler (`putty://` / `ssh://` registration in `Info.plist`).
+
+`Session` menu (macOS menubar; plan’s “File →” maps here): **New
+Session** (⌘N), **Duplicate Session** (⇧⌘D), **Restart Session**
+(⇧⌘R, enabled after remote exit), and **Saved Sessions** (rebuilt on
+open via `get_sesslist`, skips Default Settings). Bridge APIs:
+`putty_bridge_launch_{new,saved,duplicate}_session`,
+`putty_bridge_termwin_{can_restart,restart_session}`,
+`putty_bridge_copy_saved_session_names`. `-pgpfp` prints fingerprints
+and exits; `-cleanup` confirms then `cleanup_all()` under Application
+Support. `CFBundleURLTypes` registers `ssh` and `putty`;
+`application(_:open:)` → `putty_bridge_conf_from_url`.
+
+**Smoke:** `putty-bridge-launch-smoke-c` (`putty_bridge_launch_smoke`)
+covers duplicate, URL parse, can_restart after destroy, and sesslist
+enumeration.
 
 ### 7.2 pterm.app
 

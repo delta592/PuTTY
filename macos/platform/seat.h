@@ -77,6 +77,18 @@ bool mac_gui_seat_start_local_echo(MacGuiSeat *seat);
 void mac_gui_seat_destroy_connection(MacGuiSeat *seat);
 void mac_gui_seat_reconfigure(MacGuiSeat *seat, const Conf *conf);
 
+/**
+ * True when the previous backend has exited and the session can be
+ * restarted (Session → Restart Session). Mirrors GTK restartitem.
+ */
+bool mac_gui_seat_can_restart(const MacGuiSeat *seat);
+
+/**
+ * Restart after remote exit: log, term_pwron, clear exited, start backend.
+ * Returns false if can_restart is false or start fails.
+ */
+bool mac_gui_seat_restart(MacGuiSeat *seat);
+
 Seat *mac_gui_seat_get_seat(MacGuiSeat *seat);
 MacTermWin *mac_gui_seat_get_termwin(MacGuiSeat *seat);
 Terminal *mac_gui_seat_get_terminal(MacGuiSeat *seat);
