@@ -110,31 +110,59 @@ putty_add_bridge_smoke(putty-bridge-termwin-bell-title-smoke-c
   FUNC putty_bridge_termwin_bell_title_smoke
   OK_MSG "putty-bridge-termwin-bell-title-smoke: ok")
 
-putty_add_bridge_smoke(putty-bridge-termwin-phase4-exit-c
-  FUNC putty_bridge_termwin_phase4_exit_smoke
-  OK_MSG "putty-bridge-termwin-phase4-exit: ok")
+putty_add_bridge_smoke(putty-bridge-termwin-exit-c
+  FUNC putty_bridge_termwin_exit_smoke
+  OK_MSG "putty-bridge-termwin-exit: ok")
 
-putty_add_bridge_smoke(putty-bridge-termwin-phase52-exit-c
-  FUNC putty_bridge_termwin_phase52_exit_smoke
-  OK_MSG "putty-bridge-termwin-phase52-exit: ok")
+putty_add_bridge_smoke(putty-bridge-termwin-seat-output-exit-c
+  FUNC putty_bridge_termwin_seat_output_exit_smoke
+  OK_MSG "putty-bridge-termwin-seat-output-exit: ok")
 
-putty_add_bridge_smoke(putty-bridge-termwin-phase53-exit-c
-  FUNC putty_bridge_termwin_phase53_exit_smoke
-  OK_MSG "putty-bridge-termwin-phase53-exit: ok")
+putty_add_bridge_smoke(putty-bridge-termwin-seat-dialogs-exit-c
+  FUNC putty_bridge_termwin_seat_dialogs_exit_smoke
+  OK_MSG "putty-bridge-termwin-seat-dialogs-exit: ok")
 
-putty_add_bridge_smoke(putty-bridge-termwin-phase54-exit-c
-  FUNC putty_bridge_termwin_phase54_exit_smoke
-  OK_MSG "putty-bridge-termwin-phase54-exit: ok")
+putty_add_bridge_smoke(putty-bridge-termwin-eventloop-exit-c
+  FUNC putty_bridge_termwin_eventloop_exit_smoke
+  OK_MSG "putty-bridge-termwin-eventloop-exit: ok")
 
-putty_add_bridge_smoke(putty-bridge-termwin-phase55-exit-c
-  FUNC putty_bridge_termwin_phase55_exit_smoke
-  OK_MSG "putty-bridge-termwin-phase55-exit: ok")
+putty_add_bridge_smoke(putty-bridge-termwin-window-exit-c
+  FUNC putty_bridge_termwin_window_exit_smoke
+  OK_MSG "putty-bridge-termwin-window-exit: ok")
 
-putty_add_bridge_smoke(putty-bridge-termwin-phase56-exit-c
-  FUNC putty_bridge_termwin_phase56_exit_smoke
-  OK_MSG "putty-bridge-termwin-phase56-exit: ok")
+putty_add_bridge_smoke(putty-bridge-termwin-specials-exit-c
+  FUNC putty_bridge_termwin_specials_exit_smoke
+  OK_MSG "putty-bridge-termwin-specials-exit: ok")
 
 putty_add_bridge_smoke(putty-bridge-ssh-exit-c
   FUNC putty_bridge_ssh_exit_test
   OK_MSG "putty-bridge-ssh-exit: ok"
   EXTRA_SOURCES putty-bridge-ssh-exit.c)
+
+# Aggregate build targets for phase exit gates (see MACOS_GUI_PLAN.md).
+add_custom_target(putty-mac-termwin-gate
+  DEPENDS
+    putty-mac-termwin-smoke-c
+    putty-bridge-termwin-exit-c
+    putty-bridge-termwin-perf-c
+    PuttyBridgeTermPerfTest
+    putty-bridge-termwin-input-smoke-c
+    putty-bridge-termwin-clipboard-smoke-c
+    putty-bridge-termwin-scroll-resize-smoke-c
+    putty-bridge-termwin-bell-title-smoke-c
+    test_terminal
+    PuTTY
+  COMMENT "Build TermWin gate binaries")
+
+add_custom_target(putty-mac-seat-gate
+  DEPENDS
+    putty-mac-seat-smoke-c
+    putty-mac-seat-output-smoke-c
+    putty-mac-seat-dialogs-smoke-c
+    putty-bridge-termwin-seat-output-exit-c
+    putty-bridge-termwin-seat-dialogs-exit-c
+    putty-bridge-termwin-eventloop-exit-c
+    putty-bridge-termwin-window-exit-c
+    putty-bridge-termwin-specials-exit-c
+    putty-bridge-ssh-exit-c
+  COMMENT "Build MacGuiSeat gate binaries")

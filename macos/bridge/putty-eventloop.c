@@ -256,20 +256,20 @@ int putty_bridge_eventloop_smoke(void)
     return 0;
 }
 
-static void phase54_toplevel_smoke_cb(void *ctx)
+static void eventloop_toplevel_smoke_cb(void *ctx)
 {
     bool *ran = (bool *)ctx;
     *ran = true;
 }
 
-int putty_bridge_eventloop_phase54_smoke(void)
+int putty_bridge_eventloop_exit_smoke(void)
 {
     bool toplevel_ran = false;
 
     PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
 
     putty_bridge_eventloop_start();
-    queue_toplevel_callback(phase54_toplevel_smoke_cb, &toplevel_ran);
+    queue_toplevel_callback(eventloop_toplevel_smoke_cb, &toplevel_ran);
 
     for (int i = 0; i < 20 && !toplevel_ran; i++)
         putty_bridge_eventloop_pump_once();

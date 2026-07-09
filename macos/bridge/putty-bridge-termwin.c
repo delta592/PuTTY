@@ -1487,7 +1487,7 @@ static bool smoke_term_has_char(
     return found;
 }
 
-int putty_bridge_termwin_phase4_exit_smoke(void)
+int putty_bridge_termwin_exit_smoke(void)
 {
     PuttyBridgeTermWin *btw;
     int start_x, start_y, end_x, end_y, rc;
@@ -1543,11 +1543,11 @@ static void smoke_bridge_request_redraw(void *ctx, MacTermWinRect dirty)
     smoke_bridge_redraw_requests++;
 }
 
-int putty_bridge_termwin_phase52_exit_smoke(void)
+int putty_bridge_termwin_seat_output_exit_smoke(void)
 {
     PuttyBridgeTermWin *btw;
     MacTermWinCallbacks callbacks;
-    static const char line[] = "phase52 output\r\n";
+    static const char line[] = "seat output smoke\r\n";
 
     smoke_bridge_redraw_requests = 0;
 
@@ -1576,7 +1576,7 @@ void putty_bridge_set_parent_window(void *nswindow)
     mac_gui_dialogs_set_parent_window(nswindow);
 }
 
-int putty_bridge_termwin_phase53_exit_smoke(void)
+int putty_bridge_termwin_seat_dialogs_exit_smoke(void)
 {
     PuttyBridgeTermWin *btw;
     Seat *seat;
@@ -1604,12 +1604,12 @@ int putty_bridge_termwin_phase53_exit_smoke(void)
     return 0;
 }
 
-int putty_bridge_termwin_phase54_exit_smoke(void)
+int putty_bridge_termwin_eventloop_exit_smoke(void)
 {
     PuttyBridgeTermWin *btw;
     int rc;
 
-    rc = putty_bridge_eventloop_phase54_smoke();
+    rc = putty_bridge_eventloop_exit_smoke();
     if (rc != 0)
         return rc;
 
@@ -1625,7 +1625,7 @@ int putty_bridge_termwin_phase54_exit_smoke(void)
     return 0;
 }
 
-int putty_bridge_termwin_phase55_exit_smoke(void)
+int putty_bridge_termwin_window_exit_smoke(void)
 {
     PuttyConf *conf;
     PuttyBridgeTermWin *btw;
@@ -1675,12 +1675,12 @@ int putty_bridge_termwin_phase55_exit_smoke(void)
     return 0;
 }
 
-static void putty_bridge_termwin_phase56_smoke_cb(void *ctx)
+static void putty_bridge_termwin_specials_smoke_cb(void *ctx)
 {
     (*(int *)ctx)++;
 }
 
-int putty_bridge_termwin_phase56_exit_smoke(void)
+int putty_bridge_termwin_specials_exit_smoke(void)
 {
     int smoke_specials_cb_count = 0;
     PuttyBridgeTermWin *btw;
@@ -1691,7 +1691,7 @@ int putty_bridge_termwin_phase56_exit_smoke(void)
         return 1;
 
     putty_bridge_termwin_set_specials_menu_callback(
-        btw, putty_bridge_termwin_phase56_smoke_cb, &smoke_specials_cb_count);
+        btw, putty_bridge_termwin_specials_smoke_cb, &smoke_specials_cb_count);
 
     if (!putty_bridge_termwin_open(btw, NULL, false)) {
         putty_bridge_termwin_free(btw);

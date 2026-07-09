@@ -259,8 +259,8 @@ int putty_bridge_session_smoke(void);
 int putty_bridge_conf_smoke(void);
 int putty_bridge_eventloop_smoke(void);
 
-/** Phase 5.4 exit gate: DispatchSource timers + toplevel callbacks. Returns 0 on success. */
-int putty_bridge_eventloop_phase54_smoke(void);
+/** Exit gate: DispatchSource timers + toplevel callbacks. Returns 0 on success. */
+int putty_bridge_eventloop_exit_smoke(void);
 int putty_bridge_thread_smoke(void);
 
 /**

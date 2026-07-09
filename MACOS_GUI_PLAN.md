@@ -442,6 +442,94 @@ env -u LDFLAGS -u CPPFLAGS cmake --build build-macos-gui --target \
 
 ---
 
+## Automated smoke gates
+
+Headless C smoke binaries validate incremental work without launching the full
+`.app`. Each bridge executable is a thin `putty-bridge-smoke-main.c` harness
+around a C function in `macos/bridge/` or `macos/platform/`.
+
+Unset `LDFLAGS`/`CPPFLAGS` when building (same as elsewhere in this doc):
+
+```bash
+PUTTY_BUILD='env -u LDFLAGS -u CPPFLAGS cmake --build build-macos-gui --target'
+```
+
+### Phase 4 gate (`putty-mac-termwin-gate`)
+
+| Target | Validates |
+|--------|-----------|
+| `putty-mac-termwin-smoke-c` | MacTermWin vtable (§4.1) |
+| `putty-bridge-termwin-exit-c` | Local echo + 120×80 perf timing |
+| `putty-bridge-termwin-perf-c` | C-side paint perf (§4.4) |
+| `PuttyBridgeTermPerfTest` | Swift Core Text perf (§4.4) |
+| `putty-bridge-termwin-input-smoke-c` | Keyboard/mouse (§4.5) |
+| `putty-bridge-termwin-clipboard-smoke-c` | Clipboard (§4.6) |
+| `putty-bridge-termwin-scroll-resize-smoke-c` | Scrollbar/resize (§4.7) |
+| `putty-bridge-termwin-bell-title-smoke-c` | Bell/title (§4.8) |
+| `test_terminal` | Portable terminal unit tests |
+| `PuTTY` | GUI app links cleanly |
+
+```bash
+$PUTTY_BUILD putty-mac-termwin-gate
+
+PUTTY_MAC_TERMWIN_SMOKE_TESTS=(
+  putty-mac-termwin-smoke-c
+  putty-bridge-termwin-exit-c
+  putty-bridge-termwin-perf-c
+  PuttyBridgeTermPerfTest
+  putty-bridge-termwin-input-smoke-c
+  putty-bridge-termwin-clipboard-smoke-c
+  putty-bridge-termwin-scroll-resize-smoke-c
+  putty-bridge-termwin-bell-title-smoke-c
+  test_terminal
+)
+for t in "${PUTTY_MAC_TERMWIN_SMOKE_TESTS[@]}"; do
+  ./build-macos-gui/$t || exit 1
+done
+```
+
+Set `PUTTY_BRIDGE_PERF_SKIP=1` to skip perf timing assertions on non-Apple-Silicon CI.
+
+### Phase 5 gate (`putty-mac-seat-gate`)
+
+| Target | Validates |
+|--------|-----------|
+| `putty-mac-seat-smoke-c` | MacGuiSeat wiring (§5.1) |
+| `putty-mac-seat-output-smoke-c` | `seat.output` path (§5.2) |
+| `putty-bridge-termwin-seat-output-exit-c` | TermWin + seat output (§5.2) |
+| `putty-mac-seat-dialogs-smoke-c` | Security dialogs (§5.3) |
+| `putty-bridge-termwin-seat-dialogs-exit-c` | Dialog + TermWin integration (§5.3) |
+| `putty-bridge-termwin-eventloop-exit-c` | CFRunLoop timers (§5.4) |
+| `putty-bridge-termwin-window-exit-c` | SessionWindowController (§5.5) |
+| `putty-bridge-termwin-specials-exit-c` | Special Commands menu (§5.6) |
+| `putty-bridge-ssh-exit-c` | Live SSH integration (Phase 5 exit) |
+
+```bash
+$PUTTY_BUILD putty-mac-seat-gate
+
+PUTTY_MAC_SEAT_SMOKE_TESTS=(
+  putty-mac-seat-smoke-c
+  putty-mac-seat-output-smoke-c
+  putty-mac-seat-dialogs-smoke-c
+  putty-bridge-termwin-seat-output-exit-c
+  putty-bridge-termwin-seat-dialogs-exit-c
+  putty-bridge-termwin-eventloop-exit-c
+  putty-bridge-termwin-window-exit-c
+  putty-bridge-termwin-specials-exit-c
+  putty-bridge-ssh-exit-c
+)
+for t in "${PUTTY_MAC_SEAT_SMOKE_TESTS[@]}"; do
+  ./build-macos-gui/$t || exit 1
+done
+```
+
+Set `PUTTY_BRIDGE_SSH_EXIT_SKIP=1` to skip the live SSH integration test.
+Override host via
+`PUTTY_BRIDGE_TEST_HOST`, `PUTTY_BRIDGE_TEST_USER`, `PUTTY_BRIDGE_TEST_PORT`,
+and `PUTTY_BRIDGE_TEST_HOSTKEY`.
+
+---
+
 ## Phase 4 — Terminal view and `TermWin` implementation
 
 **Goal:** High-performance terminal rendering and input, implementing the full `TermWinVtable`.
@@ -458,12 +546,8 @@ env -u LDFLAGS -u CPPFLAGS cmake --build build-macos-gui --target \
 `macos/platform/termwin.h` defines `MacTermWin`, `MacTermWinCallbacks`, and
 lifecycle helpers. Drawing and window chrome forward to optional Swift callbacks;
 `palette_set` and font metrics are cached in C for Phase 4.3 Core Text.
-`macguifrontend` static library links `termwin.c`; smoke test:
-
-```bash
-env -u LDFLAGS -u CPPFLAGS cmake --build build-macos-gui --target putty-mac-termwin-smoke-c
-./build-macos-gui/putty-mac-termwin-smoke-c
-```
+`macguifrontend` static library links `termwin.c`. **Smoke:** `putty-mac-termwin-smoke-c`
+(see [Automated smoke gates](#automated-smoke-gates)).
 
 ### 4.2 Swift `TerminalView` (`NSView` subclass)
 
@@ -541,28 +625,7 @@ selection copy. `putty_bridge_termwin_setup_clipboards()` mirrors GTK
 
 **Verified (2026-07-08): PASSING.** Demo `TerminalView` session uses a local-echo
 line discipline (`FORCE_ON` echo, noop backend) so keystrokes render in the
-terminal. Automated gate:
-
-```bash
-env -u LDFLAGS -u CPPFLAGS cmake --build build-macos-gui --target \
-  putty-mac-termwin-smoke-c putty-bridge-termwin-phase4-exit-c \
-  putty-bridge-termwin-perf-c PuttyBridgeTermPerfTest \
-  putty-bridge-termwin-input-smoke-c putty-bridge-termwin-clipboard-smoke-c \
-  putty-bridge-termwin-scroll-resize-smoke-c putty-bridge-termwin-bell-title-smoke-c \
-  test_terminal PuTTY
-
-./build-macos-gui/putty-mac-termwin-smoke-c
-./build-macos-gui/putty-bridge-termwin-phase4-exit-c   # local echo + 120×80 perf
-./build-macos-gui/putty-bridge-termwin-perf-c
-./build-macos-gui/PuttyBridgeTermPerfTest              # Core Text perf gate
-./build-macos-gui/putty-bridge-termwin-input-smoke-c
-./build-macos-gui/putty-bridge-termwin-clipboard-smoke-c
-./build-macos-gui/putty-bridge-termwin-scroll-resize-smoke-c
-./build-macos-gui/putty-bridge-termwin-bell-title-smoke-c
-./build-macos-gui/test_terminal                        # test_terminal-equivalent QA
-```
-
-Set `PUTTY_BRIDGE_PERF_SKIP=1` to skip perf timing assertions on non-Apple-Silicon CI.
+terminal. Run the [Phase 4 gate](#phase-4-gate-putty-mac-termwin-gate) (`putty-mac-termwin-gate`).
 
 ---
 
@@ -583,10 +646,7 @@ runs `backend_init` + `ldisc_create`; `mac_gui_seat_start_local_echo()` uses
 askappend, exit, and menu-update hooks to Swift (Phase 5.5 wires more AppKit UI).
 Security prompts are implemented in Phase 5.3 (`seat-dialogs.m`).
 
-```bash
-env -u LDFLAGS -u CPPFLAGS cmake --build build-macos-gui --target putty-mac-seat-smoke-c
-./build-macos-gui/putty-mac-seat-smoke-c
-```
+**Smoke:** `putty-mac-seat-smoke-c` (see [Automated smoke gates](#automated-smoke-gates)).
 
 ### 5.2 Output path
 
@@ -608,12 +668,8 @@ the line discipline changes.
 (replacing the Phase 4 demo stub). `putty_bridge_termwin_feed()` uses
 `seat_output()` when a session is active.
 
-```bash
-env -u LDFLAGS -u CPPFLAGS cmake --build build-macos-gui --target \
-  putty-mac-seat-output-smoke-c putty-bridge-termwin-phase52-exit-c
-./build-macos-gui/putty-mac-seat-output-smoke-c
-./build-macos-gui/putty-bridge-termwin-phase52-exit-c
-```
+**Smoke:** `putty-mac-seat-output-smoke-c`, `putty-bridge-termwin-seat-output-exit-c`
+(see [Automated smoke gates](#automated-smoke-gates)).
 
 ### 5.3 Security prompts (modal sheets)
 
@@ -634,12 +690,8 @@ nonfatal errors show `NSAlert` panels with Help. `TerminalView` calls
 Automated smoke tests use `PUTTY_MACOS_DIALOG_AUTO_ACCEPT` /
 `PUTTY_MACOS_DIALOG_AUTO_REJECT` env vars (no GUI interaction required).
 
-```bash
-env -u LDFLAGS -u CPPFLAGS cmake --build build-macos-gui --target \
-  putty-mac-seat-dialogs-smoke-c putty-bridge-termwin-phase53-exit-c
-./build-macos-gui/putty-mac-seat-dialogs-smoke-c
-./build-macos-gui/putty-bridge-termwin-phase53-exit-c
-```
+**Smoke:** `putty-mac-seat-dialogs-smoke-c`, `putty-bridge-termwin-seat-dialogs-exit-c`
+(see [Automated smoke gates](#automated-smoke-gates)).
 
 ### 5.4 Event loop: CFRunLoop + PuTTY timers
 
@@ -659,11 +711,8 @@ macguifrontend. `PuttyEventLoop.start()` (from `PuTTYApp`) calls
 `putty_bridge_eventloop_start()` to arm initial timers. `mac_seat_sent()` forwards
 `backend_unthrottle()` for send-buffer backpressure (alongside `mac_tw_unthrottle`).
 
-```bash
-env -u LDFLAGS -u CPPFLAGS cmake --build build-macos-gui --target \
-  putty-bridge-termwin-phase54-exit-c
-./build-macos-gui/putty-bridge-termwin-phase54-exit-c
-```
+**Smoke:** `putty-bridge-termwin-eventloop-exit-c`
+(see [Automated smoke gates](#automated-smoke-gates)).
 
 ### 5.5 Window controller
 
@@ -679,11 +728,8 @@ session is still active. `putty_bridge_process_command_line()` handles `-load`,
 `--help`, `--version`, and standard `cmdline_process_param` options;
 `PuTTYApp` dispatches to `SessionWindowController.openNew()`.
 
-```bash
-env -u LDFLAGS -u CPPFLAGS cmake --build build-macos-gui --target \
-  putty-bridge-termwin-phase55-exit-c
-./build-macos-gui/putty-bridge-termwin-phase55-exit-c
-```
+**Smoke:** `putty-bridge-termwin-window-exit-c`
+(see [Automated smoke gates](#automated-smoke-gates)).
 
 ### 5.6 Special commands menu
 
@@ -697,11 +743,8 @@ selections via `putty_bridge_termwin_send_special()` → `backend_special()`.
 The key window's session owns the visible menu; `seat_update_specials_menu` is
 also called after session start/destroy so local-echo windows hide the menu.
 
-```bash
-env -u LDFLAGS -u CPPFLAGS cmake --build build-macos-gui --target \
-  putty-bridge-termwin-phase56-exit-c
-./build-macos-gui/putty-bridge-termwin-phase56-exit-c
-```
+**Smoke:** `putty-bridge-termwin-specials-exit-c`
+(see [Automated smoke gates](#automated-smoke-gates)).
 
 **Phase 5 exit criteria:** Full SSH login to remote host using endpoint
 192.168.0.19 interactive shell, file transfer not required yet; host key prompt
@@ -715,29 +758,7 @@ Automated gate (`putty-bridge-ssh-exit-c`):
 - CFRunLoop pump until the terminal buffer shows shell output.
 - Verifies SSH specials menu, warn-on-close, and clean `putty_bridge_termwin_free()`.
 
-Run the full Phase 5 gate (all subsection smokes + exit test):
-
-```bash
-env -u LDFLAGS -u CPPFLAGS cmake --build build-macos-gui --target \
-  putty-mac-seat-smoke-c putty-mac-seat-output-smoke-c \
-  putty-mac-seat-dialogs-smoke-c putty-bridge-termwin-phase52-exit-c \
-  putty-bridge-termwin-phase53-exit-c putty-bridge-termwin-phase54-exit-c \
-  putty-bridge-termwin-phase55-exit-c putty-bridge-termwin-phase56-exit-c \
-  putty-bridge-ssh-exit-c
-
-for t in putty-mac-seat-smoke-c putty-mac-seat-output-smoke-c \
-  putty-mac-seat-dialogs-smoke-c putty-bridge-termwin-phase52-exit-c \
-  putty-bridge-termwin-phase53-exit-c putty-bridge-termwin-phase54-exit-c \
-  putty-bridge-termwin-phase55-exit-c putty-bridge-termwin-phase56-exit-c \
-  putty-bridge-ssh-exit-c; do
-  ./build-macos-gui/$t || exit 1
-done
-```
-
-Set `PUTTY_BRIDGE_SSH_EXIT_SKIP=1` to skip the live SSH integration test
-(`PUTTY_BRIDGE_PHASE5_SKIP=1` is accepted as a legacy alias).
-Set `PUTTY_BRIDGE_TEST_HOST`, `PUTTY_BRIDGE_TEST_USER`, `PUTTY_BRIDGE_TEST_PORT`,
-and `PUTTY_BRIDGE_TEST_HOSTKEY` to override defaults.
+Run the [Phase 5 gate](#phase-5-gate-putty-mac-seat-gate) (`putty-mac-seat-gate`).
 
 **Validated (2026-07-09):** all nine gate binaries pass against `192.168.0.19:22`
 (`dax@192.168.0.19` via agent auth). Live SSH integration reports shell output in

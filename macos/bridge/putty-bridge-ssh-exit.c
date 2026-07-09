@@ -25,10 +25,6 @@ static const char *ssh_exit_env_or_default(const char *name, const char *def)
 static bool ssh_exit_skip_requested(void)
 {
     const char *skip = getenv("PUTTY_BRIDGE_SSH_EXIT_SKIP");
-    if (skip && skip[0] == '1' && skip[1] == '\0')
-        return true;
-    /* Legacy name from Phase 5 gate. */
-    skip = getenv("PUTTY_BRIDGE_PHASE5_SKIP");
     return skip && skip[0] == '1' && skip[1] == '\0';
 }
 

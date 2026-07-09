@@ -314,25 +314,25 @@ bool putty_bridge_termwin_bell_wavefile_path(
 int putty_bridge_termwin_bell_title_smoke(void);
 
 /**
- * Phase 4 exit gate: local echo through ldisc, grid sanity, paint + perf budget.
+ * Exit gate: local echo through ldisc, grid sanity, paint + perf budget.
  * Returns 0 on success.
  */
-int putty_bridge_termwin_phase4_exit_smoke(void);
+int putty_bridge_termwin_exit_smoke(void);
 
-/** Phase 5.2 exit gate: seat.output path through MacGuiSeat. Returns 0 on success. */
-int putty_bridge_termwin_phase52_exit_smoke(void);
+/** Exit gate: seat.output path through MacGuiSeat. Returns 0 on success. */
+int putty_bridge_termwin_seat_output_exit_smoke(void);
 
-/** Phase 5.3 exit gate: security dialog wiring through MacGuiSeat. Returns 0 on success. */
-int putty_bridge_termwin_phase53_exit_smoke(void);
+/** Exit gate: security dialog wiring through MacGuiSeat. Returns 0 on success. */
+int putty_bridge_termwin_seat_dialogs_exit_smoke(void);
 
-/** Phase 5.4 exit gate: AppKit event loop + session init. Returns 0 on success. */
-int putty_bridge_termwin_phase54_exit_smoke(void);
+/** Exit gate: AppKit event loop + session init. Returns 0 on success. */
+int putty_bridge_termwin_eventloop_exit_smoke(void);
 
-/** Phase 5.5 exit gate: session window controller wiring. Returns 0 on success. */
-int putty_bridge_termwin_phase55_exit_smoke(void);
+/** Exit gate: session window controller wiring. Returns 0 on success. */
+int putty_bridge_termwin_window_exit_smoke(void);
 
-/** Phase 5.6 exit gate: specials menu bridge wiring. Returns 0 on success. */
-int putty_bridge_termwin_phase56_exit_smoke(void);
+/** Exit gate: specials menu bridge wiring. Returns 0 on success. */
+int putty_bridge_termwin_specials_exit_smoke(void);
 
 /** True when the session terminal buffer contains non-blank cells. */
 bool putty_bridge_termwin_terminal_has_visible_text(const PuttyBridgeTermWin *btw);
