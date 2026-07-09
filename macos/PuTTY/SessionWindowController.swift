@@ -10,6 +10,11 @@ final class SessionWindowController: NSWindowController, NSWindowDelegate {
     private let connectOnOpen: Bool
     private let sessionConf: PuttyConfHandle?
 
+    /// TermWin handle for menu/specials bridge callbacks (Phase 5.6).
+    var activeTermWin: OpaquePointer? {
+        scrollContainer.terminalView.termWin
+    }
+
     static func openNew(conf: PuttyConfHandle?, connect: Bool) {
         let controller = SessionWindowController(conf: conf, connect: connect)
         openControllers.append(controller)
@@ -48,6 +53,19 @@ final class SessionWindowController: NSWindowController, NSWindowDelegate {
         showWindow(nil)
         window?.makeKeyAndOrderFront(nil)
         scrollContainer.terminalView.openSession(conf: sessionConf, connect: connectOnOpen)
+        if let termWin = scrollContainer.terminalView.termWin {
+            SessionSpecialsMenu.shared.installCallback(for: self, termWin: termWin)
+        }
+        SessionSpecialsMenu.shared.setKeyController(self)
+    }
+
+    func refreshSpecialsMenu() {
+        SessionSpecialsMenu.shared.refresh(for: self)
+    }
+
+    func windowDidBecomeKey(_ notification: Notification) {
+        _ = notification
+        SessionSpecialsMenu.shared.setKeyController(self)
     }
 
     @objc func closeSession(_ sender: Any?) {
@@ -78,6 +96,7 @@ final class SessionWindowController: NSWindowController, NSWindowDelegate {
 
     func windowWillClose(_ notification: Notification) {
         _ = notification
+        SessionSpecialsMenu.shared.resignKeyController(self)
         Self.openControllers.removeAll { $0 === self }
     }
 }

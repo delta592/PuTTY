@@ -82,6 +82,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                                             keyEquivalent: "w")
         closeItem.target = self
         closeItem.keyEquivalentModifierMask = [.command]
+        SessionSpecialsMenu.shared.install(into: sessionMenu)
         mainMenu.addItem(sessionMenuItem)
 
         NSApp.mainMenu = mainMenu

@@ -26,6 +26,8 @@ struct PuttyBridgeTermWin {
     bool session_initialised;
     PuttyBridgeTermWinCallbacks swift_callbacks;
     void *swift_view_ctx;
+    PuttyBridgeSpecialsMenuCallback specials_menu_callback;
+    void *specials_menu_ctx;
     Seat demo_seat;
     Backend demo_backend;
     Ldisc *demo_ldisc;
@@ -358,6 +360,25 @@ bool putty_bridge_termwin_init_session(PuttyBridgeTermWin *btw)
     return putty_bridge_termwin_open(btw, NULL, false);
 }
 
+static void bridge_on_update_specials_menu(void *ctx)
+{
+    PuttyBridgeTermWin *btw = (PuttyBridgeTermWin *)ctx;
+
+    if (btw && btw->specials_menu_callback)
+        btw->specials_menu_callback(btw->specials_menu_ctx);
+}
+
+static void bridge_install_seat_callbacks(PuttyBridgeTermWin *btw)
+{
+    static const MacGuiSeatCallbacks seat_callbacks = {
+        .on_update_specials_menu = bridge_on_update_specials_menu,
+    };
+
+    if (!btw || !btw->seat)
+        return;
+    mac_gui_seat_set_callbacks(btw->seat, &seat_callbacks, btw);
+}
+
 static bool putty_bridge_termwin_open_internal(
     PuttyBridgeTermWin *btw, const PuttyConf *pc, bool connect)
 {
@@ -391,6 +412,7 @@ static bool putty_bridge_termwin_open_internal(
     btw->term = mac_gui_seat_get_terminal(btw->seat);
     btw->conf = mac_gui_seat_get_conf(btw->seat);
     bridge_install_termwin_callbacks(btw);
+    bridge_install_seat_callbacks(btw);
 
     launchable = conf_launchable(btw->conf);
     if (connect && launchable)
@@ -450,6 +472,102 @@ char *putty_bridge_termwin_close_warn_text(const PuttyBridgeTermWin *btw)
 void putty_bridge_termwin_free_close_warn_text(char *text)
 {
     sfree(text);
+}
+
+void putty_bridge_termwin_set_specials_menu_callback(
+    PuttyBridgeTermWin *btw,
+    PuttyBridgeSpecialsMenuCallback callback,
+    void *ctx)
+{
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
+    if (!btw)
+        return;
+    btw->specials_menu_callback = callback;
+    btw->specials_menu_ctx = ctx;
+}
+
+bool putty_bridge_termwin_has_specials(const PuttyBridgeTermWin *btw)
+{
+    const SessionSpecial *specials;
+    Backend *backend;
+
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
+    if (!btw || !btw->seat)
+        return false;
+    backend = mac_gui_seat_get_backend(btw->seat);
+    if (!backend)
+        return false;
+    specials = backend_get_specials(backend);
+    return specials != NULL;
+}
+
+size_t putty_bridge_termwin_copy_specials(
+    const PuttyBridgeTermWin *btw,
+    PuttyBridgeSessionSpecial *out,
+    size_t max_out)
+{
+    const SessionSpecial *specials;
+    Backend *backend;
+    size_t i = 0;
+    int nesting = 1;
+
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
+    if (!btw || !btw->seat || !out || max_out == 0)
+        return 0;
+
+    backend = mac_gui_seat_get_backend(btw->seat);
+    if (!backend)
+        return 0;
+    specials = backend_get_specials(backend);
+    if (!specials)
+        return 0;
+
+    while (nesting > 0 && i < max_out) {
+        out[i].name = specials[i].name;
+        out[i].code = (int32_t)specials[i].code;
+        out[i].arg = specials[i].arg;
+        switch (specials[i].code) {
+          case SS_SUBMENU:
+            nesting++;
+            break;
+          case SS_EXITMENU:
+            nesting--;
+            break;
+          default:
+            break;
+        }
+        i++;
+    }
+    return i;
+}
+
+void putty_bridge_termwin_send_special(
+    PuttyBridgeTermWin *btw, int32_t code, int32_t arg)
+{
+    Backend *backend;
+
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
+    if (!btw || !btw->seat)
+        return;
+    backend = mac_gui_seat_get_backend(btw->seat);
+    if (!backend)
+        return;
+    backend_special(backend, (SessionSpecialCode)code, arg);
+}
+
+int32_t putty_bridge_special_code_sep(void)
+{
+    return (int32_t)SS_SEP;
+}
+
+int32_t putty_bridge_special_code_submenu(void)
+{
+    return (int32_t)SS_SUBMENU;
+}
+
+int32_t putty_bridge_special_code_exitmenu(void)
+{
+    return (int32_t)SS_EXITMENU;
 }
 
 bool putty_bridge_termwin_init_demo(PuttyBridgeTermWin *btw)
@@ -1530,6 +1648,50 @@ int putty_bridge_termwin_phase55_exit_smoke(void)
     }
 
     putty_conf_free(conf);
+    putty_bridge_termwin_free(btw);
+    return 0;
+}
+
+static void putty_bridge_termwin_phase56_smoke_cb(void *ctx)
+{
+    (*(int *)ctx)++;
+}
+
+int putty_bridge_termwin_phase56_exit_smoke(void)
+{
+    int smoke_specials_cb_count = 0;
+    PuttyBridgeTermWin *btw;
+    PuttyBridgeSessionSpecial specials[8];
+
+    btw = putty_bridge_termwin_new();
+    if (!btw)
+        return 1;
+
+    putty_bridge_termwin_set_specials_menu_callback(
+        btw, putty_bridge_termwin_phase56_smoke_cb, &smoke_specials_cb_count);
+
+    if (!putty_bridge_termwin_open(btw, NULL, false)) {
+        putty_bridge_termwin_free(btw);
+        return 2;
+    }
+
+    if (putty_bridge_termwin_has_specials(btw)) {
+        putty_bridge_termwin_free(btw);
+        return 3;
+    }
+
+    if (putty_bridge_termwin_copy_specials(btw, specials, lenof(specials)) != 0) {
+        putty_bridge_termwin_free(btw);
+        return 4;
+    }
+
+    if (smoke_specials_cb_count < 1) {
+        putty_bridge_termwin_free(btw);
+        return 5;
+    }
+
+    putty_bridge_termwin_send_special(btw, putty_bridge_special_code_sep(), 0);
+
     putty_bridge_termwin_free(btw);
     return 0;
 }

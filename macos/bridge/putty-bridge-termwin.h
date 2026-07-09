@@ -162,6 +162,39 @@ bool putty_bridge_termwin_should_warn_on_close(const PuttyBridgeTermWin *btw);
 char *putty_bridge_termwin_close_warn_text(const PuttyBridgeTermWin *btw);
 void putty_bridge_termwin_free_close_warn_text(char *text);
 
+/** One entry from backend_get_specials() (Phase 5.6). */
+typedef struct PuttyBridgeSessionSpecial {
+    const char *name;
+    int32_t code;
+    int32_t arg;
+} PuttyBridgeSessionSpecial;
+
+typedef void (*PuttyBridgeSpecialsMenuCallback)(void *ctx);
+
+void putty_bridge_termwin_set_specials_menu_callback(
+    PuttyBridgeTermWin *btw,
+    PuttyBridgeSpecialsMenuCallback callback,
+    void *ctx);
+
+/** True when the active backend exposes a non-empty specials list. */
+bool putty_bridge_termwin_has_specials(const PuttyBridgeTermWin *btw);
+
+/**
+ * Copy specials from the session backend into out[0..max_out-1], stopping when
+ * the top-level SS_EXITMENU is consumed. Returns 0 when there are no specials.
+ */
+size_t putty_bridge_termwin_copy_specials(
+    const PuttyBridgeTermWin *btw,
+    PuttyBridgeSessionSpecial *out,
+    size_t max_out);
+
+void putty_bridge_termwin_send_special(
+    PuttyBridgeTermWin *btw, int32_t code, int32_t arg);
+
+int32_t putty_bridge_special_code_sep(void);
+int32_t putty_bridge_special_code_submenu(void);
+int32_t putty_bridge_special_code_exitmenu(void);
+
 void putty_bridge_termwin_set_backing_scale(PuttyBridgeTermWin *btw, double scale);
 double putty_bridge_termwin_get_backing_scale(const PuttyBridgeTermWin *btw);
 
@@ -297,6 +330,9 @@ int putty_bridge_termwin_phase54_exit_smoke(void);
 
 /** Phase 5.5 exit gate: session window controller wiring. Returns 0 on success. */
 int putty_bridge_termwin_phase55_exit_smoke(void);
+
+/** Phase 5.6 exit gate: specials menu bridge wiring. Returns 0 on success. */
+int putty_bridge_termwin_phase56_exit_smoke(void);
 
 /** Attach terminal window for sheet-modal security prompts (NSWindow *). */
 void putty_bridge_set_parent_window(void *nswindow);

@@ -692,7 +692,21 @@ env -u LDFLAGS -u CPPFLAGS cmake --build build-macos-gui --target \
 
 ### 5.6 Special commands menu
 
-- [ ] `update_specials_menu` → rebuild **Session → Special Commands** submenu from `backend_get_specials()`.
+- [x] `update_specials_menu` → rebuild **Session → Special Commands** submenu from `backend_get_specials()`.
+
+`mac_seat_update_specials_menu` forwards to a bridge callback registered per
+`PuttyBridgeTermWin`. `SessionSpecialsMenu` rebuilds the **Session → Special
+Commands** submenu (with separators hidden when the backend exposes no specials),
+supports one level of `SS_SUBMENU` nesting like GTK/Windows, and dispatches
+selections via `putty_bridge_termwin_send_special()` → `backend_special()`.
+The key window's session owns the visible menu; `seat_update_specials_menu` is
+also called after session start/destroy so local-echo windows hide the menu.
+
+```bash
+env -u LDFLAGS -u CPPFLAGS cmake --build build-macos-gui --target \
+  putty-bridge-termwin-phase56-exit-c
+./build-macos-gui/putty-bridge-termwin-phase56-exit-c
+```
 
 **Phase 5 exit criteria:** Full SSH login to remote host using endpoint 192.168.0.19 interactive shell, file transfer not required yet; host key prompt works; window closes cleanly.
 

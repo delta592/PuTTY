@@ -532,6 +532,7 @@ bool mac_gui_seat_start(MacGuiSeat *seat)
     seat->started = true;
     seat->exited = false;
     ldisc_echoedit_update(seat->ldisc);
+    seat_update_specials_menu(&seat->seat);
     return true;
 }
 
@@ -557,6 +558,7 @@ bool mac_gui_seat_start_local_echo(MacGuiSeat *seat)
     seat->started = true;
     seat->exited = false;
     ldisc_echoedit_update(seat->ldisc);
+    seat_update_specials_menu(&seat->seat);
     return true;
 }
 
