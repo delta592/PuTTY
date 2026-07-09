@@ -100,17 +100,45 @@ static void mac_gui_seat_queue_exit(MacGuiSeat *seat)
     queue_toplevel_callback(mac_gui_seat_exit_callback, seat);
 }
 
+void mac_gui_seat_flush_display(MacGuiSeat *seat)
+{
+    if (!seat)
+        return;
+
+    while (run_toplevel_callbacks())
+        ;
+}
+
+static void mac_gui_seat_request_redraw(MacGuiSeat *seat)
+{
+    if (!seat || !seat->term)
+        return;
+
+    win_refresh(mac_termwin_get_termwin(&seat->termwin));
+}
+
 /* --- SeatVtable --- */
 
 static size_t mac_seat_output(
     Seat *seat, SeatOutputType type, const void *data, size_t len)
 {
     MacGuiSeat *mgs = seat_from_seat(seat);
+    size_t backlog;
 
     (void)type;
     if (!mgs->term || !data || len == 0)
         return 0;
-    return term_data(mgs->term, data, len);
+
+    backlog = term_data(mgs->term, data, len);
+    mac_gui_seat_flush_display(mgs);
+    mac_gui_seat_request_redraw(mgs);
+    return backlog;
+}
+
+static size_t mac_seat_banner(
+    Seat *seat, const void *data, size_t len)
+{
+    return mac_seat_output(seat, SEAT_OUTPUT_STDERR, data, len);
 }
 
 static bool mac_seat_eof(Seat *seat)
@@ -250,11 +278,31 @@ static bool mac_seat_get_cursor_position(Seat *seat, int *x, int *y)
     return true;
 }
 
+static void mac_seat_echoedit_update(Seat *seat, bool echoing, bool editing)
+{
+    MacGuiSeat *mgs = seat_from_seat(seat);
+    bool changed;
+
+    changed = (mgs->echoing != echoing || mgs->editing != editing);
+    mgs->echoing = echoing;
+    mgs->editing = editing;
+
+    if (mgs->callbacks.on_echoedit_update)
+        mgs->callbacks.on_echoedit_update(
+            mgs->callback_ctx, echoing, editing);
+
+    if (changed && mgs->term) {
+        term_invalidate(mgs->term);
+        mac_gui_seat_flush_display(mgs);
+        mac_gui_seat_request_redraw(mgs);
+    }
+}
+
 static const SeatVtable mac_gui_seat_vt = {
     .output = mac_seat_output,
     .eof = mac_seat_eof,
     .sent = nullseat_sent,
-    .banner = nullseat_banner_to_stderr,
+    .banner = mac_seat_banner,
     .get_userpass_input = mac_seat_get_userpass_input,
     .notify_session_started = nullseat_notify_session_started,
     .notify_remote_exit = mac_seat_notify_remote_exit,
@@ -269,7 +317,7 @@ static const SeatVtable mac_gui_seat_vt = {
     .confirm_weak_cached_hostkey = nullseat_confirm_weak_cached_hostkey,
     .prompt_descriptions = nullseat_prompt_descriptions,
     .is_utf8 = mac_seat_is_utf8,
-    .echoedit_update = nullseat_echoedit_update,
+    .echoedit_update = mac_seat_echoedit_update,
     .get_display = nullseat_get_display,
     .get_windowid = nullseat_get_windowid,
     .get_window_pixel_size = mac_seat_get_window_pixel_size,
@@ -595,6 +643,77 @@ int mac_gui_seat_smoke(void)
     term_update(seat->term);
     if (seat->term->rows < 1 || seat->term->cols < 1)
         return 7;
+    mac_gui_seat_free(seat);
+    return 0;
+}
+
+struct mac_gui_seat_output_smoke_ctx {
+    MacGuiSeat *seat;
+    int redraw_requests;
+};
+
+static void mac_gui_seat_output_smoke_redraw(
+    void *ctx, MacTermWinRect dirty)
+{
+    struct mac_gui_seat_output_smoke_ctx *test =
+        (struct mac_gui_seat_output_smoke_ctx *)ctx;
+
+    (void)dirty;
+    test->redraw_requests++;
+}
+
+static bool mac_gui_seat_output_smoke_term_has_text(
+    Terminal *term, int x, int y, wchar_t expect)
+{
+    termline *tl = term_get_line(term, y);
+    bool found = false;
+
+    if (tl && 0 <= x && x < tl->cols)
+        found = (tl->chars[x].chr == expect);
+    term_release_line(tl);
+    return found;
+}
+
+int mac_gui_seat_output_smoke(void)
+{
+    MacGuiSeat *seat;
+    struct mac_gui_seat_output_smoke_ctx test_ctx;
+    MacTermWinCallbacks callbacks;
+    static const char banner[] = "MacGuiSeat output\r\n";
+
+    seat = mac_gui_seat_new(NULL);
+    if (!seat)
+        return 1;
+    if (!mac_gui_seat_start_local_echo(seat))
+        return 2;
+
+    memset(&test_ctx, 0, sizeof(test_ctx));
+    test_ctx.seat = seat;
+    memset(&callbacks, 0, sizeof(callbacks));
+    callbacks.request_redraw = mac_gui_seat_output_smoke_redraw;
+    mac_termwin_set_callbacks(mac_gui_seat_get_termwin(seat), &callbacks, &test_ctx);
+
+    seat_output(
+        mac_gui_seat_get_seat(seat), SEAT_OUTPUT_STDOUT,
+        banner, sizeof(banner) - 1);
+    if (test_ctx.redraw_requests < 1)
+        return 3;
+    if (!mac_gui_seat_output_smoke_term_has_text(
+            seat->term, 0, 0, (wchar_t)(CSET_ASCII | 'M')))
+        return 4;
+
+    seat_output(
+        mac_gui_seat_get_seat(seat), SEAT_OUTPUT_STDERR,
+        "auth banner\r\n", 13);
+    if (test_ctx.redraw_requests < 2)
+        return 5;
+
+    seat_echoedit_update(mac_gui_seat_get_seat(seat), false, true);
+    if (seat->echoing || !seat->editing)
+        return 6;
+    if (test_ctx.redraw_requests < 3)
+        return 7;
+
     mac_gui_seat_free(seat);
     return 0;
 }

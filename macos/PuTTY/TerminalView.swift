@@ -226,8 +226,8 @@ final class TerminalView: NSView {
         let ctx = Unmanaged.passUnretained(self).toOpaque()
         putty_bridge_termwin_set_callbacks(handle, &callbacks, ctx)
 
-        guard putty_bridge_termwin_init_demo(handle) else {
-            fputs("TerminalView: putty_bridge_termwin_init_demo failed\n", stderr)
+        guard putty_bridge_termwin_init_session(handle) else {
+            fputs("TerminalView: putty_bridge_termwin_init_session failed\n", stderr)
             return
         }
 

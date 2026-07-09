@@ -7,6 +7,7 @@
 #include "putty-bridge-termwin.h"
 
 #include "putty-bridge-thread.h"
+#include "seat.h"
 #include "termwin.h"
 #include "osxkeys.h"
 #include "terminal.h"
@@ -14,11 +15,13 @@
 #include "misc.h"
 
 struct PuttyBridgeTermWin {
+    MacGuiSeat *seat;
     MacTermWin *mtw;
     Conf *conf;
     Terminal *term;
     struct unicode_data ucsdata;
     bool demo_initialised;
+    bool session_initialised;
     PuttyBridgeTermWinCallbacks swift_callbacks;
     void *swift_view_ctx;
     Seat demo_seat;
@@ -299,8 +302,6 @@ PuttyBridgeTermWin *putty_bridge_termwin_new(void)
     PuttyBridgeTermWin *btw = snew(PuttyBridgeTermWin);
 
     memset(btw, 0, sizeof(*btw));
-    btw->mtw = mac_termwin_new();
-    bridge_install_termwin_callbacks(btw);
     return btw;
 }
 
@@ -309,19 +310,31 @@ void putty_bridge_termwin_free(PuttyBridgeTermWin *btw)
     if (!btw)
         return;
 
-    if (btw->demo_ldisc) {
-        ldisc_free(btw->demo_ldisc);
-        btw->demo_ldisc = NULL;
-    }
-    if (btw->term) {
-        term_free(btw->term);
+    if (btw->seat) {
+        mac_gui_seat_free(btw->seat);
+        btw->seat = NULL;
+        btw->mtw = NULL;
         btw->term = NULL;
-    }
-    if (btw->conf) {
-        conf_free(btw->conf);
         btw->conf = NULL;
+        btw->demo_ldisc = NULL;
+    } else {
+        if (btw->demo_ldisc) {
+            ldisc_free(btw->demo_ldisc);
+            btw->demo_ldisc = NULL;
+        }
+        if (btw->term) {
+            term_free(btw->term);
+            btw->term = NULL;
+        }
+        if (btw->conf) {
+            conf_free(btw->conf);
+            btw->conf = NULL;
+        }
+        if (btw->mtw) {
+            mac_termwin_free(btw->mtw);
+            btw->mtw = NULL;
+        }
     }
-    mac_termwin_free(btw->mtw);
     sfree(btw);
 }
 
@@ -338,14 +351,66 @@ void putty_bridge_termwin_set_callbacks(
     btw->swift_view_ctx = view_ctx;
 }
 
+bool putty_bridge_termwin_init_session(PuttyBridgeTermWin *btw)
+{
+    static const char banner[] =
+        "PuTTY for macOS — TerminalView\r\n\r\n";
+
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
+    if (btw->session_initialised)
+        return true;
+    if (btw->demo_initialised)
+        return false;
+
+    if (btw->mtw) {
+        mac_termwin_free(btw->mtw);
+        btw->mtw = NULL;
+    }
+
+    btw->seat = mac_gui_seat_new(NULL);
+    if (!btw->seat)
+        return false;
+
+    btw->mtw = mac_gui_seat_get_termwin(btw->seat);
+    btw->term = mac_gui_seat_get_terminal(btw->seat);
+    btw->conf = mac_gui_seat_get_conf(btw->seat);
+    bridge_install_termwin_callbacks(btw);
+
+    if (!mac_gui_seat_start_local_echo(btw->seat)) {
+        mac_gui_seat_free(btw->seat);
+        btw->seat = NULL;
+        btw->mtw = NULL;
+        btw->term = NULL;
+        btw->conf = NULL;
+        return false;
+    }
+
+    btw->demo_ldisc = mac_gui_seat_get_ldisc(btw->seat);
+    putty_bridge_termwin_setup_clipboards(btw);
+
+    seat_output(
+        mac_gui_seat_get_seat(btw->seat), SEAT_OUTPUT_STDOUT,
+        banner, sizeof(banner) - 1);
+
+    btw->session_initialised = true;
+    return true;
+}
+
 bool putty_bridge_termwin_init_demo(PuttyBridgeTermWin *btw)
 {
     static const char banner[] =
         "PuTTY for macOS — TerminalView (Phase 4.2)\r\n\r\n";
 
     PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
+    if (btw->session_initialised)
+        return false;
     if (btw->demo_initialised)
         return true;
+
+    if (!btw->mtw) {
+        btw->mtw = mac_termwin_new();
+        bridge_install_termwin_callbacks(btw);
+    }
 
     btw->conf = conf_new();
     do_defaults(NULL, btw->conf);
@@ -503,7 +568,15 @@ size_t putty_bridge_termwin_feed(
     PuttyBridgeTermWin *btw, const void *data, size_t len)
 {
     PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
-    if (!btw->term || !data || len == 0)
+    if (!data || len == 0)
+        return 0;
+
+    if (btw->seat) {
+        return seat_output(
+            mac_gui_seat_get_seat(btw->seat), SEAT_OUTPUT_STDOUT, data, len);
+    }
+
+    if (!btw->term)
         return 0;
 
     term_data(btw->term, data, len);
@@ -1258,6 +1331,43 @@ int putty_bridge_termwin_phase4_exit_smoke(void)
     if (rc != 0) {
         putty_bridge_termwin_free(btw);
         return 6;
+    }
+
+    putty_bridge_termwin_free(btw);
+    return 0;
+}
+
+static int smoke_bridge_redraw_requests;
+
+static void smoke_bridge_request_redraw(void *ctx, MacTermWinRect dirty)
+{
+    (void)ctx;
+    (void)dirty;
+    smoke_bridge_redraw_requests++;
+}
+
+int putty_bridge_termwin_phase52_exit_smoke(void)
+{
+    PuttyBridgeTermWin *btw;
+    MacTermWinCallbacks callbacks;
+    static const char line[] = "phase52 output\r\n";
+
+    smoke_bridge_redraw_requests = 0;
+
+    btw = putty_bridge_termwin_new();
+    if (!putty_bridge_termwin_init_session(btw)) {
+        putty_bridge_termwin_free(btw);
+        return 1;
+    }
+
+    memset(&callbacks, 0, sizeof(callbacks));
+    callbacks.request_redraw = smoke_bridge_request_redraw;
+    mac_termwin_set_callbacks(btw->mtw, &callbacks, NULL);
+
+    putty_bridge_termwin_feed(btw, line, sizeof(line) - 1);
+    if (smoke_bridge_redraw_requests < 1) {
+        putty_bridge_termwin_free(btw);
+        return 2;
     }
 
     putty_bridge_termwin_free(btw);

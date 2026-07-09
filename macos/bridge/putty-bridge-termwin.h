@@ -146,6 +146,9 @@ void putty_bridge_termwin_set_callbacks(
 
 bool putty_bridge_termwin_init_demo(PuttyBridgeTermWin *btw);
 
+/** Phase 5.2: MacGuiSeat-backed session wired to TerminalView callbacks. */
+bool putty_bridge_termwin_init_session(PuttyBridgeTermWin *btw);
+
 void putty_bridge_termwin_set_backing_scale(PuttyBridgeTermWin *btw, double scale);
 double putty_bridge_termwin_get_backing_scale(const PuttyBridgeTermWin *btw);
 
@@ -269,6 +272,9 @@ int putty_bridge_termwin_bell_title_smoke(void);
  * Returns 0 on success.
  */
 int putty_bridge_termwin_phase4_exit_smoke(void);
+
+/** Phase 5.2 exit gate: seat.output path through MacGuiSeat. Returns 0 on success. */
+int putty_bridge_termwin_phase52_exit_smoke(void);
 
 #ifdef __cplusplus
 }

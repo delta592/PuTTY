@@ -595,9 +595,30 @@ env -u LDFLAGS -u CPPFLAGS cmake --build build-macos-gui --target putty-mac-seat
 
 ### 5.2 Output path
 
-- [ ] `seat.output` → decode → `term_data()` → schedule redraw on `TerminalView`.
-- [ ] `seat.banner`, `seat.eof`, `seat.sent`, `seat.unthrottle` — match GTK semantics.
-- [ ] `echoedit_update` → reflect local echo state in view if needed.
+- [x] `seat.output` → decode → `term_data()` → schedule redraw on `TerminalView`.
+- [x] `seat.banner`, `seat.eof`, `seat.sent`, `seat.unthrottle` — match GTK semantics.
+- [x] `echoedit_update` → reflect local echo state in view if needed.
+
+`mac_seat_output()` feeds `term_data()`, runs pending toplevel callbacks via
+`mac_gui_seat_flush_display()`, then calls `win_refresh()` to schedule a
+`TerminalView` redraw through `MacTermWinCallbacks.request_redraw`.
+`mac_seat_banner()` routes auth banners through the same output path (GTK
+semantics via `nullseat_banner_to_stderr` → `seat_output`). `eof` returns true,
+`sent` uses `nullseat_sent`, and `mac_tw_unthrottle` forwards to
+`backend_unthrottle`. `mac_seat_echoedit_update()` stores echo/edit state,
+notifies Swift via `on_echoedit_update`, and invalidates the terminal view when
+the line discipline changes.
+
+`putty_bridge_termwin_init_session()` wires `TerminalView` to `MacGuiSeat`
+(replacing the Phase 4 demo stub). `putty_bridge_termwin_feed()` uses
+`seat_output()` when a session is active.
+
+```bash
+env -u LDFLAGS -u CPPFLAGS cmake --build build-macos-gui --target \
+  putty-mac-seat-output-smoke-c putty-bridge-termwin-phase52-exit-c
+./build-macos-gui/putty-mac-seat-output-smoke-c
+./build-macos-gui/putty-bridge-termwin-phase52-exit-c
+```
 
 ### 5.3 Security prompts (modal sheets)
 

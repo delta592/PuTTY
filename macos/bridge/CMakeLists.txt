@@ -127,3 +127,9 @@ add_executable(putty-bridge-termwin-phase4-exit-c
 
 target_link_libraries(putty-bridge-termwin-phase4-exit-c PRIVATE
   putty-macos-bridge)
+
+add_executable(putty-bridge-termwin-phase52-exit-c
+  putty-bridge-termwin-phase52-exit-main.c)
+
+target_link_libraries(putty-bridge-termwin-phase52-exit-c PRIVATE
+  putty-macos-bridge)

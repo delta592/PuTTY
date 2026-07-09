@@ -125,6 +125,18 @@ be_list(putty-mac-seat-smoke-c PuTTY SSH SERIAL OTHERBACKENDS)
 target_link_libraries(putty-mac-seat-smoke-c
   macguifrontend eventloop charset settings utils network crypto sshclient otherbackends)
 
+add_executable(putty-mac-seat-output-smoke-c
+  platform/seat-output-smoke-main.c
+  platform/seat-smoke-platform.c
+  ${CMAKE_SOURCE_DIR}/stubs/no-print.c
+  ${CMAKE_SOURCE_DIR}/stubs/no-gss.c
+  ${CMAKE_SOURCE_DIR}/stubs/no-console.c
+  platform/unicode.c
+  platform/no-gtk.c)
+be_list(putty-mac-seat-output-smoke-c PuTTY SSH SERIAL OTHERBACKENDS)
+target_link_libraries(putty-mac-seat-output-smoke-c
+  macguifrontend eventloop charset settings utils network crypto sshclient otherbackends)
+
 add_executable(test_terminal
   ${CMAKE_SOURCE_DIR}/test/test_terminal.c
   ${CMAKE_SOURCE_DIR}/stubs/no-gss.c

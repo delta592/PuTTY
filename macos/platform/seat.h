@@ -36,6 +36,7 @@ typedef struct MacGuiSeatCallbacks {
         void *ctx, const char *path,
         void (*callback)(void *ctx, int result), void *cbctx);
     void (*on_set_busy_status)(void *ctx, BusyStatus status);
+    void (*on_echoedit_update)(void *ctx, bool echoing, bool editing);
 } MacGuiSeatCallbacks;
 
 struct MacGuiSeat {
@@ -61,6 +62,8 @@ struct MacGuiSeat {
     bool started;
     bool exited;
     BusyStatus busy_status;
+    bool echoing;
+    bool editing;
 };
 
 MacGuiSeat *mac_gui_seat_new(const Conf *conf);
@@ -82,8 +85,14 @@ Ldisc *mac_gui_seat_get_ldisc(MacGuiSeat *seat);
 Conf *mac_gui_seat_get_conf(MacGuiSeat *seat);
 LogContext *mac_gui_seat_get_logctx(MacGuiSeat *seat);
 
+/** Run pending toplevel callbacks (e.g. term_update) after seat output. */
+void mac_gui_seat_flush_display(MacGuiSeat *seat);
+
 /** Phase 5.1 smoke: create seat, local-echo linkage, feed output, destroy. */
 int mac_gui_seat_smoke(void);
+
+/** Phase 5.2 smoke: seat.output schedules a TermWin refresh. */
+int mac_gui_seat_output_smoke(void);
 
 #ifdef __cplusplus
 }
