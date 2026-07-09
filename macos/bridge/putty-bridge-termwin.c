@@ -2,7 +2,9 @@
  * putty-bridge-termwin.c — Swift bridge for MacTermWin / TerminalView (Phase 4.2).
  */
 
+#include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 #include "putty-bridge.h"
 #include "putty-bridge-termwin.h"
@@ -17,6 +19,9 @@
 #include "misc.h"
 #include "config-appkit.h"
 
+#define LOGEVENT_INITIAL_MAX 128
+#define LOGEVENT_CIRCULAR_MAX 128
+
 struct PuttyBridgeTermWin {
     MacGuiSeat *seat;
     MacTermWin *mtw;
@@ -29,6 +34,11 @@ struct PuttyBridgeTermWin {
     void *swift_view_ctx;
     PuttyBridgeSpecialsMenuCallback specials_menu_callback;
     void *specials_menu_ctx;
+    PuttyBridgeEventLogCallback eventlog_callback;
+    void *eventlog_ctx;
+    char **events_initial;
+    char **events_circular;
+    int ninitial, ncircular, circular_first;
     Seat demo_seat;
     Backend demo_backend;
     Ldisc *demo_ldisc;
@@ -310,6 +320,25 @@ PuttyBridgeTermWin *putty_bridge_termwin_new(void)
     return btw;
 }
 
+static void bridge_eventlog_free_lines(PuttyBridgeTermWin *btw)
+{
+    int i;
+
+    if (btw->events_initial) {
+        for (i = 0; i < LOGEVENT_INITIAL_MAX; i++)
+            sfree(btw->events_initial[i]);
+        sfree(btw->events_initial);
+        btw->events_initial = NULL;
+    }
+    if (btw->events_circular) {
+        for (i = 0; i < LOGEVENT_CIRCULAR_MAX; i++)
+            sfree(btw->events_circular[i]);
+        sfree(btw->events_circular);
+        btw->events_circular = NULL;
+    }
+    btw->ninitial = btw->ncircular = btw->circular_first = 0;
+}
+
 void putty_bridge_termwin_free(PuttyBridgeTermWin *btw)
 {
     if (!btw)
@@ -340,6 +369,7 @@ void putty_bridge_termwin_free(PuttyBridgeTermWin *btw)
             btw->mtw = NULL;
         }
     }
+    bridge_eventlog_free_lines(btw);
     sfree(btw);
 }
 
@@ -369,10 +399,72 @@ static void bridge_on_update_specials_menu(void *ctx)
         btw->specials_menu_callback(btw->specials_menu_ctx);
 }
 
+static void bridge_eventlog_ensure_storage(PuttyBridgeTermWin *btw)
+{
+    size_t i;
+
+    if (btw->ninitial != 0 || btw->events_initial)
+        return;
+
+    btw->events_initial = sresize(
+        btw->events_initial, LOGEVENT_INITIAL_MAX, char *);
+    for (i = 0; i < LOGEVENT_INITIAL_MAX; i++)
+        btw->events_initial[i] = NULL;
+    btw->events_circular = sresize(
+        btw->events_circular, LOGEVENT_CIRCULAR_MAX, char *);
+    for (i = 0; i < LOGEVENT_CIRCULAR_MAX; i++)
+        btw->events_circular[i] = NULL;
+}
+
+static void bridge_eventlog_append(
+    PuttyBridgeTermWin *btw, const char *string)
+{
+    char timebuf[40];
+    struct tm tm;
+    char **location;
+
+    if (!btw || !string)
+        return;
+
+    bridge_eventlog_ensure_storage(btw);
+
+    if (btw->ninitial < LOGEVENT_INITIAL_MAX)
+        location = &btw->events_initial[btw->ninitial];
+    else
+        location = &btw->events_circular[
+            (btw->circular_first + btw->ncircular) % LOGEVENT_CIRCULAR_MAX];
+
+    tm = ltime();
+    strftime(timebuf, sizeof(timebuf), "%Y-%m-%d %H:%M:%S\t", &tm);
+
+    sfree(*location);
+    *location = dupcat(timebuf, string);
+
+    if (btw->ninitial < LOGEVENT_INITIAL_MAX) {
+        btw->ninitial++;
+    } else if (btw->ncircular < LOGEVENT_CIRCULAR_MAX) {
+        btw->ncircular++;
+    } else if (btw->ncircular == LOGEVENT_CIRCULAR_MAX) {
+        btw->circular_first =
+            (btw->circular_first + 1) % LOGEVENT_CIRCULAR_MAX;
+        sfree(btw->events_circular[btw->circular_first]);
+        btw->events_circular[btw->circular_first] = dupstr("..");
+    }
+
+    if (btw->eventlog_callback)
+        btw->eventlog_callback(btw->eventlog_ctx);
+}
+
+static void bridge_on_eventlog(void *ctx, const char *event)
+{
+    bridge_eventlog_append((PuttyBridgeTermWin *)ctx, event);
+}
+
 static void bridge_install_seat_callbacks(PuttyBridgeTermWin *btw)
 {
     static const MacGuiSeatCallbacks seat_callbacks = {
         .on_update_specials_menu = bridge_on_update_specials_menu,
+        .on_eventlog = bridge_on_eventlog,
     };
 
     if (!btw || !btw->seat)
@@ -485,6 +577,60 @@ void putty_bridge_termwin_set_specials_menu_callback(
         return;
     btw->specials_menu_callback = callback;
     btw->specials_menu_ctx = ctx;
+}
+
+void putty_bridge_termwin_set_eventlog_callback(
+    PuttyBridgeTermWin *btw,
+    PuttyBridgeEventLogCallback callback,
+    void *ctx)
+{
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
+    if (!btw)
+        return;
+    btw->eventlog_callback = callback;
+    btw->eventlog_ctx = ctx;
+}
+
+size_t putty_bridge_termwin_eventlog_count(const PuttyBridgeTermWin *btw)
+{
+    if (!btw)
+        return 0;
+    return (size_t)btw->ninitial + (size_t)btw->ncircular;
+}
+
+bool putty_bridge_termwin_eventlog_line(
+    const PuttyBridgeTermWin *btw, size_t index, char *buf, size_t buflen)
+{
+    const char *line = NULL;
+    size_t len;
+
+    if (!btw || !buf || buflen == 0)
+        return false;
+    if (index < (size_t)btw->ninitial) {
+        line = btw->events_initial[index];
+    } else {
+        size_t circ = index - (size_t)btw->ninitial;
+        if (circ >= (size_t)btw->ncircular)
+            return false;
+        line = btw->events_circular[
+            (btw->circular_first + (int)circ) % LOGEVENT_CIRCULAR_MAX];
+    }
+    if (!line)
+        return false;
+
+    len = strlen(line);
+    if (len >= buflen)
+        len = buflen - 1;
+    memcpy(buf, line, len);
+    buf[len] = '\0';
+    return true;
+}
+
+void putty_bridge_termwin_eventlog_append_test(
+    PuttyBridgeTermWin *btw, const char *message)
+{
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
+    bridge_eventlog_append(btw, message ? message : "");
 }
 
 bool putty_bridge_termwin_has_specials(const PuttyBridgeTermWin *btw)
@@ -1768,6 +1914,83 @@ int putty_bridge_termwin_specials_exit_smoke(void)
     }
 
     putty_bridge_termwin_send_special(btw, putty_bridge_special_code_sep(), 0);
+
+    putty_bridge_termwin_free(btw);
+    return 0;
+}
+
+static void putty_bridge_termwin_eventlog_smoke_cb(void *ctx)
+{
+    (*(int *)ctx)++;
+}
+
+int putty_bridge_termwin_eventlog_smoke(void)
+{
+    int smoke_cb_count = 0;
+    PuttyBridgeTermWin *btw;
+    char line[256];
+    size_t i;
+    size_t expected;
+
+    btw = putty_bridge_termwin_new();
+    if (!btw)
+        return 1;
+
+    putty_bridge_termwin_set_eventlog_callback(
+        btw, putty_bridge_termwin_eventlog_smoke_cb, &smoke_cb_count);
+
+    if (!putty_bridge_termwin_open(btw, NULL, false)) {
+        putty_bridge_termwin_free(btw);
+        return 2;
+    }
+
+    if (putty_bridge_termwin_eventlog_count(btw) != 0) {
+        putty_bridge_termwin_free(btw);
+        return 3;
+    }
+
+    for (i = 0; i < LOGEVENT_INITIAL_MAX + LOGEVENT_CIRCULAR_MAX + 3; i++) {
+        char msg[64];
+        sprintf(msg, "event-%zu", i);
+        putty_bridge_termwin_eventlog_append_test(btw, msg);
+    }
+
+    expected = LOGEVENT_INITIAL_MAX + LOGEVENT_CIRCULAR_MAX;
+    if (putty_bridge_termwin_eventlog_count(btw) != expected) {
+        putty_bridge_termwin_free(btw);
+        return 4;
+    }
+    if (smoke_cb_count != (int)(LOGEVENT_INITIAL_MAX + LOGEVENT_CIRCULAR_MAX + 3)) {
+        putty_bridge_termwin_free(btw);
+        return 5;
+    }
+    if (!putty_bridge_termwin_eventlog_line(btw, 0, line, sizeof(line))) {
+        putty_bridge_termwin_free(btw);
+        return 6;
+    }
+    if (!strstr(line, "event-0")) {
+        putty_bridge_termwin_free(btw);
+        return 7;
+    }
+    /* After ring wrap, GTK replaces the oldest circular slot with "..". */
+    if (!putty_bridge_termwin_eventlog_line(
+            btw, LOGEVENT_INITIAL_MAX, line, sizeof(line))) {
+        putty_bridge_termwin_free(btw);
+        return 8;
+    }
+    if (strcmp(line, "..") != 0) {
+        putty_bridge_termwin_free(btw);
+        return 9;
+    }
+    if (!putty_bridge_termwin_eventlog_line(
+            btw, expected - 1, line, sizeof(line))) {
+        putty_bridge_termwin_free(btw);
+        return 10;
+    }
+    if (!strstr(line, "event-258")) {
+        putty_bridge_termwin_free(btw);
+        return 11;
+    }
 
     putty_bridge_termwin_free(btw);
     return 0;

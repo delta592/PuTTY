@@ -55,8 +55,10 @@ final class SessionWindowController: NSWindowController, NSWindowDelegate {
         scrollContainer.terminalView.openSession(conf: sessionConf, connect: connectOnOpen)
         if let termWin = scrollContainer.terminalView.termWin {
             SessionSpecialsMenu.shared.installCallback(for: self, termWin: termWin)
+            SessionEventLog.shared.installCallback(for: self, termWin: termWin)
         }
         SessionSpecialsMenu.shared.setKeyController(self)
+        SessionEventLog.shared.setKeyController(self)
     }
 
     func refreshSpecialsMenu() {
@@ -66,6 +68,7 @@ final class SessionWindowController: NSWindowController, NSWindowDelegate {
     func windowDidBecomeKey(_ notification: Notification) {
         _ = notification
         SessionSpecialsMenu.shared.setKeyController(self)
+        SessionEventLog.shared.setKeyController(self)
     }
 
     @objc func closeSession(_ sender: Any?) {
@@ -97,6 +100,7 @@ final class SessionWindowController: NSWindowController, NSWindowDelegate {
     func windowWillClose(_ notification: Notification) {
         _ = notification
         SessionSpecialsMenu.shared.resignKeyController(self)
+        SessionEventLog.shared.sessionWillClose(self)
         Self.openControllers.removeAll { $0 === self }
         putty_bridge_session_window_closed()
     }

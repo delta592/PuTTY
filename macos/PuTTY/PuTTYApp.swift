@@ -116,6 +116,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         SessionSpecialsMenu.shared.install(into: sessionMenu)
         mainMenu.addItem(sessionMenuItem)
 
+        let windowMenuItem = NSMenuItem(title: "Window", action: nil, keyEquivalent: "")
+        let windowMenu = NSMenu(title: "Window")
+        windowMenuItem.submenu = windowMenu
+        SessionEventLog.shared.install(into: windowMenu)
+        mainMenu.addItem(windowMenuItem)
+        NSApp.windowsMenu = windowMenu
+
         NSApp.mainMenu = mainMenu
     }
 

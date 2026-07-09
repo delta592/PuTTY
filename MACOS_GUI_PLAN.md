@@ -528,23 +528,26 @@ Override host via
 `PUTTY_BRIDGE_TEST_HOST`, `PUTTY_BRIDGE_TEST_USER`, `PUTTY_BRIDGE_TEST_PORT`,
 and `PUTTY_BRIDGE_TEST_HOSTKEY`.
 
-### Phase 6.1–6.3 gate (`putty-mac-config-gate`)
+### Phase 6.1–6.4 gate (`putty-mac-config-gate`)
 
 | Target | Validates |
 |--------|-----------|
 | `putty-mac-config-smoke-c` | controlbox → AppKit (§6.1) + settings UX (§6.2) |
 | `putty-bridge-launch-smoke-c` | initial config → session open (§6.3) |
+| `putty-bridge-termwin-eventlog-smoke-c` | Event Log buffer (§6.4) |
 
 ```bash
 $PUTTY_BUILD putty-mac-config-gate
 ./build-macos-gui/putty-mac-config-smoke-c
 ./build-macos-gui/putty-bridge-launch-smoke-c
+./build-macos-gui/putty-bridge-termwin-eventlog-smoke-c
 ```
 
 Config smoke runs `mac_config_controlbox_smoke` then
 `mac_config_settings_ux_smoke`. Launch smoke checks need-config for
 defaults Conf, Open → session callback (launchable and local-echo), and
-Cancel → quit signal.
+Cancel → quit signal. Event-log smoke fills the GTK-style initial +
+circular ring and checks wrap/`..` marker + UI callback.
 
 ---
 
@@ -817,7 +820,7 @@ read/write API, builds panels from `setup_config_box()` +
 `initial_config_box()`. Host CA UI is stubbed until Phase 6.5.
 
 **Smoke:** `putty-mac-config-smoke-c` (`mac_config_controlbox_smoke`) —
-see [Phase 6.1–6.3 gate](#phase-61-63-gate-putty-mac-config-gate).
+see [Phase 6.1–6.4 gate](#phase-61-64-gate-putty-mac-config-gate).
 
 ### 6.2 Settings window UX
 
@@ -838,7 +841,7 @@ midsession config box → `mac_gui_seat_reconfigure` on Apply.
 
 **Smoke:** `putty-mac-config-smoke-c` also runs
 `mac_config_settings_ux_smoke()` — see
-[Phase 6.1–6.3 gate](#phase-61-63-gate-putty-mac-config-gate) (covers 6.1–6.2).
+[Phase 6.1–6.4 gate](#phase-61-64-gate-putty-mac-config-gate) (covers 6.1–6.2).
 
 ### 6.3 Initial connection flow
 
@@ -855,12 +858,22 @@ with no open sessions quits the app. **Session → New Session** calls
 `session_window_closed` for later Phase 7 use.
 
 **Smoke:** `putty-bridge-launch-smoke-c` (`putty_bridge_launch_smoke`) —
-see [Phase 6.1–6.3 gate](#phase-61-63-gate-putty-mac-config-gate).
+see [Phase 6.1–6.4 gate](#phase-61-64-gate-putty-mac-config-gate).
 
 ### 6.4 Event log window
 
-- [ ] Implement event log viewer (`LogPolicy.eventlog`) as separate `NSWindow` with searchable `NSTextView`.
-- [ ] **Window → Event Log** menu item (PuTTY only, not pterm).
+- [x] Implement event log viewer (`LogPolicy.eventlog`) as separate `NSWindow` with searchable `NSTextView`.
+- [x] **Window → Event Log** menu item (PuTTY only, not pterm).
+
+`LogPolicy.eventlog` → `MacGuiSeatCallbacks.on_eventlog` → per-session
+bridge buffer (128 initial + 128 circular, GTK `logevent_dlg` parity).
+`EventLogWindowController` shows timestamped lines in a filterable
+`NSTextView`. **Window → Event Log** (`⌥⌘E`) opens/focuses the log for
+the key session; live appends refresh an open viewer.
+
+**Smoke:** `putty-bridge-termwin-eventlog-smoke-c`
+(`putty_bridge_termwin_eventlog_smoke`) — see
+[Phase 6.1–6.4 gate](#phase-61-64-gate-putty-mac-config-gate).
 
 ### 6.5 Host CA configuration
 

@@ -135,6 +135,10 @@ putty_add_bridge_smoke(putty-bridge-termwin-specials-exit-c
   FUNC putty_bridge_termwin_specials_exit_smoke
   OK_MSG "putty-bridge-termwin-specials-exit: ok")
 
+putty_add_bridge_smoke(putty-bridge-termwin-eventlog-smoke-c
+  FUNC putty_bridge_termwin_eventlog_smoke
+  OK_MSG "putty-bridge-termwin-eventlog-smoke: ok")
+
 putty_add_bridge_smoke(putty-bridge-ssh-exit-c
   FUNC putty_bridge_ssh_exit_test
   OK_MSG "putty-bridge-ssh-exit: ok"
@@ -176,4 +180,5 @@ add_custom_target(putty-mac-config-gate
   DEPENDS
     putty-mac-config-smoke-c
     putty-bridge-launch-smoke-c
-  COMMENT "Build config / launch gate binaries (Phase 6.1–6.3)")
+    putty-bridge-termwin-eventlog-smoke-c
+  COMMENT "Build config / launch / event-log gate binaries (Phase 6.1–6.4)")

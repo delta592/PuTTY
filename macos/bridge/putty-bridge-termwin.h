@@ -176,6 +176,33 @@ void putty_bridge_termwin_set_specials_menu_callback(
     PuttyBridgeSpecialsMenuCallback callback,
     void *ctx);
 
+/* ---------------------------------------------------------------------- */
+/* Event log (Phase 6.4) */
+
+typedef void (*PuttyBridgeEventLogCallback)(void *ctx);
+
+void putty_bridge_termwin_set_eventlog_callback(
+    PuttyBridgeTermWin *btw,
+    PuttyBridgeEventLogCallback callback,
+    void *ctx);
+
+/** Number of stored Event Log lines (initial + circular ring). */
+size_t putty_bridge_termwin_eventlog_count(const PuttyBridgeTermWin *btw);
+
+/**
+ * Copy Event Log line at index into buf (NUL-terminated). Returns false if
+ * index is out of range. Lines are "YYYY-MM-DD HH:MM:SS\\tmessage".
+ */
+bool putty_bridge_termwin_eventlog_line(
+    const PuttyBridgeTermWin *btw, size_t index, char *buf, size_t buflen);
+
+/** Append a synthetic line (smoke / tests). */
+void putty_bridge_termwin_eventlog_append_test(
+    PuttyBridgeTermWin *btw, const char *message);
+
+/** Headless smoke for Event Log buffer. Returns 0 on success. */
+int putty_bridge_termwin_eventlog_smoke(void);
+
 /** True when the active backend exposes a non-empty specials list. */
 bool putty_bridge_termwin_has_specials(const PuttyBridgeTermWin *btw);
 

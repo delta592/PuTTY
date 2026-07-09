@@ -20,6 +20,8 @@ add_executable(PuTTY MACOSX_BUNDLE
   PuttyEventLoop.swift
   SessionWindowController.swift
   SessionSpecialsMenu.swift
+  SessionEventLog.swift
+  EventLogWindowController.swift
   TerminalView.swift
   TerminalTextRenderer.swift
   TerminalFontCache.swift
