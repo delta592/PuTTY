@@ -21,7 +21,8 @@ add_executable(PuTTY MACOSX_BUNDLE
   TerminalFontCache.swift
   TerminalPaletteCache.swift
   OsxKeys.swift
-  TerminalClipboard.swift)
+  TerminalClipboard.swift
+  TerminalScrollContainer.swift)
 
 set_target_properties(PuTTY PROPERTIES
   MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_BINARY_DIR}/Info.plist

@@ -109,3 +109,9 @@ add_executable(putty-bridge-termwin-clipboard-smoke-c
 
 target_link_libraries(putty-bridge-termwin-clipboard-smoke-c PRIVATE
   putty-macos-bridge)
+
+add_executable(putty-bridge-termwin-scroll-resize-smoke-c
+  putty-bridge-termwin-scroll-resize-smoke-main.c)
+
+target_link_libraries(putty-bridge-termwin-scroll-resize-smoke-c PRIVATE
+  putty-macos-bridge)

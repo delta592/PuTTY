@@ -533,9 +533,9 @@ selection copy. `putty_bridge_termwin_setup_clipboards()` mirrors GTK
 
 ### 4.7 Scrollbar and resize
 
-- [ ] `set_scrollbar` → `NSScrollView`/`NSScroller` or overlay scroll indicator.
-- [ ] `request_resize` → resize window or notify `term_size()` after live resize.
-- [ ] Preserve grid of character cells on window resize (with user-configurable policy from `Conf`).
+- [x] `set_scrollbar` → `NSScrollView`/`NSScroller` or overlay scroll indicator.
+- [x] `request_resize` → resize window or notify `term_size()` after live resize.
+- [x] Preserve grid of character cells on window resize (with user-configurable policy from `Conf`).
 
 ### 4.8 Bell and title
 

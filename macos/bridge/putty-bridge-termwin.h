@@ -57,7 +57,15 @@ typedef struct PuttyBridgeTermWinCallbacks {
         void *ctx, int32_t clipboard, const wchar_t *text, int32_t len,
         bool must_deselect);
     void (*clip_request_paste)(void *ctx, int32_t clipboard);
+    void (*set_scrollbar)(
+        void *ctx, int32_t total, int32_t start, int32_t page);
+    void (*request_resize)(void *ctx, int32_t cols, int32_t rows);
 } PuttyBridgeTermWinCallbacks;
+
+#define PUTTY_BRIDGE_RESIZE_TERM      0
+#define PUTTY_BRIDGE_RESIZE_DISABLED  1
+#define PUTTY_BRIDGE_RESIZE_FONT      2
+#define PUTTY_BRIDGE_RESIZE_EITHER    3
 
 #define PUTTY_BRIDGE_ATTR_FGMASK      0x000001FFU
 #define PUTTY_BRIDGE_ATTR_BGMASK      0x0003FE00U
@@ -196,6 +204,19 @@ void putty_bridge_termwin_mouse(
     PuttyBridgeTermWin *btw, int32_t button_raw, int32_t action,
     int32_t cell_x, int32_t cell_y, bool shift, bool ctrl, bool alt);
 void putty_bridge_termwin_scroll_lines(PuttyBridgeTermWin *btw, int32_t lines);
+void putty_bridge_termwin_scroll_to(PuttyBridgeTermWin *btw, int32_t position);
+
+void putty_bridge_termwin_request_resize_completed(PuttyBridgeTermWin *btw);
+int32_t putty_bridge_termwin_resize_action(const PuttyBridgeTermWin *btw);
+bool putty_bridge_termwin_scrollbar_enabled(const PuttyBridgeTermWin *btw);
+void putty_bridge_termwin_view_size_for_grid(
+    const PuttyBridgeTermWin *btw, int32_t cols, int32_t rows,
+    double *width_pt, double *height_pt);
+void putty_bridge_termwin_apply_live_resize(
+    PuttyBridgeTermWin *btw, double view_width_pt, double view_height_pt);
+void putty_bridge_termwin_scrollbar_state(
+    const PuttyBridgeTermWin *btw,
+    int32_t *total, int32_t *start, int32_t *page);
 
 bool putty_bridge_termwin_raw_mouse_active(const PuttyBridgeTermWin *btw);
 bool putty_bridge_termwin_pointer_indicates_raw_mouse(
@@ -223,6 +244,9 @@ int putty_bridge_termwin_clipboard_smoke(void);
 
 /** Smoke test: feed keys and mouse events to demo terminal. Returns 0 on success. */
 int putty_bridge_termwin_input_smoke(void);
+
+/** Smoke test: scrollbar state, scroll-to, resize policy. Returns 0 on success. */
+int putty_bridge_termwin_scroll_resize_smoke(void);
 
 #ifdef __cplusplus
 }

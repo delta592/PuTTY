@@ -96,16 +96,43 @@ private enum TerminalViewBridge {
                 view.requestClipboardPaste(clipboard: clipboard)
             }
         }
+
+    static let setScrollbar: @convention(c) (
+        UnsafeMutableRawPointer?, Int32, Int32, Int32
+    ) -> Void = { ctx, total, start, page in
+        guard let ctx else { return }
+        let view = Unmanaged<TerminalView>.fromOpaque(ctx).takeUnretainedValue()
+        MainActor.assumeIsolated {
+            view.resizeScrollHost?.updateScrollbar(
+                total: Int(total), start: Int(start), page: Int(page)
+            )
+        }
+    }
+
+    static let requestResize: @convention(c) (
+        UnsafeMutableRawPointer?, Int32, Int32
+    ) -> Void = { ctx, cols, rows in
+        guard let ctx else { return }
+        let view = Unmanaged<TerminalView>.fromOpaque(ctx).takeUnretainedValue()
+        MainActor.assumeIsolated {
+            view.resizeScrollHost?.requestTerminalResize(
+                cols: Int(cols), rows: Int(rows)
+            )
+        }
+    }
 }
 
-/// AppKit terminal surface wired to MacTermWin (Phase 4.2–4.5).
+/// AppKit terminal surface wired to MacTermWin (Phase 4.2–4.7).
 @MainActor
 final class TerminalView: NSView {
-    nonisolated(unsafe) private var termWin: OpaquePointer?
+    nonisolated(unsafe) private(set) var termWin: OpaquePointer?
+    weak var resizeScrollHost: TerminalResizeScrolling?
+
     private var isPainting = false
     private let renderer = TerminalTextRenderer()
     private var pendingDirty: NSRect?
     private var dirtyFlushScheduled = false
+    private var fontPointSize: CGFloat = 12
 
     private var markedText = ""
     private var caretCell = NSPoint(x: 0, y: 0)
@@ -156,7 +183,9 @@ final class TerminalView: NSView {
             set_raw_mouse_mode: TerminalViewBridge.setRawMouseMode,
             set_raw_mouse_mode_pointer: TerminalViewBridge.setRawMouseModePointer,
             clip_write: TerminalViewBridge.clipWrite,
-            clip_request_paste: TerminalViewBridge.clipRequestPaste
+            clip_request_paste: TerminalViewBridge.clipRequestPaste,
+            set_scrollbar: TerminalViewBridge.setScrollbar,
+            request_resize: TerminalViewBridge.requestResize
         )
         let ctx = Unmanaged.passUnretained(self).toOpaque()
         putty_bridge_termwin_set_callbacks(handle, &callbacks, ctx)
@@ -176,7 +205,7 @@ final class TerminalView: NSView {
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         updateBackingScale()
-        syncTerminalGridSize()
+        syncTerminalGridSizeIfNeeded()
         setNeedsDisplay(bounds)
         window?.makeFirstResponder(self)
     }
@@ -184,13 +213,12 @@ final class TerminalView: NSView {
     override func viewDidChangeBackingProperties() {
         super.viewDidChangeBackingProperties()
         updateBackingScale()
-        syncTerminalGridSize()
+        syncTerminalGridSizeIfNeeded()
         setNeedsDisplay(bounds)
     }
 
     override func resizeSubviews(withOldSize oldSize: NSSize) {
         super.resizeSubviews(withOldSize: oldSize)
-        syncTerminalGridSize()
         setNeedsDisplay(bounds)
     }
 
@@ -389,8 +417,8 @@ final class TerminalView: NSView {
     private func updateFontMetrics() {
         guard let termWin else { return }
 
-        let font = NSFont(name: "SFMono-Regular", size: 12)
-            ?? NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
+        let font = NSFont(name: "SFMono-Regular", size: fontPointSize)
+            ?? NSFont.monospacedSystemFont(ofSize: fontPointSize, weight: .regular)
         let probe = "M" as NSString
         let charWidth = probe.size(withAttributes: [.font: font]).width
         let cellHeight = ceil(font.ascender - font.descender + font.leading)
@@ -399,6 +427,27 @@ final class TerminalView: NSView {
             termWin, charWidth, cellHeight, font.ascender, -font.descender
         )
         renderer.refreshMetrics()
+    }
+
+    /// Resize the font to keep a fixed terminal grid when Conf uses RESIZE_FONT.
+    func fitFontToView(width: CGFloat, height: CGFloat) {
+        guard let termWin else { return }
+        let cols = CGFloat(putty_bridge_termwin_cols(termWin))
+        let rows = CGFloat(putty_bridge_termwin_rows(termWin))
+        guard cols > 0, rows > 0, width > 0, height > 0 else { return }
+
+        let sizeFromHeight = (height / rows) * 0.78
+        fontPointSize = max(6, min(72, sizeFromHeight))
+        updateFontMetrics()
+    }
+
+    private func syncTerminalGridSizeIfNeeded() {
+        guard let termWin else { return }
+        if resizeScrollHost != nil {
+            return
+        }
+        updateFontMetrics()
+        putty_bridge_termwin_resize_to_view(termWin, bounds.width, bounds.height)
     }
 
     private func syncTerminalGridSize() {

@@ -169,6 +169,23 @@ static void bridge_clip_request_paste(void *ctx, int clipboard)
         btw->swift_callbacks.clip_request_paste(btw->swift_view_ctx, clipboard);
 }
 
+static void bridge_set_scrollbar(void *ctx, int total, int start, int page)
+{
+    PuttyBridgeTermWin *btw = (PuttyBridgeTermWin *)ctx;
+
+    if (btw->swift_callbacks.set_scrollbar)
+        btw->swift_callbacks.set_scrollbar(
+            btw->swift_view_ctx, total, start, page);
+}
+
+static void bridge_request_resize(void *ctx, int w, int h)
+{
+    PuttyBridgeTermWin *btw = (PuttyBridgeTermWin *)ctx;
+
+    if (btw->swift_callbacks.request_resize)
+        btw->swift_callbacks.request_resize(btw->swift_view_ctx, w, h);
+}
+
 static Mouse_Button bridge_translate_button(Mouse_Button button)
 {
     if (button == MBT_LEFT)
@@ -197,6 +214,8 @@ static void bridge_install_termwin_callbacks(PuttyBridgeTermWin *btw)
         .set_raw_mouse_mode_pointer = bridge_set_raw_mouse_mode_pointer,
         .clip_write = bridge_clip_write,
         .clip_request_paste = bridge_clip_request_paste,
+        .set_scrollbar = bridge_set_scrollbar,
+        .request_resize = bridge_request_resize,
     };
 
     mac_termwin_set_callbacks(btw->mtw, &internal_cbs, btw);
@@ -573,6 +592,76 @@ void putty_bridge_termwin_scroll_lines(PuttyBridgeTermWin *btw, int32_t lines)
     term_scroll(btw->term, 0, lines);
 }
 
+void putty_bridge_termwin_scroll_to(PuttyBridgeTermWin *btw, int32_t position)
+{
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
+    if (!btw->term)
+        return;
+
+    term_scroll(btw->term, 1, position);
+}
+
+void putty_bridge_termwin_request_resize_completed(PuttyBridgeTermWin *btw)
+{
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
+    if (!btw->term)
+        return;
+
+    term_resize_request_completed(btw->term);
+}
+
+int32_t putty_bridge_termwin_resize_action(const PuttyBridgeTermWin *btw)
+{
+    if (!btw->conf)
+        return PUTTY_BRIDGE_RESIZE_TERM;
+    return conf_get_int(btw->conf, CONF_resize_action);
+}
+
+bool putty_bridge_termwin_scrollbar_enabled(const PuttyBridgeTermWin *btw)
+{
+    if (!btw->conf)
+        return true;
+    return conf_get_bool(btw->conf, CONF_scrollbar);
+}
+
+void putty_bridge_termwin_view_size_for_grid(
+    const PuttyBridgeTermWin *btw, int32_t cols, int32_t rows,
+    double *width_pt, double *height_pt)
+{
+    if (width_pt)
+        *width_pt = btw->mtw->cell_width_pt * cols;
+    if (height_pt)
+        *height_pt = btw->mtw->cell_height_pt * rows;
+}
+
+void putty_bridge_termwin_apply_live_resize(
+    PuttyBridgeTermWin *btw, double view_width_pt, double view_height_pt)
+{
+    int action;
+
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
+    if (!btw->term)
+        return;
+
+    action = conf_get_int(btw->conf, CONF_resize_action);
+    if (action == RESIZE_DISABLED || action == RESIZE_FONT)
+        return;
+
+    putty_bridge_termwin_resize_to_view(btw, view_width_pt, view_height_pt);
+}
+
+void putty_bridge_termwin_scrollbar_state(
+    const PuttyBridgeTermWin *btw,
+    int32_t *total, int32_t *start, int32_t *page)
+{
+    if (total)
+        *total = btw->mtw->scroll_total;
+    if (start)
+        *start = btw->mtw->scroll_start;
+    if (page)
+        *page = btw->mtw->scroll_page;
+}
+
 bool putty_bridge_termwin_raw_mouse_active(const PuttyBridgeTermWin *btw)
 {
     Terminal *term;
@@ -803,6 +892,100 @@ int putty_bridge_termwin_input_smoke(void)
         btw, MBT_LEFT, MA_RELEASE, 5, 1, false, false, false);
 
     putty_bridge_termwin_select_all(btw);
+    putty_bridge_termwin_free(btw);
+    return 0;
+}
+
+static int32_t smoke_scroll_total, smoke_scroll_start, smoke_scroll_page;
+static int smoke_req_cols, smoke_req_rows;
+
+static void smoke_set_scrollbar(
+    void *ctx, int32_t total, int32_t start, int32_t page)
+{
+    (void)ctx;
+    smoke_scroll_total = total;
+    smoke_scroll_start = start;
+    smoke_scroll_page = page;
+}
+
+static void smoke_request_resize(void *ctx, int32_t cols, int32_t rows)
+{
+    (void)ctx;
+    smoke_req_cols = cols;
+    smoke_req_rows = rows;
+}
+
+static const PuttyBridgeTermWinCallbacks smoke_scroll_resize_cbs = {
+    .set_scrollbar = smoke_set_scrollbar,
+    .request_resize = smoke_request_resize,
+};
+
+int putty_bridge_termwin_scroll_resize_smoke(void)
+{
+    PuttyBridgeTermWin *btw;
+    int32_t total, start, page, rows;
+    double width_pt, height_pt;
+
+    btw = putty_bridge_termwin_new();
+    putty_bridge_termwin_set_callbacks(btw, &smoke_scroll_resize_cbs, NULL);
+    if (!putty_bridge_termwin_init_demo(btw)) {
+        putty_bridge_termwin_free(btw);
+        return 1;
+    }
+
+    if (putty_bridge_termwin_resize_action(btw) != PUTTY_BRIDGE_RESIZE_TERM) {
+        putty_bridge_termwin_free(btw);
+        return 2;
+    }
+    if (!putty_bridge_termwin_scrollbar_enabled(btw)) {
+        putty_bridge_termwin_free(btw);
+        return 3;
+    }
+
+    putty_bridge_termwin_set_font_metrics(btw, 10.0, 20.0, 15.0, 5.0);
+    putty_bridge_termwin_view_size_for_grid(btw, 80, 24, &width_pt, &height_pt);
+    if (width_pt != 800.0 || height_pt != 480.0) {
+        putty_bridge_termwin_free(btw);
+        return 4;
+    }
+
+    putty_bridge_termwin_apply_live_resize(btw, 400.0, 200.0);
+    if (putty_bridge_termwin_cols(btw) != 40 ||
+        putty_bridge_termwin_rows(btw) != 10) {
+        putty_bridge_termwin_free(btw);
+        return 5;
+    }
+
+    putty_bridge_termwin_resize_grid(btw, 80, 24);
+    conf_set_int(btw->conf, CONF_resize_action, RESIZE_DISABLED);
+    putty_bridge_termwin_apply_live_resize(btw, 1600.0, 960.0);
+    if (putty_bridge_termwin_cols(btw) != 80 ||
+        putty_bridge_termwin_rows(btw) != 24) {
+        putty_bridge_termwin_free(btw);
+        return 6;
+    }
+
+    conf_set_int(btw->conf, CONF_resize_action, RESIZE_TERM);
+    for (int i = 0; i < 50; i++)
+        putty_bridge_termwin_feed(btw, "scrollback line\r\n", 17);
+
+    putty_bridge_termwin_scrollbar_state(btw, &total, &start, &page);
+    rows = putty_bridge_termwin_rows(btw);
+    if (total <= rows || page != rows) {
+        putty_bridge_termwin_free(btw);
+        return 7;
+    }
+
+    putty_bridge_termwin_scroll_to(btw, 10);
+    putty_bridge_termwin_scrollbar_state(btw, &total, &start, &page);
+
+    smoke_req_cols = smoke_req_rows = 0;
+    win_request_resize(mac_termwin_get_termwin(btw->mtw), 90, 28);
+    if (smoke_req_cols != 90 || smoke_req_rows != 28) {
+        putty_bridge_termwin_free(btw);
+        return 8;
+    }
+
     putty_bridge_termwin_free(btw);
     return 0;
 }

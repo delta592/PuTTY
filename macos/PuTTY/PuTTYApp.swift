@@ -15,9 +15,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         window.title = "PuTTY"
 
-        let terminalView = TerminalView(frame: contentRect)
-        terminalView.autoresizingMask = [.width, .height]
-        window.contentView = terminalView
+        let container = TerminalScrollContainer(frame: contentRect)
+        container.autoresizingMask = [.width, .height]
+        container.hostWindow = window
+        window.contentView = container
 
         window.center()
         window.makeKeyAndOrderFront(nil)
