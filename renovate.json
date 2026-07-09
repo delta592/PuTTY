@@ -1,0 +1,201 @@
+{
+    "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+    "configMigration": true,
+    "extends": [
+        "config:recommended",
+        ":enablePreCommit",
+        "workarounds:all",
+        "replacements:all",
+        ":enableVulnerabilityAlertsWithLabel",
+        "group:monorepos",
+        "group:recommended",
+        ":ignoreUnstable",
+        ":separateMultipleMajorReleases",
+        ":rebaseStalePrs",
+        "docker:pinDigests",
+        "docker:enableMajor",
+        "helpers:pinGitHubActionDigestsToSemver",
+        ":pinDevDependencies",
+        ":semanticPrefixFixDepsChoreOthers",
+        ":ignoreModulesAndTests",
+        ":pinVersions"
+    ],
+    "timezone": "America/Chicago",
+    "dependencyDashboard": true,
+    "forkProcessing": "enabled",
+    "automerge": false,
+    "platformAutomerge": false,
+    "automergeType": "pr",
+    "automergeStrategy": "squash",
+    "prCreation": "immediate",
+    "prConcurrentLimit": 20,
+    "prHourlyLimit": 20,
+    "minimumReleaseAge": "3 days",
+    "internalChecksFilter": "strict",
+    "packageRules": [
+        {
+            "matchCategories": [
+                "golang"
+            ],
+            "postUpdateOptions": [
+                "gomodTidy",
+                "gomodUpdateImportPaths"
+            ]
+        },
+        {
+            "description": "Automerge non-major updates if tests pass (disabled)",
+            "matchUpdateTypes": [
+                "minor",
+                "patch",
+                "pin",
+                "digest"
+            ],
+            "automerge": false,
+            "platformAutomerge": false,
+            "automergeType": "pr",
+            "minimumReleaseAge": "3 days"
+        },
+        {
+            "description": "Require approval for major updates",
+            "matchUpdateTypes": [
+                "major"
+            ],
+            "dependencyDashboardApproval": true,
+            "automerge": false,
+            "platformAutomerge": false
+        },
+        {
+            "description": "Fast-track security updates (automerge disabled)",
+            "matchDatasources": [
+                "npm",
+                "docker",
+                "go",
+                "pypi"
+            ],
+            "matchUpdateTypes": [
+                "patch"
+            ],
+            "matchCurrentVersion": "!/^0\\./",
+            "labels": [
+                "security"
+            ],
+            "automerge": false,
+            "platformAutomerge": false,
+            "minimumReleaseAge": "0 days",
+            "schedule": [
+                "at any time"
+            ]
+        },
+        {
+            "description": "Group Golang module updates (automerge disabled)",
+            "matchDatasources": [
+                "go"
+            ],
+            "matchUpdateTypes": [
+                "minor",
+                "patch"
+            ],
+            "groupName": "Go modules (non-major)",
+            "automerge": false,
+            "platformAutomerge": false
+        },
+        {
+            "description": "Separate major Go updates",
+            "matchDatasources": [
+                "go"
+            ],
+            "matchUpdateTypes": [
+                "major"
+            ],
+            "automerge": false,
+            "platformAutomerge": false,
+            "dependencyDashboardApproval": true
+        },
+        {
+            "description": "Only allow LTS versions for Node.js",
+            "matchDatasources": [
+                "node-version"
+            ],
+            "matchPackageNames": [
+                "node"
+            ],
+            "allowedVersions": "/^(22|24|26|28)\\./"
+        },
+        {
+            "description": "Pin Python runtime to 3.14.x",
+            "matchManagers": [
+                "pyenv"
+            ],
+            "matchPackageNames": [
+                "python"
+            ],
+            "allowedVersions": "/^3\\.14(\\.\\d+)?$/"
+        },
+        {
+            "description": "Group Python package updates (automerge disabled)",
+            "matchManagers": [
+                "pip_requirements",
+                "pip_setup",
+                "poetry",
+                "pipenv",
+                "uv"
+            ],
+            "matchUpdateTypes": [
+                "minor",
+                "patch"
+            ],
+            "groupName": "Python packages (non-major)",
+            "labels": [
+                "python"
+            ],
+            "automerge": false,
+            "platformAutomerge": false
+        },
+        {
+            "description": "Separate major Python updates (approval required)",
+            "matchManagers": [
+                "pip_requirements",
+                "pip_setup",
+                "poetry",
+                "pipenv",
+                "uv"
+            ],
+            "matchUpdateTypes": [
+                "major"
+            ],
+            "labels": [
+                "python"
+            ],
+            "dependencyDashboardApproval": true,
+            "automerge": false,
+            "platformAutomerge": false
+        }
+    ],
+    "vulnerabilityAlerts": {
+        "enabled": true,
+        "labels": [
+            "security",
+            "vulnerability"
+        ]
+    },
+    "lockFileMaintenance": {
+        "enabled": true,
+        "automerge": false
+    },
+    "customManagers": [
+        {
+            "customType": "regex",
+            "description": "Match dependencies in Makefiles with renovate comment annotations",
+            "managerFilePatterns": [
+                "/(^|/)Makefile$/",
+                "/(^|/)makefile$/",
+                "/(^|/)[Mm]akefile\\.[^/]*$/"
+            ],
+            "matchStrings": [
+                "# renovate: datasource=(?<datasource>[a-z-.]+?) depName=(?<depName>[^\\s]+?)(?: versioning=(?<versioning>[^\\s]+?))?(?: extractVersion=(?<extractVersion>[^\\s]+?))?\\s+(?:[A-Z_a-z][A-Z_a-z0-9]*)\\s*[:?]?=\\s*[\"']?(?<currentValue>[^\\s\"']+)[\"']?"
+            ],
+            "versioningTemplate": "{{#if versioning}}{{{versioning}}}{{else}}semver{{/if}}",
+            "extractVersionTemplate": "{{#if extractVersion}}{{{extractVersion}}}{{else}}^v?(?<version>.*)${{/if}}"
+        }
+    ]
+}
