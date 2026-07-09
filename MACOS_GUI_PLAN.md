@@ -350,9 +350,14 @@ configure time and exposed as `platform_libraries` for targets that need them
 
 ### 3.1 Bridge library (`putty-macos-bridge`)
 
-- [ ] Create `macos/bridge/putty-bridge.h` — public C API for Swift.
-- [ ] Create `module.modulemap` exposing `PuttyBridge` to Swift.
-- [ ] Use `@_cdecl` / `SWIFT_NAME` sparingly; prefer C wrapper functions over direct vtable manipulation from Swift.
+- [x] Create `macos/bridge/putty-bridge.h` — public C API for Swift.
+- [x] Create `module.modulemap` exposing `PuttyBridge` to Swift.
+- [x] Use `@_cdecl` / `SWIFT_NAME` sparingly; prefer C wrapper functions over direct vtable manipulation from Swift.
+
+`putty-bridge.h` exposes API versioning, build identification, and opaque
+`PuttySession` / `PuttyConf` handles. Session and configuration wrappers are
+added in Phases 3.2–3.4. `PuttyBridgeSwiftSmoke` verifies Swift can import the
+module and call the C entry points.
 
 ### 3.2 Session object
 

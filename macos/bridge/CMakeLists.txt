@@ -1,3 +1,9 @@
+# putty-macos-bridge — stable C API consumed by Swift (Phase 3.1+).
+#
+# Swift imports the PuttyBridge clang module (module.modulemap). Production
+# code should call C functions from putty-bridge.h; reserve @_cdecl for
+# test hooks such as PuttyBridgeSwiftSmoke below.
+
 add_library(putty-macos-bridge STATIC
   putty-bridge.c)
 
