@@ -18,6 +18,17 @@ struct PuttyBridgeTermWin {
     PuttyBridgeTermWinCallbacks swift_callbacks;
 };
 
+static PuttyBridgeOptionalRgb bridge_optional_rgb(optionalrgb rgb)
+{
+    PuttyBridgeOptionalRgb out;
+
+    out.enabled = rgb.enabled;
+    out.r = rgb.r;
+    out.g = rgb.g;
+    out.b = rgb.b;
+    return out;
+}
+
 static PuttyBridgeTermWinDrawParams bridge_draw_params(
     const MacTermWinDrawParams *params)
 {
@@ -29,6 +40,8 @@ static PuttyBridgeTermWinDrawParams bridge_draw_params(
     out.len = params->len;
     out.attr = (uint32_t)params->attr;
     out.lattr = params->lattr;
+    out.truecolour.fg = bridge_optional_rgb(params->tc.fg);
+    out.truecolour.bg = bridge_optional_rgb(params->tc.bg);
     return out;
 }
 
@@ -96,6 +109,15 @@ static void bridge_request_redraw(void *ctx, MacTermWinRect dirty)
     btw->swift_callbacks.request_redraw(btw->mtw->view_ctx, swift_dirty);
 }
 
+static int bridge_char_width(void *ctx, int uc)
+{
+    PuttyBridgeTermWin *btw = (PuttyBridgeTermWin *)ctx;
+
+    if (btw->swift_callbacks.char_width)
+        return btw->swift_callbacks.char_width(btw->mtw->view_ctx, uc);
+    return 1;
+}
+
 static void bridge_install_termwin_callbacks(PuttyBridgeTermWin *btw)
 {
     static const MacTermWinCallbacks internal_cbs = {
@@ -104,6 +126,7 @@ static void bridge_install_termwin_callbacks(PuttyBridgeTermWin *btw)
         .draw_text = bridge_draw_text,
         .draw_cursor = bridge_draw_cursor,
         .draw_trust_sigil = bridge_draw_trust_sigil,
+        .char_width = bridge_char_width,
         .request_redraw = bridge_request_redraw,
     };
 
@@ -270,4 +293,22 @@ int32_t putty_bridge_termwin_rows(const PuttyBridgeTermWin *btw)
     if (!btw->term)
         return 0;
     return btw->term->rows;
+}
+
+double putty_bridge_termwin_ascent_pt(const PuttyBridgeTermWin *btw)
+{
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
+    return btw->mtw->ascent_pt;
+}
+
+int32_t putty_bridge_termwin_cursor_type(const PuttyBridgeTermWin *btw)
+{
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
+    return btw->mtw->cursor_type;
+}
+
+int32_t putty_bridge_termwin_bold_style(const PuttyBridgeTermWin *btw)
+{
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
+    return btw->mtw->bold_style;
 }

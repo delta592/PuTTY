@@ -16,7 +16,9 @@ configure_file(
 
 add_executable(PuTTY MACOSX_BUNDLE
   PuTTYApp.swift
-  TerminalView.swift)
+  TerminalView.swift
+  TerminalTextRenderer.swift
+  TerminalFontCache.swift)
 
 set_target_properties(PuTTY PROPERTIES
   MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_BINARY_DIR}/Info.plist

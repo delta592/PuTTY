@@ -485,13 +485,20 @@ and backing-scale changes.
 
 ### 4.3 Text rendering strategy
 
-- [ ] Primary: **Core Text** — one `CTLine` per terminal row for monospace bulk draw.
-- [ ] Fallback: individual glyph draw for double-width, combining characters, and `trust_sigil`.
-- [ ] Cache `CTFont` instances per `(FontSpec, bold, wide)` tuple.
-- [ ] Implement `char_width()` using Core Text measurement aligned with draw path.
-- [ ] Support true-colour (`truecolour` struct) and 256-colour palette from `palette_set()`.
-- [ ] Implement cursor draw: block, underline, vertical bar per `Conf` settings.
-- [ ] Implement `draw_trust_sigil` for anti-spoofing indicator.
+- [x] Primary: **Core Text** — one `CTLine` per terminal row for monospace bulk draw.
+- [x] Fallback: individual glyph draw for double-width, combining characters, and `trust_sigil`.
+- [x] Cache `CTFont` instances per `(FontSpec, bold, wide)` tuple.
+- [x] Implement `char_width()` using Core Text measurement aligned with draw path.
+- [x] Support true-colour (`truecolour` struct) and 256-colour palette from `palette_set()`.
+- [x] Implement cursor draw: block, underline, vertical bar per `Conf` settings.
+- [x] Implement `draw_trust_sigil` for anti-spoofing indicator.
+
+`TerminalTextRenderer` batches cells per row during a paint pass and flushes with
+`CTLine` for normal runs; wide, combining, and trust-sigil cells use individual
+draw paths. `TerminalFontCache` caches `CTFont` per bold/wide tuple.
+`putty_bridge_termwin_char_width` forwards to Core Text measurement.
+True-colour and palette colours are resolved in the renderer; cursor style follows
+`CONF_cursor_type`.
 
 ### 4.4 Performance requirements (gate for Phase 5)
 
