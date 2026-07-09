@@ -6,5 +6,6 @@ public func puttyBridgeSwiftSmoke() -> Int32 {
     let platform = String(cString: putty_bridge_buildinfo_platform())
     guard api == Int32(PUTTY_BRIDGE_API_VERSION) else { return -1 }
     guard platform == "macOS (AppKit)" else { return -2 }
+    guard putty_bridge_session_smoke() == 0 else { return -3 }
     return Int32(putty_bridge_version())
 }

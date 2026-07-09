@@ -15,8 +15,8 @@
  *  - Swift owns objects returned by putty_*_new() functions; the bridge
  *    never retains Swift callbacks or contexts (Phase 3.2+).
  *
- * Session, configuration, and event-loop wrappers are added in Phases
- * 3.2–3.4. This header defines opaque types and version/build probes.
+ * Session and configuration wrappers: Phase 3.2 (session object),
+ * 3.3 (configuration access), 3.4 (event loop hooks).
  */
 
 #ifndef PUTTY_MACOS_PUTTY_BRIDGE_H
@@ -51,17 +51,58 @@ const char *putty_bridge_api_version_string(void);
 const char *putty_bridge_buildinfo_platform(void);
 
 /* ---------------------------------------------------------------------- */
-/* Opaque handles (defined in bridge implementation; Phase 3.2+) */
+/* Opaque handles */
 
 typedef struct PuttySession PuttySession;
 typedef struct PuttyConf PuttyConf;
 
-/*
- * PuttySession — live connection context (Seat + TermWin + backend).
- * PuttyConf    — session settings (Conf wrapper).
+/** Opaque PuTTY backend handle (see putty.h in C bridge code). */
+struct Backend;
+
+/* ---------------------------------------------------------------------- */
+/* Session callbacks (Phase 3.2) */
+
+/** Pixel-space dirty region; zero width/height means full terminal area. */
+typedef struct PuttyBridgeRect {
+    double x, y, width, height;
+} PuttyBridgeRect;
+
+typedef struct PuttySessionCallbacks {
+    void (*on_title_changed)(void *ctx, const char *title);
+    void (*on_bell)(void *ctx, int mode);
+    void (*on_exit)(void *ctx);
+    void (*on_request_redraw)(void *ctx, PuttyBridgeRect dirtyPixels);
+} PuttySessionCallbacks;
+
+void putty_session_set_callbacks(
+    PuttySession *session,
+    const PuttySessionCallbacks *callbacks,
+    void *ctx);
+
+/**
+ * Create a session (Seat + Terminal + stub TermWin). Does not connect yet;
+ * call putty_session_start() to open the backend.
  *
- * Lifecycle and callback registration APIs arrive in Phase 3.2–3.4.
+ * If conf is NULL, default settings are loaded and owned by the session.
+ * If conf is non-NULL, settings are copied from conf (caller keeps conf).
  */
+PuttySession *putty_session_new(const PuttyConf *conf);
+
+void putty_session_free(PuttySession *session);
+
+/** Open the backend and create the line discipline. */
+void putty_session_start(PuttySession *session);
+
+/** Apply new settings to a live or idle session. */
+void putty_session_reconfigure(PuttySession *session, const PuttyConf *conf);
+
+/** For backend_unthrottle and other C-side backend access (Phase 3.4). */
+struct Backend *putty_session_get_backend(PuttySession *session);
+
+/* ---------------------------------------------------------------------- */
+/* Smoke test (Phase 3.2; not for production use) */
+
+int putty_bridge_session_smoke(void);
 
 #ifdef __cplusplus
 }

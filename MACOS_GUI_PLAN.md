@@ -361,21 +361,28 @@ module and call the C entry points.
 
 ### 3.2 Session object
 
-- [ ] `PuttySession *putty_session_new(const Conf *conf)` — allocate seat, terminal, backend.
-- [ ] `void putty_session_free(PuttySession *)`.
-- [ ] `void putty_session_start(PuttySession *)` / `putty_session_reconfigure(PuttySession *, Conf *)`.
-- [ ] `Backend *putty_session_get_backend(PuttySession *)` for throttle/unthrottle.
-- [ ] Callback registration struct:
+- [x] `PuttySession *putty_session_new(const PuttyConf *conf)` — allocate seat, terminal, backend.
+- [x] `void putty_session_free(PuttySession *)`.
+- [x] `void putty_session_start(PuttySession *)` / `putty_session_reconfigure(PuttySession *, PuttyConf *)`.
+- [x] `Backend *putty_session_get_backend(PuttySession *)` for throttle/unthrottle.
+- [x] Callback registration struct:
 
   ```c
   typedef struct PuttySessionCallbacks {
       void (*on_title_changed)(void *ctx, const char *title);
       void (*on_bell)(void *ctx, int mode);
       void (*on_exit)(void *ctx);
-      void (*on_request_redraw)(void *ctx, NSRect dirtyPixels); /* bridged to Swift */
+      void (*on_request_redraw)(void *ctx, PuttyBridgeRect dirtyPixels);
       /* … */
   } PuttySessionCallbacks;
   ```
+
+`putty-session.c` implements a minimal fuzzterm-style `TermWin` stub and partial
+`SeatVtable`, wiring title/bell/redraw/exit to `PuttySessionCallbacks`.
+`putty_session_new(NULL)` loads defaults; `putty_session_start()` runs
+`prepare_session` + `backend_init` + `ldisc_create`. `PuttyBridgeSwiftSmoke`
+calls `putty_bridge_session_smoke()` to create and destroy a session without
+connecting.
 
 ### 3.3 Configuration access
 
