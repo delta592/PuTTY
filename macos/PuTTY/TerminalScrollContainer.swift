@@ -10,7 +10,7 @@ protocol TerminalResizeScrolling: AnyObject {
 
 /// Terminal surface plus a PuTTY-style vertical scrollback scroller.
 @MainActor
-final class TerminalScrollContainer: NSView, TerminalResizeScrolling {
+final class TerminalScrollContainer: NSView, TerminalResizeScrolling, TerminalWindowChrome {
     let terminalView = TerminalView()
 
     private let scroller = NSScroller()
@@ -19,12 +19,15 @@ final class TerminalScrollContainer: NSView, TerminalResizeScrolling {
     private var scrollStart = 0
     private var scrollPage = 0
     private var winResizePending = false
+    private var windowTitle = "PuTTY"
+    private var iconTitle = ""
 
     weak var hostWindow: NSWindow?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         terminalView.resizeScrollHost = self
+        terminalView.windowChromeHost = self
 
         scroller.isEnabled = false
         scroller.target = self
@@ -118,6 +121,55 @@ final class TerminalScrollContainer: NSView, TerminalResizeScrolling {
             forContentRect: NSRect(origin: .zero, size: contentSize)
         )
         window.setFrame(frame, display: true, animate: false)
+    }
+
+    // MARK: - TerminalWindowChrome
+
+    func ringBell(mode: Int32, termWin: OpaquePointer) {
+        TerminalBell.play(mode: mode, termWin: termWin)
+    }
+
+    func setWindowTitle(_ title: String) {
+        windowTitle = title
+        hostWindow?.title = title
+        updateDockTile()
+    }
+
+    func setIconTitle(_ title: String) {
+        iconTitle = title
+        updateDockTile()
+    }
+
+    private func updateDockTile() {
+        guard let termWin = terminalView.termWin else { return }
+        let dockTile = NSApp.dockTile
+
+        if putty_bridge_termwin_win_name_always(termWin) {
+            dockTile.contentView = nil
+            dockTile.display()
+            return
+        }
+
+        let label = iconTitle.isEmpty ? windowTitle : iconTitle
+        guard !label.isEmpty else {
+            dockTile.contentView = nil
+            dockTile.display()
+            return
+        }
+
+        let field = NSTextField(labelWithString: label)
+        field.font = .systemFont(ofSize: 11, weight: .medium)
+        field.textColor = .labelColor
+        field.backgroundColor = .clear
+        field.isBezeled = false
+        field.isEditable = false
+        field.sizeToFit()
+        field.frame.origin = NSPoint(
+            x: (dockTile.size.width - field.frame.width) / 2,
+            y: (dockTile.size.height - field.frame.height) / 2
+        )
+        dockTile.contentView = field
+        dockTile.display()
     }
 
     // MARK: - Layout

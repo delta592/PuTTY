@@ -60,7 +60,16 @@ typedef struct PuttyBridgeTermWinCallbacks {
     void (*set_scrollbar)(
         void *ctx, int32_t total, int32_t start, int32_t page);
     void (*request_resize)(void *ctx, int32_t cols, int32_t rows);
+    void (*bell)(void *ctx, int32_t mode);
+    void (*set_title)(void *ctx, const char *title_utf8);
+    void (*set_icon_title)(void *ctx, const char *title_utf8);
 } PuttyBridgeTermWinCallbacks;
+
+#define PUTTY_BRIDGE_BELL_DISABLED    0
+#define PUTTY_BRIDGE_BELL_DEFAULT     1
+#define PUTTY_BRIDGE_BELL_VISUAL      2
+#define PUTTY_BRIDGE_BELL_WAVEFILE    3
+#define PUTTY_BRIDGE_BELL_PCSPEAKER     4
 
 #define PUTTY_BRIDGE_RESIZE_TERM      0
 #define PUTTY_BRIDGE_RESIZE_DISABLED  1
@@ -247,6 +256,13 @@ int putty_bridge_termwin_input_smoke(void);
 
 /** Smoke test: scrollbar state, scroll-to, resize policy. Returns 0 on success. */
 int putty_bridge_termwin_scroll_resize_smoke(void);
+
+bool putty_bridge_termwin_win_name_always(const PuttyBridgeTermWin *btw);
+bool putty_bridge_termwin_bell_wavefile_path(
+    const PuttyBridgeTermWin *btw, char *buf, size_t buflen);
+
+/** Smoke test: bell and title callbacks / title decode. Returns 0 on success. */
+int putty_bridge_termwin_bell_title_smoke(void);
 
 #ifdef __cplusplus
 }

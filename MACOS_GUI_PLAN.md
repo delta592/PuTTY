@@ -539,8 +539,8 @@ selection copy. `putty_bridge_termwin_setup_clipboards()` mirrors GTK
 
 ### 4.8 Bell and title
 
-- [ ] `bell()` → `NSBeep()` or play configured sound file.
-- [ ] `set_title` / `set_icon_title` → update `NSWindow.title` and Dock tile.
+- [x] `bell()` → `NSBeep()` or play configured sound file.
+- [x] `set_title` / `set_icon_title` → update `NSWindow.title` and Dock tile.
 
 **Phase 4 exit criteria:** Local echo test session displays correctly; `test_terminal`-equivalent manual QA passes; performance gate met.
 

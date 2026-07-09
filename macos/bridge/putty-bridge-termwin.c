@@ -11,6 +11,7 @@
 #include "osxkeys.h"
 #include "terminal.h"
 #include "platform.h"
+#include "misc.h"
 
 struct PuttyBridgeTermWin {
     MacTermWin *mtw;
@@ -186,6 +187,56 @@ static void bridge_request_resize(void *ctx, int w, int h)
         btw->swift_callbacks.request_resize(btw->swift_view_ctx, w, h);
 }
 
+static char *bridge_decode_title(const char *title, int codepage)
+{
+    if (!title)
+        return dupstr("");
+
+    if (codepage == CP_UTF8)
+        return dupstr(title);
+
+    {
+        wchar_t *wide = dup_mb_to_wc(codepage, title);
+        char *utf8 = encode_wide_string_as_utf8(wide);
+        sfree(wide);
+        return utf8;
+    }
+}
+
+static void bridge_bell(void *ctx, int mode)
+{
+    PuttyBridgeTermWin *btw = (PuttyBridgeTermWin *)ctx;
+
+    if (btw->swift_callbacks.bell)
+        btw->swift_callbacks.bell(btw->swift_view_ctx, mode);
+}
+
+static void bridge_set_title(void *ctx, const char *title, int codepage)
+{
+    PuttyBridgeTermWin *btw = (PuttyBridgeTermWin *)ctx;
+    char *utf8;
+
+    if (!btw->swift_callbacks.set_title)
+        return;
+
+    utf8 = bridge_decode_title(title, codepage);
+    btw->swift_callbacks.set_title(btw->swift_view_ctx, utf8);
+    sfree(utf8);
+}
+
+static void bridge_set_icon_title(void *ctx, const char *title, int codepage)
+{
+    PuttyBridgeTermWin *btw = (PuttyBridgeTermWin *)ctx;
+    char *utf8;
+
+    if (!btw->swift_callbacks.set_icon_title)
+        return;
+
+    utf8 = bridge_decode_title(title, codepage);
+    btw->swift_callbacks.set_icon_title(btw->swift_view_ctx, utf8);
+    sfree(utf8);
+}
+
 static Mouse_Button bridge_translate_button(Mouse_Button button)
 {
     if (button == MBT_LEFT)
@@ -216,6 +267,9 @@ static void bridge_install_termwin_callbacks(PuttyBridgeTermWin *btw)
         .clip_request_paste = bridge_clip_request_paste,
         .set_scrollbar = bridge_set_scrollbar,
         .request_resize = bridge_request_resize,
+        .bell = bridge_bell,
+        .set_title = bridge_set_title,
+        .set_icon_title = bridge_set_icon_title,
     };
 
     mac_termwin_set_callbacks(btw->mtw, &internal_cbs, btw);
@@ -662,6 +716,30 @@ void putty_bridge_termwin_scrollbar_state(
         *page = btw->mtw->scroll_page;
 }
 
+bool putty_bridge_termwin_win_name_always(const PuttyBridgeTermWin *btw)
+{
+    if (!btw->conf)
+        return false;
+    return conf_get_bool(btw->conf, CONF_win_name_always);
+}
+
+bool putty_bridge_termwin_bell_wavefile_path(
+    const PuttyBridgeTermWin *btw, char *buf, size_t buflen)
+{
+    const Filename *wavefile;
+
+    if (!btw->conf || !buf || buflen == 0)
+        return false;
+
+    wavefile = conf_get_filename(btw->conf, CONF_bell_wavefile);
+    if (filename_is_null(wavefile))
+        return false;
+
+    strncpy(buf, filename_to_str(wavefile), buflen - 1);
+    buf[buflen - 1] = '\0';
+    return buf[0] != '\0';
+}
+
 bool putty_bridge_termwin_raw_mouse_active(const PuttyBridgeTermWin *btw)
 {
     Terminal *term;
@@ -984,6 +1062,111 @@ int putty_bridge_termwin_scroll_resize_smoke(void)
     if (smoke_req_cols != 90 || smoke_req_rows != 28) {
         putty_bridge_termwin_free(btw);
         return 8;
+    }
+
+    putty_bridge_termwin_free(btw);
+    return 0;
+}
+
+static int32_t smoke_bell_mode;
+static char smoke_window_title[256];
+static char smoke_icon_title[256];
+
+static void smoke_bell(void *ctx, int32_t mode)
+{
+    (void)ctx;
+    smoke_bell_mode = mode;
+}
+
+static void smoke_set_title(void *ctx, const char *title_utf8)
+{
+    (void)ctx;
+    strncpy(smoke_window_title, title_utf8 ? title_utf8 : "",
+            sizeof(smoke_window_title) - 1);
+    smoke_window_title[sizeof(smoke_window_title) - 1] = '\0';
+}
+
+static void smoke_set_icon_title(void *ctx, const char *title_utf8)
+{
+    (void)ctx;
+    strncpy(smoke_icon_title, title_utf8 ? title_utf8 : "",
+            sizeof(smoke_icon_title) - 1);
+    smoke_icon_title[sizeof(smoke_icon_title) - 1] = '\0';
+}
+
+static const PuttyBridgeTermWinCallbacks smoke_bell_title_cbs = {
+    .bell = smoke_bell,
+    .set_title = smoke_set_title,
+    .set_icon_title = smoke_set_icon_title,
+};
+
+int putty_bridge_termwin_bell_title_smoke(void)
+{
+    PuttyBridgeTermWin *btw;
+    char wavepath[512];
+
+    btw = putty_bridge_termwin_new();
+    putty_bridge_termwin_set_callbacks(btw, &smoke_bell_title_cbs, NULL);
+    if (!putty_bridge_termwin_init_demo(btw)) {
+        putty_bridge_termwin_free(btw);
+        return 1;
+    }
+
+    if (putty_bridge_termwin_win_name_always(btw) !=
+        conf_get_bool(btw->conf, CONF_win_name_always)) {
+        putty_bridge_termwin_free(btw);
+        return 2;
+    }
+
+    smoke_bell_mode = -1;
+    smoke_window_title[0] = smoke_icon_title[0] = '\0';
+
+    win_bell(mac_termwin_get_termwin(btw->mtw), BELL_DEFAULT);
+    if (smoke_bell_mode != PUTTY_BRIDGE_BELL_DEFAULT) {
+        putty_bridge_termwin_free(btw);
+        return 3;
+    }
+
+    win_set_title(mac_termwin_get_termwin(btw->mtw), "PuTTY Session", CP_UTF8);
+    if (strcmp(smoke_window_title, "PuTTY Session") != 0) {
+        putty_bridge_termwin_free(btw);
+        return 4;
+    }
+
+    win_set_icon_title(mac_termwin_get_termwin(btw->mtw), "ssh.example", CP_UTF8);
+    if (strcmp(smoke_icon_title, "ssh.example") != 0) {
+        putty_bridge_termwin_free(btw);
+        return 5;
+    }
+
+    putty_bridge_termwin_feed(btw, "\033]0;OSC Title\007", 14);
+    if (strcmp(smoke_window_title, "OSC Title") != 0) {
+        putty_bridge_termwin_free(btw);
+        return 6;
+    }
+
+    if (putty_bridge_termwin_bell_wavefile_path(btw, wavepath, sizeof(wavepath))) {
+        putty_bridge_termwin_free(btw);
+        return 7;
+    }
+
+    conf_set_int(btw->conf, CONF_beep, BELL_WAVEFILE);
+    conf_set_filename(btw->conf, CONF_bell_wavefile,
+                      filename_from_str("/tmp/putty-bell-test.wav"));
+    if (!putty_bridge_termwin_bell_wavefile_path(btw, wavepath, sizeof(wavepath))) {
+        putty_bridge_termwin_free(btw);
+        return 8;
+    }
+    if (strcmp(wavepath, "/tmp/putty-bell-test.wav") != 0) {
+        putty_bridge_termwin_free(btw);
+        return 9;
+    }
+
+    smoke_bell_mode = -1;
+    win_bell(mac_termwin_get_termwin(btw->mtw), BELL_WAVEFILE);
+    if (smoke_bell_mode != PUTTY_BRIDGE_BELL_WAVEFILE) {
+        putty_bridge_termwin_free(btw);
+        return 10;
     }
 
     putty_bridge_termwin_free(btw);

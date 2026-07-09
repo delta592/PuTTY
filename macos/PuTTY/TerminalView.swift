@@ -120,13 +120,46 @@ private enum TerminalViewBridge {
             )
         }
     }
+
+    static let bell: @convention(c) (UnsafeMutableRawPointer?, Int32) -> Void =
+        { ctx, mode in
+            guard let ctx else { return }
+            let view = Unmanaged<TerminalView>.fromOpaque(ctx).takeUnretainedValue()
+            MainActor.assumeIsolated {
+                guard let termWin = view.termWin else { return }
+                view.windowChromeHost?.ringBell(mode: mode, termWin: termWin)
+            }
+        }
+
+    static let setTitle: @convention(c) (
+        UnsafeMutableRawPointer?, UnsafePointer<CChar>?
+    ) -> Void = { ctx, title in
+        guard let ctx, let title else { return }
+        let view = Unmanaged<TerminalView>.fromOpaque(ctx).takeUnretainedValue()
+        let string = String(cString: title)
+        MainActor.assumeIsolated {
+            view.windowChromeHost?.setWindowTitle(string)
+        }
+    }
+
+    static let setIconTitle: @convention(c) (
+        UnsafeMutableRawPointer?, UnsafePointer<CChar>?
+    ) -> Void = { ctx, title in
+        guard let ctx, let title else { return }
+        let view = Unmanaged<TerminalView>.fromOpaque(ctx).takeUnretainedValue()
+        let string = String(cString: title)
+        MainActor.assumeIsolated {
+            view.windowChromeHost?.setIconTitle(string)
+        }
+    }
 }
 
-/// AppKit terminal surface wired to MacTermWin (Phase 4.2–4.7).
+/// AppKit terminal surface wired to MacTermWin (Phase 4.2–4.8).
 @MainActor
 final class TerminalView: NSView {
     nonisolated(unsafe) private(set) var termWin: OpaquePointer?
     weak var resizeScrollHost: TerminalResizeScrolling?
+    weak var windowChromeHost: TerminalWindowChrome?
 
     private var isPainting = false
     private let renderer = TerminalTextRenderer()
@@ -185,7 +218,10 @@ final class TerminalView: NSView {
             clip_write: TerminalViewBridge.clipWrite,
             clip_request_paste: TerminalViewBridge.clipRequestPaste,
             set_scrollbar: TerminalViewBridge.setScrollbar,
-            request_resize: TerminalViewBridge.requestResize
+            request_resize: TerminalViewBridge.requestResize,
+            bell: TerminalViewBridge.bell,
+            set_title: TerminalViewBridge.setTitle,
+            set_icon_title: TerminalViewBridge.setIconTitle
         )
         let ctx = Unmanaged.passUnretained(self).toOpaque()
         putty_bridge_termwin_set_callbacks(handle, &callbacks, ctx)

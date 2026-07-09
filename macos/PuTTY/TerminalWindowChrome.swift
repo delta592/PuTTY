@@ -1,0 +1,43 @@
+import AppKit
+import PuttyBridge
+
+/// Window chrome updates from MacTermWin (Phase 4.8).
+@MainActor
+protocol TerminalWindowChrome: AnyObject {
+    func ringBell(mode: Int32, termWin: OpaquePointer)
+    func setWindowTitle(_ title: String)
+    func setIconTitle(_ title: String)
+}
+
+/// Plays terminal bells per Conf beep mode.
+enum TerminalBell {
+    static func play(mode: Int32, termWin: OpaquePointer) {
+        switch mode {
+        case PUTTY_BRIDGE_BELL_DEFAULT, PUTTY_BRIDGE_BELL_PCSPEAKER:
+            NSSound.beep()
+        case PUTTY_BRIDGE_BELL_WAVEFILE:
+            playWaveFile(termWin: termWin)
+        case PUTTY_BRIDGE_BELL_VISUAL:
+            break
+        default:
+            break
+        }
+    }
+
+    private static func playWaveFile(termWin: OpaquePointer) {
+        var pathBuf = [CChar](repeating: 0, count: 4096)
+        guard putty_bridge_termwin_bell_wavefile_path(
+            termWin, &pathBuf, pathBuf.count
+        ) else {
+            NSSound.beep()
+            return
+        }
+
+        let path = String(decoding: pathBuf.prefix(while: { $0 != 0 }).map(UInt8.init), as: UTF8.self)
+        guard let sound = NSSound(contentsOfFile: path, byReference: false) else {
+            NSSound.beep()
+            return
+        }
+        sound.play()
+    }
+}

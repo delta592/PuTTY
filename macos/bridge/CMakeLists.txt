@@ -115,3 +115,9 @@ add_executable(putty-bridge-termwin-scroll-resize-smoke-c
 
 target_link_libraries(putty-bridge-termwin-scroll-resize-smoke-c PRIVATE
   putty-macos-bridge)
+
+add_executable(putty-bridge-termwin-bell-title-smoke-c
+  putty-bridge-termwin-bell-title-smoke-main.c)
+
+target_link_libraries(putty-bridge-termwin-bell-title-smoke-c PRIVATE
+  putty-macos-bridge)
