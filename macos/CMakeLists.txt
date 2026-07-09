@@ -261,12 +261,23 @@ add_executable(pageant
   platform/noise.c
   ${CMAKE_SOURCE_DIR}/ssh/x11fwd.c
   ${CMAKE_SOURCE_DIR}/proxy/nosshproxy.c
-  platform/noaskpass.c
+  platform/askpass-appkit.m
   platform/no-gtk.c)
 be_list(pageant Pageant)
 target_link_libraries(pageant
-  eventloop console agent settings network crypto utils)
+  eventloop console agent settings network crypto utils
+  "-framework AppKit" "-framework Foundation")
 installed_program(pageant)
+
+# Phase 7.4: headless askpass smoke (PUTTY_ASKPASS_RESPONSE).
+add_executable(putty-mac-askpass-smoke-c
+  platform/askpass-smoke-main.c
+  platform/askpass-appkit.m
+  ${CMAKE_SOURCE_DIR}/stubs/no-gss.c
+  platform/no-gtk.c)
+target_link_libraries(putty-mac-askpass-smoke-c
+  utils
+  "-framework AppKit" "-framework Foundation")
 
 # ---------------------------------------------------------------------------
 # Swift / AppKit GUI (Phase 1+)

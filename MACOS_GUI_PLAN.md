@@ -958,10 +958,25 @@ passphrase fields. Entropy via `random_setup_special()` /
 Ed25519 generate → PPK save/load round-trip.
 ### 7.4 Pageant / agent integration
 
-- [ ] Evaluate **macOS OpenSSH agent** (`$SSH_AUTH_SOCK`) as default vs embedded agent.
-- [ ] If embedded: port `pageant.c` logic with `NSStatusItem` menu (optional).
-- [ ] Implement `askpass` helper for GUI passphrase prompts via Keychain or secure dialog.
-- [ ] Document Keychain storage for keys as future enhancement.
+- [x] Evaluate **macOS OpenSSH agent** (`$SSH_AUTH_SOCK`) as default vs embedded agent.
+- [x] If embedded: port `pageant.c` logic with `NSStatusItem` menu (optional) — **deferred**.
+- [x] Implement `askpass` helper for GUI passphrase prompts via Keychain or secure dialog.
+- [x] Document Keychain storage for keys as future enhancement.
+
+**Decision:** default to the system OpenSSH agent (`$SSH_AUTH_SOCK`);
+PuTTY.app already uses `agent-client.c` with `CONF_tryagent` default
+true (validated in Phase 5). Full Pageant.app / `NSStatusItem` is
+deferred. See [macos/AGENT.md](macos/AGENT.md).
+
+**Askpass:** `macos/platform/askpass-appkit.m` implements
+`gtk_askpass_main()` with an AppKit secure dialog (and
+`PUTTY_ASKPASS_RESPONSE` for headless tests). CLI `pageant` links it
+instead of `noaskpass.c`; on Apple, pageant treats Aqua as available
+without `$DISPLAY`. Keychain private-key storage is documented as
+future work in `AGENT.md`.
+
+**Smoke:** `putty-mac-askpass-smoke-c`;
+`PUTTY_ASKPASS_RESPONSE=… pageant --askpass '…'`.
 
 ### 7.5 Shared code between apps
 
