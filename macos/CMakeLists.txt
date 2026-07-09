@@ -43,6 +43,14 @@ add_sources_from_current_dir(settings
   platform/stubs.c
   platform/gui-seat-list.c)
 
+add_library(macguifrontend STATIC
+  platform/termwin.c)
+be_list(macguifrontend PuTTY)
+target_link_libraries(macguifrontend PUBLIC
+  guiterminal eventloop settings utils charset)
+target_include_directories(macguifrontend PUBLIC
+  ${CMAKE_CURRENT_SOURCE_DIR}/platform)
+
 add_sources_from_current_dir(network
   platform/network.c
   platform/fd-socket.c
@@ -94,6 +102,15 @@ add_sources_from_current_dir(test_conf
 # ---------------------------------------------------------------------------
 # CLI tools and helpers (non-GTK unix targets, adapted for macos/platform/)
 # ---------------------------------------------------------------------------
+
+add_executable(putty-mac-termwin-smoke-c
+  platform/termwin-smoke-main.c
+  ${CMAKE_SOURCE_DIR}/stubs/no-print.c
+  ${CMAKE_SOURCE_DIR}/stubs/no-gss.c
+  platform/unicode.c
+  platform/no-gtk.c)
+target_link_libraries(putty-mac-termwin-smoke-c
+  macguifrontend eventloop charset settings utils)
 
 add_executable(fuzzterm
   ${CMAKE_SOURCE_DIR}/test/fuzzterm.c

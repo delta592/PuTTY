@@ -453,12 +453,22 @@ Set `PUTTY_BRIDGE_PHASE3_SKIP=1` to skip live SSH when no test server is availab
 
 ### 4.1 `MacTermWin` C struct
 
-- [ ] Define `MacTermWin` holding:
+- [x] Define `MacTermWin` holding:
   - `TermWin termwin` (vtable pointer)
   - Weak reference to Swift `TerminalView` (via `void *context` + callbacks)
   - Font metrics cache, palette (`rgb colours[OSC4_NCOLOURS]`)
   - Cell size in points, backing scale factor
-- [ ] Implement all `TermWinVtable` methods in `macos/platform/termwin.c`.
+- [x] Implement all `TermWinVtable` methods in `macos/platform/termwin.c`.
+
+`macos/platform/termwin.h` defines `MacTermWin`, `MacTermWinCallbacks`, and
+lifecycle helpers. Drawing and window chrome forward to optional Swift callbacks;
+`palette_set` and font metrics are cached in C for Phase 4.3 Core Text.
+`macguifrontend` static library links `termwin.c`; smoke test:
+
+```bash
+env -u LDFLAGS -u CPPFLAGS cmake --build build-macos-gui --target putty-mac-termwin-smoke-c
+./build-macos-gui/putty-mac-termwin-smoke-c
+```
 
 ### 4.2 Swift `TerminalView` (`NSView` subclass)
 

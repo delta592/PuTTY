@@ -1,8 +1,9 @@
 /*
  * macos/mac-gui-seat.h — opaque GUI front-end types for the AppKit port.
  *
- * Full structure definitions live in macos/platform/seat.c and termwin.c
- * (Phases 5 and 4). This header exposes only what other translation units
+ * MacTermWin is defined in macos/platform/termwin.h (Phase 4.1).
+ * MacGuiSeat will be defined in macos/platform/seat.c (Phase 5).
+ * This header exposes only what other translation units
  * need for pointers and list management.
  */
 
