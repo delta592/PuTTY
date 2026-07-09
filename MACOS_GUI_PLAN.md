@@ -263,8 +263,8 @@ Adapt from `unix/` with minimal changes:
 | `console.c` | `console.c` | For any CLI fallbacks |
 | `cliloop.c`, `uxsel.c` | same | Reuse — GUI integrates via Phase 5 event loop |
 
-- [ ] Add `macos/CMakeLists.txt` `add_sources_from_current_dir` blocks mirroring `unix/CMakeLists.txt` but **excluding** all GTK files.
-- [ ] Link `charset` into `utils` the same way root `CMakeLists.txt` does for `unix`.
+- [x] Add `macos/CMakeLists.txt` `add_sources_from_current_dir` blocks mirroring `unix/CMakeLists.txt` but **excluding** all GTK files.
+- [x] Link `charset` into `utils` the same way root `CMakeLists.txt` does for `unix`.
 
 ### 2.3 Storage paths and sandboxing
 

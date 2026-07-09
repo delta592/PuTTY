@@ -203,6 +203,10 @@ extern const SftpServerVtable unix_live_sftpserver_vt;
 void pty_pre_init(void);
 extern char **pty_argv;
 
+/* askpass / noaskpass (pageant without AppKit askpass until Phase 6). */
+char *gtk_askpass_main(const char *display, const char *wintitle,
+                       const char *prompt, bool *success);
+
 /* ---------------------------------------------------------------------- */
 /* Poll / event loop integration */
 

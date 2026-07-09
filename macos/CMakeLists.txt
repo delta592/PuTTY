@@ -1,17 +1,14 @@
 # macOS platform build (AppKit GUI).
 #
-# Phase 1.2: CMake integration stub. Platform C sources are wired in
-# Phase 2; Swift/AppKit application targets are added in Phase 1.4+.
+# Phase 2.2: non-GTK platform C modules (mirrors unix/CMakeLists.txt).
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
-include(${CMAKE_CURRENT_SOURCE_DIR}/platform_sources.cmake)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/icons.cmake)
 
 # Swift / Objective-C toolchain (Phase 1.3; languages enabled at project()).
 set(CMAKE_Swift_LANGUAGE_VERSION 6)
 
-# Directory containing module.modulemap for the PuttyBridge clang module.
 set(PUTTY_MACOS_PUTTYBRIDGE_MODULE_DIR
   ${CMAKE_CURRENT_SOURCE_DIR}/bridge
   CACHE INTERNAL "PuttyBridge module.modulemap directory")
@@ -25,6 +22,187 @@ endfunction()
 function(putty_macos_register_gui_app target)
   set_property(GLOBAL APPEND PROPERTY PUTTY_MACOS_GUI_APP_TARGETS ${target})
 endfunction()
+
+# ---------------------------------------------------------------------------
+# Platform C libraries (non-GTK; paths under macos/platform/ and macos/utils/)
+# ---------------------------------------------------------------------------
+
+add_sources_from_current_dir(utils
+  utils/arm_arch_queries.c
+  utils/block_signal.c
+  utils/cloexec.c
+  utils/cmdline_arg.c
+  utils/dputs.c
+  utils/filename.c
+  utils/fontspec.c
+  utils/getticks.c
+  utils/get_username.c
+  utils/keysym_to_unicode.c
+  utils/make_dir_and_check_ours.c
+  utils/make_dir_path.c
+  utils/make_spr_sw_abort_errno.c
+  utils/nonblock.c
+  utils/open_for_write_would_lose_data.c
+  utils/pgp_fingerprints.c
+  utils/pollwrap.c
+  utils/signal.c
+  utils/subprocess_waiter.c
+  utils/x11_ignore_error.c
+  ../utils/ltime.c)
+
+add_sources_from_current_dir(eventloop
+  platform/cliloop.c
+  platform/uxsel.c)
+
+add_sources_from_current_dir(console
+  platform/console.c)
+
+add_sources_from_current_dir(settings
+  platform/storage.c
+  platform/stubs.c
+  platform/gui-seat-list.c)
+
+add_sources_from_current_dir(network
+  platform/network.c
+  platform/fd-socket.c
+  platform/agent-socket.c
+  platform/peerinfo.c
+  platform/local-proxy.c
+  platform/x11.c)
+
+add_sources_from_current_dir(sshcommon
+  platform/noise.c)
+
+add_sources_from_current_dir(sshclient
+  platform/gss.c
+  platform/agent-client.c
+  platform/sharing.c)
+
+add_sources_from_current_dir(sshserver
+  platform/sftpserver.c
+  platform/procnet.c)
+
+add_sources_from_current_dir(sftpclient
+  platform/sftp.c)
+
+add_sources_from_current_dir(otherbackends
+  platform/serial.c)
+
+add_sources_from_current_dir(agent
+  platform/agent-client.c)
+
+add_sources_from_current_dir(plink
+  platform/unicode.c
+  platform/no-gtk.c)
+
+add_sources_from_current_dir(pscp
+  platform/unicode.c
+  platform/no-gtk.c)
+
+add_sources_from_current_dir(psftp
+  platform/unicode.c
+  platform/no-gtk.c)
+
+add_sources_from_current_dir(psocks
+  platform/no-gtk.c)
+
+add_sources_from_current_dir(test_conf
+  platform/unicode.c
+  platform/stubs/no-uxsel.c)
+
+# ---------------------------------------------------------------------------
+# CLI tools and helpers (non-GTK unix targets, adapted for macos/platform/)
+# ---------------------------------------------------------------------------
+
+add_executable(fuzzterm
+  ${CMAKE_SOURCE_DIR}/test/fuzzterm.c
+  ${CMAKE_SOURCE_DIR}/stubs/no-print.c
+  platform/unicode.c
+  platform/no-gtk.c
+  $<TARGET_OBJECTS:logging>)
+be_list(fuzzterm FuZZterm)
+add_dependencies(fuzzterm generated_licence_h)
+target_link_libraries(fuzzterm
+  guiterminal eventloop charset settings utils)
+
+add_executable(osxlaunch
+  platform/osxlaunch.c)
+
+add_library(puttygen-common OBJECT
+  ${CMAKE_SOURCE_DIR}/stubs/no-timing.c
+  platform/keygen-noise.c
+  platform/no-gtk.c
+  platform/noise.c
+  platform/storage.c
+  ${CMAKE_SOURCE_DIR}/sshpubk.c
+  ${CMAKE_SOURCE_DIR}/sshrand.c)
+
+add_executable(puttygen
+  ${CMAKE_SOURCE_DIR}/cmdgen.c
+  $<TARGET_OBJECTS:puttygen-common>)
+target_link_libraries(puttygen keygen console crypto utils)
+installed_program(puttygen)
+
+add_executable(cgtest
+  ${CMAKE_SOURCE_DIR}/cgtest.c
+  $<TARGET_OBJECTS:puttygen-common>)
+target_link_libraries(cgtest keygen console crypto utils)
+
+if(HAVE_ALIGNED_ALLOC)
+  add_library(overaligned_alloc OBJECT
+    ${CMAKE_SOURCE_DIR}/utils/memory.c)
+  target_compile_definitions(overaligned_alloc PRIVATE ALLOCATION_ALIGNMENT=128)
+  add_executable(testsc
+    ${CMAKE_SOURCE_DIR}/test/testsc.c
+    $<TARGET_OBJECTS:overaligned_alloc>)
+  target_link_libraries(testsc keygen crypto utils)
+endif()
+
+add_executable(testzlib
+  ${CMAKE_SOURCE_DIR}/test/testzlib.c
+  ${CMAKE_SOURCE_DIR}/ssh/zlib.c)
+target_link_libraries(testzlib utils)
+
+add_executable(psusan
+  platform/psusan.c
+  ${CMAKE_SOURCE_DIR}/stubs/no-gss.c
+  ${CMAKE_SOURCE_DIR}/ssh/scpserver.c
+  platform/unicode.c
+  platform/no-gtk.c
+  platform/pty.c)
+be_list(psusan psusan)
+target_link_libraries(psusan
+  eventloop sshserver keygen settings network crypto utils)
+installed_program(psusan)
+
+add_executable(uppity
+  platform/uppity.c
+  ${CMAKE_SOURCE_DIR}/ssh/scpserver.c
+  platform/no-gtk.c
+  platform/pty.c
+  platform/unicode.c
+  ${CMAKE_SOURCE_DIR}/stubs/no-gss.c)
+be_list(uppity Uppity)
+target_link_libraries(uppity
+  eventloop sshserver keygen settings network crypto utils)
+
+add_executable(pageant
+  platform/pageant.c
+  ${CMAKE_SOURCE_DIR}/stubs/no-gss.c
+  platform/x11.c
+  platform/noise.c
+  ${CMAKE_SOURCE_DIR}/ssh/x11fwd.c
+  ${CMAKE_SOURCE_DIR}/proxy/nosshproxy.c
+  platform/noaskpass.c
+  platform/no-gtk.c)
+be_list(pageant Pageant)
+target_link_libraries(pageant
+  eventloop console agent settings network crypto utils)
+installed_program(pageant)
+
+# ---------------------------------------------------------------------------
+# Swift / AppKit GUI (Phase 1+)
+# ---------------------------------------------------------------------------
 
 add_subdirectory(bridge)
 add_subdirectory(PuTTY)
