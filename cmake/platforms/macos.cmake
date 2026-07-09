@@ -4,6 +4,14 @@
 # Universal 2 / CMAKE_OSX_ARCHITECTURES is configured in cmake/macos_early.cmake
 # before project() (Phase 1.7).
 
+set(PUTTY_MACOS_APPKIT 1)
+
+if(PUTTY_MACOS_UNIVERSAL_ACTIVE)
+  set(PUTTY_MACOS_UNIVERSAL_BUILD 1)
+else()
+  set(PUTTY_MACOS_UNIVERSAL_BUILD 0)
+endif()
+
 set(PUTTY_MACOS_DEPLOYMENT_TARGET "15.0"
   CACHE STRING "Minimum macOS version for GUI targets")
 set(PUTTY_MACOS_SIGN_IDENTITY ""

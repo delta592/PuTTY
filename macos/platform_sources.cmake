@@ -32,7 +32,8 @@ add_sources_from_current_dir(console
 
 add_sources_from_current_dir(settings
   ../unix/storage.c
-  platform/stubs.c)
+  platform/stubs.c
+  platform/gui-seat-list.c)
 
 add_sources_from_current_dir(network
   ../unix/network.c

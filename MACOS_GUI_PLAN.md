@@ -237,12 +237,12 @@ All static libraries linked into GUI `.app` targets inherit `CMAKE_OSX_ARCHITECT
 
 ### 2.1 `macos/platform.h`
 
-- [ ] Define macOS types: `Filename`, `FontSpec`, clipboard constants, `BUILDINFO_PLATFORM`.
-- [ ] Set macOS-appropriate defaults (system clipboard only — no X11 PRIMARY selection).
-- [ ] Declare front-end entry points: `setup()`, `cleanup_exit()`, `initial_config_box()`, session launch helpers.
-- [ ] Declare `MacGuiSeat` / `MacTermWin` opaque structs (mirroring `WinGuiSeat` in `windows/win-gui-seat.h`).
-- [ ] Add `PLATFORM_CLIPBOARDS` mapping to NSPasteboard general / find pasteboards.
-- [ ] Extend `cmake/cmake.h.in` with any macOS-specific `#cmakedefine` symbols.
+- [x] Define macOS types: `Filename`, `FontSpec`, clipboard constants, `BUILDINFO_PLATFORM`.
+- [x] Set macOS-appropriate defaults (system clipboard only — no X11 PRIMARY selection).
+- [x] Declare front-end entry points: `setup()`, `cleanup_exit()`, `initial_config_box()`, session launch helpers.
+- [x] Declare `MacGuiSeat` / `MacTermWin` opaque structs (mirroring `WinGuiSeat` in `windows/win-gui-seat.h`).
+- [x] Add `PLATFORM_CLIPBOARDS` mapping to NSPasteboard general / find pasteboards.
+- [x] Extend `cmake/cmake.h.in` with any macOS-specific `#cmakedefine` symbols.
 
 ### 2.2 Port Unix platform C modules (non-GTK)
 

@@ -22,6 +22,9 @@
 #cmakedefine NOT_X_WINDOWS
 #cmakedefine OMIT_UTMP
 
+#cmakedefine PUTTY_MACOS_APPKIT
+#cmakedefine01 PUTTY_MACOS_UNIVERSAL_BUILD
+
 #cmakedefine01 HAVE_ASM_HWCAP_H
 #cmakedefine01 HAVE_SYS_AUXV_H
 #cmakedefine01 HAVE_SYS_SYSCTL_H
