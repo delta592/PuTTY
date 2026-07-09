@@ -15,7 +15,8 @@ configure_file(
   NEWLINE_STYLE UNIX)
 
 add_executable(PuTTY MACOSX_BUNDLE
-  PuTTYApp.swift)
+  PuTTYApp.swift
+  TerminalView.swift)
 
 set_target_properties(PuTTY PROPERTIES
   MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_BINARY_DIR}/Info.plist
@@ -30,6 +31,7 @@ target_compile_options(PuTTY PRIVATE
 target_link_libraries(PuTTY PRIVATE
   "-framework AppKit"
   putty-macos-bridge
+  macguifrontend
   guiterminal eventloop sshclient otherbackends settings network crypto utils)
 
 putty_macos_configure_swift_target(PuTTY)

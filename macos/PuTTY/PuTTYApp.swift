@@ -6,13 +6,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var window: NSWindow?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        let contentRect = NSRect(x: 0, y: 0, width: 800, height: 600)
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 640, height: 480),
+            contentRect: contentRect,
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
         )
         window.title = "PuTTY"
+
+        let terminalView = TerminalView(frame: contentRect)
+        terminalView.autoresizingMask = [.width, .height]
+        window.contentView = terminalView
+
         window.center()
         window.makeKeyAndOrderFront(nil)
         self.window = window

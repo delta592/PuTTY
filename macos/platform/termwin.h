@@ -102,6 +102,7 @@ MacTermWin *mac_termwin_from_termwin(TermWin *tw);
 
 void mac_termwin_set_callbacks(
     MacTermWin *mtw, const MacTermWinCallbacks *callbacks, void *view_ctx);
+void mac_termwin_set_view_ctx(MacTermWin *mtw, void *view_ctx);
 void mac_termwin_set_terminal(MacTermWin *mtw, Terminal *term);
 void mac_termwin_set_backend(MacTermWin *mtw, Backend *backend);
 void mac_termwin_set_conf(MacTermWin *mtw, Conf *conf);

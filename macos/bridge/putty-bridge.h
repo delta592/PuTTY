@@ -235,6 +235,8 @@ int putty_bridge_thread_smoke(void);
  */
 int putty_bridge_phase3_exit_test(void);
 
+#include "putty-bridge-termwin.h"
+
 #ifdef __cplusplus
 }
 #endif

@@ -369,6 +369,11 @@ void mac_termwin_set_callbacks(
     mtw->view_ctx = view_ctx;
 }
 
+void mac_termwin_set_view_ctx(MacTermWin *mtw, void *view_ctx)
+{
+    mtw->view_ctx = view_ctx;
+}
+
 void mac_termwin_set_terminal(MacTermWin *mtw, Terminal *term)
 {
     mtw->term = term;
