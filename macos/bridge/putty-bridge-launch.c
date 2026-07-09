@@ -53,6 +53,8 @@ int putty_bridge_open_session_window_count(void)
 bool putty_bridge_needs_initial_config(const PuttyConf *conf)
 {
     PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
+    if ((cmdline_tooltype & TOOLTYPE_NONNETWORK) != 0)
+        return false;
     if (!conf || !conf->conf)
         return true;
     return !cmdline_host_ok(conf->conf);
@@ -80,7 +82,13 @@ void new_session_window(Conf *conf, const char *geometry_string)
     if (!conf)
         return;
 
-    connect = conf_launchable(conf);
+    /*
+     * Network apps require a host (conf_launchable). pterm-style apps
+     * (TOOLTYPE_NONNETWORK) always start the PTY backend immediately,
+     * matching unix/main-gtk-simple.c.
+     */
+    connect = conf_launchable(conf) ||
+              (cmdline_tooltype & TOOLTYPE_NONNETWORK) != 0;
     pc = putty_conf_wrap_take(conf);
 
     if (!open_session_fn) {
@@ -375,6 +383,29 @@ void putty_bridge_show_host_ca_config(void)
 void putty_bridge_start_app(PuttyConf *conf, bool connect_immediately)
 {
     PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
+
+    /*
+     * pterm (TOOLTYPE_NONNETWORK): always open immediately — never call
+     * cmdline_host_ok() (it asserts TOOLTYPE_HOST_ARG).
+     */
+    if ((cmdline_tooltype & TOOLTYPE_NONNETWORK) != 0) {
+        Conf *c;
+
+        if (!conf) {
+            launch_new_session();
+            return;
+        }
+        c = conf->conf;
+        conf->conf = NULL;
+        putty_conf_free(conf);
+        if (!c) {
+            c = conf_new();
+            do_defaults(NULL, c);
+        }
+        conf_set_int(c, CONF_protocol, -1);
+        new_session_window(c, NULL);
+        return;
+    }
 
     if (connect_immediately && conf && conf->conf &&
         cmdline_host_ok(conf->conf)) {

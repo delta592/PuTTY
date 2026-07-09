@@ -1776,13 +1776,6 @@ void nonfatal_message_box(void *parent, const char *msg)
     mac_seat_show_nonfatal("Error", msg, NULL_HELPCTX);
 }
 
-void initial_config_box(Conf *conf, post_dialog_fn_t after, void *afterctx)
-{
-    char *title = dupcat(appname, " Configuration");
-    mac_config_create_box(title, conf, false, 0, after, afterctx);
-    sfree(title);
-}
-
 struct mac_change_settings_ctx {
     Conf **conf_inout;
     Conf *working;

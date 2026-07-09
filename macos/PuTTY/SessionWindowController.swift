@@ -1,6 +1,12 @@
 import AppKit
 import PuttyBridge
 
+/// Shared by PuTTY and pterm AppDelegates for Session menu enablement.
+@MainActor
+protocol SessionMenuUpdating: AnyObject {
+    func updateSessionActionMenus()
+}
+
 /// Owns one terminal session window (Phase 5.5).
 @MainActor
 final class SessionWindowController: NSWindowController, NSWindowDelegate {
@@ -35,7 +41,9 @@ final class SessionWindowController: NSWindowController, NSWindowDelegate {
             backing: .buffered,
             defer: false
         )
-        window.title = "PuTTY"
+        let appName = Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String
+            ?? "PuTTY"
+        window.title = appName
         window.contentView = scrollContainer
         scrollContainer.hostWindow = window
 
@@ -60,7 +68,11 @@ final class SessionWindowController: NSWindowController, NSWindowDelegate {
         }
         SessionSpecialsMenu.shared.setKeyController(self)
         SessionEventLog.shared.setKeyController(self)
-        (NSApp.delegate as? AppDelegate)?.updateSessionActionMenus()
+        menuUpdater?.updateSessionActionMenus()
+    }
+
+    private var menuUpdater: SessionMenuUpdating? {
+        NSApp.delegate as? SessionMenuUpdating
     }
 
     func refreshSpecialsMenu() {
@@ -71,7 +83,7 @@ final class SessionWindowController: NSWindowController, NSWindowDelegate {
         _ = notification
         SessionSpecialsMenu.shared.setKeyController(self)
         SessionEventLog.shared.setKeyController(self)
-        (NSApp.delegate as? AppDelegate)?.updateSessionActionMenus()
+        menuUpdater?.updateSessionActionMenus()
     }
 
     private func installRemoteExitCallback(termWin: OpaquePointer) {
@@ -82,7 +94,7 @@ final class SessionWindowController: NSWindowController, NSWindowDelegate {
 
     func sessionDidRemoteExit() {
         refreshSpecialsMenu()
-        (NSApp.delegate as? AppDelegate)?.updateSessionActionMenus()
+        menuUpdater?.updateSessionActionMenus()
     }
 
     @objc func closeSession(_ sender: Any?) {
@@ -97,9 +109,11 @@ final class SessionWindowController: NSWindowController, NSWindowDelegate {
             return true
         }
 
+        let appName = Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String
+            ?? "PuTTY"
         let alert = NSAlert()
         alert.alertStyle = .warning
-        alert.messageText = "PuTTY Exit Confirmation"
+        alert.messageText = "\(appName) Exit Confirmation"
         var message = "Are you sure you want to close this session?"
         if let extra = putty_bridge_termwin_close_warn_text(termWin) {
             message += "\n" + String(cString: extra)
@@ -117,7 +131,7 @@ final class SessionWindowController: NSWindowController, NSWindowDelegate {
         SessionEventLog.shared.sessionWillClose(self)
         Self.openControllers.removeAll { $0 === self }
         putty_bridge_session_window_closed()
-        (NSApp.delegate as? AppDelegate)?.updateSessionActionMenus()
+        menuUpdater?.updateSessionActionMenus()
     }
 }
 

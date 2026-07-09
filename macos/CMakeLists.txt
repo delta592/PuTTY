@@ -50,7 +50,7 @@ add_library(macguifrontend STATIC
   platform/osxkeys.c
   platform/config-macos.c
   platform/config-appkit.m)
-be_list(macguifrontend PuTTY)
+# be_list lives on the final app/bridge target (PuTTY vs pterm), not here.
 target_link_libraries(macguifrontend PUBLIC
   guiterminal eventloop settings utils charset
   "-framework AppKit" "-framework Foundation"
@@ -118,6 +118,7 @@ add_executable(putty-mac-termwin-smoke-c
   ${CMAKE_SOURCE_DIR}/stubs/no-gss.c
   platform/unicode.c
   platform/no-gtk.c)
+be_list(putty-mac-termwin-smoke-c PuTTY)
 target_link_libraries(putty-mac-termwin-smoke-c
   macguifrontend eventloop charset settings utils)
 
@@ -273,6 +274,7 @@ installed_program(pageant)
 
 add_subdirectory(bridge)
 add_subdirectory(PuTTY)
+add_subdirectory(pterm)
 
 if(PUTTY_MACOS_UNIVERSAL AND PUTTY_MACOS_UNIVERSAL_ACTIVE)
   get_property(_putty_macos_gui_apps GLOBAL PROPERTY PUTTY_MACOS_GUI_APP_TARGETS)

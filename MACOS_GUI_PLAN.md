@@ -922,11 +922,22 @@ enumeration.
 
 ### 7.2 pterm.app
 
-- [ ] Swift target sharing `TerminalView` + `MacTermWin` + `MacGuiSeat`.
-- [ ] `select_backend()` → `pty_backend`; `use_pty_argv = true`.
-- [ ] No connection panels; `initial_config_box` no-op with immediate window (mirror `unix/pterm.c`).
-- [ ] Subprocess environment: inherit clean environment (no GTK-style `osxlaunch` wrapper needed).
-- [ ] Separate bundle ID `org.tartarus.projects.putty.pterm`.
+- [x] Swift target sharing `TerminalView` + `MacTermWin` + `MacGuiSeat`.
+- [x] `select_backend()` → `pty_backend`; `use_pty_argv = true`.
+- [x] No connection panels; `initial_config_box` no-op with immediate window (mirror `unix/pterm.c`).
+- [x] Subprocess environment: inherit clean environment (no GTK-style `osxlaunch` wrapper needed).
+- [x] Separate bundle ID `org.tartarus.projects.putty.pterm`.
+
+`macos/pterm/` builds `pterm.app` with `pterm-macos-bridge` (pterm
+`be_list`, `pterm-app.c`, `pty.c`, slim cmdline). Shared Swift UI is
+referenced from `macos/PuTTY/` by path (PuttyMacUI extraction is Phase
+7.5). Menus omit New/Duplicate/Saved Sessions/Event Log; keep Restart,
+Change Settings, Specials. `initial_config_box` sets `CONF_protocol=-1`
+and opens immediately; `new_session_window` always connects for
+`TOOLTYPE_NONNETWORK`. Native AppKit — no `osxlaunch` env wrapper.
+
+**Smoke:** `putty-mac-pterm-smoke-c` (`putty_mac_pterm_smoke`) checks
+pterm constants, `pty_backend`, and immediate open with `connect=true`.
 
 ### 7.3 PuTTYgen.app
 

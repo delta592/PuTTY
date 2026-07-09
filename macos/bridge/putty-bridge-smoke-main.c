@@ -27,6 +27,8 @@
 #define PUTTY_BRIDGE_SMOKE_PASTE(a, b) PUTTY_BRIDGE_SMOKE_PASTE2(a, b)
 #define putty_bridge_smoke_run PUTTY_BRIDGE_SMOKE_PASTE(, PUTTY_BRIDGE_SMOKE_FUNC)
 
+int putty_bridge_smoke_run(void);
+
 int main(void)
 {
     int rc = putty_bridge_smoke_run();

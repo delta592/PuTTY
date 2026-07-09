@@ -508,10 +508,15 @@ bool mac_gui_seat_start(MacGuiSeat *seat)
         conf_get_bool(seat->conf, CONF_tcp_keepalives));
 
     if (error) {
-        seat_connection_fatal(
-            &seat->seat,
-            "Unable to open connection to %s:\n%s",
-            conf_dest(seat->conf), error);
+        if (cmdline_tooltype & TOOLTYPE_NONNETWORK) {
+            seat_connection_fatal(
+                &seat->seat, "Unable to open terminal:\n%s", error);
+        } else {
+            seat_connection_fatal(
+                &seat->seat,
+                "Unable to open connection to %s:\n%s",
+                conf_dest(seat->conf), error);
+        }
         sfree(error);
         return false;
     }
@@ -737,6 +742,9 @@ bool mac_gui_seat_can_restart(const MacGuiSeat *seat)
         return false;
     if (!seat->exited)
         return false;
+    /* pterm has no host; network apps still need a launchable Conf. */
+    if (cmdline_tooltype & TOOLTYPE_NONNETWORK)
+        return true;
     return conf_launchable(seat->conf);
 }
 

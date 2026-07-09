@@ -12,6 +12,8 @@
 #include "putty.h"
 #include "ssh.h"
 
+#include "config-appkit.h"
+
 const bool buildinfo_gtk_relevant = false;
 
 const bool use_event_log = true;
@@ -19,6 +21,7 @@ const bool new_session = true;
 const bool saved_sessions = true;
 const bool dup_check_launchable = true;
 const bool use_pty_argv = false;
+char **pty_argv; /* unused in PuTTY.app; defined for link parity with pty stubs */
 
 const bool share_can_be_downstream = true;
 const bool share_can_be_upstream = true;
@@ -71,6 +74,13 @@ void setup(bool single)
         if (vt)
             settings_set_default_port(vt->default_port);
     }
+}
+
+void initial_config_box(Conf *conf, post_dialog_fn_t after, void *afterctx)
+{
+    char *title = dupcat(appname, " Configuration");
+    mac_config_create_box(title, conf, false, 0, after, afterctx);
+    sfree(title);
 }
 
 void cleanup_exit(int code)

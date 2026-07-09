@@ -518,7 +518,8 @@ static bool putty_bridge_termwin_open_internal(
     bridge_install_termwin_callbacks(btw);
     bridge_install_seat_callbacks(btw);
 
-    launchable = conf_launchable(btw->conf);
+    launchable = conf_launchable(btw->conf) ||
+                 (cmdline_tooltype & TOOLTYPE_NONNETWORK) != 0;
     if (connect && launchable)
         ok = mac_gui_seat_start(btw->seat);
     else
@@ -921,11 +922,15 @@ void putty_bridge_termwin_set_font_metrics(
 
 double putty_bridge_termwin_cell_width_pt(const PuttyBridgeTermWin *btw)
 {
+    if (!btw || !btw->mtw)
+        return 0.0;
     return btw->mtw->cell_width_pt;
 }
 
 double putty_bridge_termwin_cell_height_pt(const PuttyBridgeTermWin *btw)
 {
+    if (!btw || !btw->mtw)
+        return 0.0;
     return btw->mtw->cell_height_pt;
 }
 
@@ -994,6 +999,8 @@ int32_t putty_bridge_termwin_rows(const PuttyBridgeTermWin *btw)
 double putty_bridge_termwin_ascent_pt(const PuttyBridgeTermWin *btw)
 {
     PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
+    if (!btw || !btw->mtw)
+        return 0.0;
     return btw->mtw->ascent_pt;
 }
 
