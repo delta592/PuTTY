@@ -166,3 +166,8 @@ add_custom_target(putty-mac-seat-gate
     putty-bridge-termwin-specials-exit-c
     putty-bridge-ssh-exit-c
   COMMENT "Build MacGuiSeat gate binaries")
+
+add_custom_target(putty-mac-config-gate
+  DEPENDS
+    putty-mac-config-smoke-c
+  COMMENT "Build config controlbox gate binaries (Phase 6.1)")

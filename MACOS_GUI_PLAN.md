@@ -528,6 +528,17 @@ Override host via
 `PUTTY_BRIDGE_TEST_HOST`, `PUTTY_BRIDGE_TEST_USER`, `PUTTY_BRIDGE_TEST_PORT`,
 and `PUTTY_BRIDGE_TEST_HOSTKEY`.
 
+### Phase 6.1 gate (`putty-mac-config-gate`)
+
+| Target | Validates |
+|--------|-----------|
+| `putty-mac-config-smoke-c` | controlbox → AppKit mapping + `dlg_*` (§6.1) |
+
+```bash
+$PUTTY_BUILD putty-mac-config-gate
+./build-macos-gui/putty-mac-config-smoke-c
+```
+
 ---
 
 ## Phase 4 — Terminal view and `TermWin` implementation
@@ -775,21 +786,31 @@ the terminal buffer, host-key dialog smoke OK, warn-on-close enabled, clean
 
 PuTTY's settings are defined once in portable `config.c` using `ctrl_*` helpers and rendered per-platform. The macOS port should **reuse this model** rather than duplicating hundreds of settings by hand.
 
-- [ ] Implement `macos/platform/config-appkit.m` (Objective-C++) or Swift renderer that walks `struct controlbox`.
-- [ ] Map control types (`dialog.h`) to AppKit widgets:
+- [x] Implement `macos/platform/config-appkit.m` (Objective-C) renderer that walks `struct controlbox`.
+- [x] Map control types (`dialog.h`) to AppKit widgets:
 
   | `CTRL_*` | AppKit widget |
   |----------|---------------|
-  | `CTRL_EDITBOX` | `NSTextField` |
+  | `CTRL_EDITBOX` | `NSTextField` / `NSComboBox` |
   | `CTRL_RADIO` | `NSButton` radio group |
   | `CTRL_CHECKBOX` | `NSButton` checkbox |
-  | `CTRL_LISTBOX` | `NSComboBox` / `NSPopUpButton` |
-  | `CTRL_FILESELECT` | `NSOpenPanel` |
-  | `CTRL_FONTSELECT` | `NSFontPanel` / custom font picker |
+  | `CTRL_LISTBOX` | `NSTableView` / `NSPopUpButton` |
+  | `CTRL_FILESELECT` | `NSOpenPanel` / `NSSavePanel` |
+  | `CTRL_FONTSELECT` | `NSFontPanel` (`mac:PSName:size`) |
   | `CTRL_COLUMNS` | `NSStackView` horizontal split |
   | `CTRL_TABDELAY` | hidden tab-order metadata |
 
-- [ ] Implement `macos/platform/config-macos.c` for macOS-only control additions (mirror `unix/config-gtk.c`, `windows/config.c`).
+- [x] Implement `macos/platform/config-macos.c` for macOS-only control additions (mirror `unix/config-gtk.c`, `windows/config.c`).
+
+`macos_setup_config_box()` adds About, scrollbar-on-left, UTF-8 locale
+override, local-command proxy, and Option/Command Meta checkboxes
+(`OSX_META_KEY_CONFIG`). `config-appkit.m` implements the full `dlg_*`
+read/write API, builds panels from `setup_config_box()` +
+`macos_setup_config_box()`, and provides `mac_config_create_box()` /
+`initial_config_box()`. Host CA UI is stubbed until Phase 6.5.
+
+**Smoke:** `putty-mac-config-smoke-c` (`mac_config_controlbox_smoke`) —
+see [Phase 6.1 gate](#phase-61-gate-putty-mac-config-gate).
 
 ### 6.2 Settings window UX
 
@@ -1024,7 +1045,8 @@ macos/
     seat.c
     termwin.c
     config-macos.c
-    config-appkit.mm
+    config-appkit.m
+    config-appkit.h
     cliloop.c
     uxsel.c
     …

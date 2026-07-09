@@ -47,13 +47,18 @@ add_library(macguifrontend STATIC
   platform/seat.c
   platform/seat-dialogs.m
   platform/eventloop-appkit.m
-  platform/osxkeys.c)
+  platform/osxkeys.c
+  platform/config-macos.c
+  platform/config-appkit.m)
 be_list(macguifrontend PuTTY)
 target_link_libraries(macguifrontend PUBLIC
   guiterminal eventloop settings utils charset
-  "-framework AppKit" "-framework Foundation")
+  "-framework AppKit" "-framework Foundation"
+  "-framework UniformTypeIdentifiers")
 target_include_directories(macguifrontend PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/platform)
+# config.c / dialog.c live in guiterminal; ensure licence.h is available.
+add_dependencies(macguifrontend generated_licence_h)
 
 add_sources_from_current_dir(network
   platform/network.c
@@ -150,6 +155,18 @@ add_executable(putty-mac-seat-dialogs-smoke-c
   platform/no-gtk.c)
 be_list(putty-mac-seat-dialogs-smoke-c PuTTY SSH SERIAL OTHERBACKENDS)
 target_link_libraries(putty-mac-seat-dialogs-smoke-c
+  macguifrontend eventloop charset settings utils network crypto sshclient otherbackends)
+
+add_executable(putty-mac-config-smoke-c
+  platform/config-smoke-main.c
+  platform/seat-smoke-platform.c
+  ${CMAKE_SOURCE_DIR}/stubs/no-print.c
+  ${CMAKE_SOURCE_DIR}/stubs/no-gss.c
+  ${CMAKE_SOURCE_DIR}/stubs/no-console.c
+  platform/unicode.c
+  platform/no-gtk.c)
+be_list(putty-mac-config-smoke-c PuTTY SSH SERIAL OTHERBACKENDS)
+target_link_libraries(putty-mac-config-smoke-c
   macguifrontend eventloop charset settings utils network crypto sshclient otherbackends)
 
 add_executable(test_terminal

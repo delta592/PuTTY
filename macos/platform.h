@@ -32,6 +32,9 @@
 #define SET_NONBLOCK_VIA_OPENPT
 #define JUST_USE_NATIVE_CLIPBOARD_UTF8
 
+/* Option and/or Command may act as Meta (see macos_setup_config_box). */
+#define OSX_META_KEY_CONFIG
+
 #define MULTICLICK_ONLY_EVENT 0
 
 /* ---------------------------------------------------------------------- */
