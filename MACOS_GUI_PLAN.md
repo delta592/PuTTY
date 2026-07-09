@@ -328,11 +328,17 @@ GTK-only unix utils (`align_label_left.c`, `buildinfo_gtk_version.c`,
 
 In `cmake/platforms/macos.cmake`:
 
-- [ ] Run standard Unix feature checks from `unix.cmake` (poll, `posix_openpt`, `getaddrinfo`, …).
-- [ ] Add `find_library` for Security, CoreFoundation, IOKit, SystemConfiguration.
-- [ ] Set `NOT_X_WINDOWS` ON unconditionally.
+- [x] Run standard Unix feature checks from `unix.cmake` (poll, `posix_openpt`, `getaddrinfo`, …).
+- [x] Add `find_library` for Security, CoreFoundation, IOKit, SystemConfiguration.
+- [x] Set `NOT_X_WINDOWS` ON unconditionally.
 - [x] Wire `PUTTY_MACOS_UNIVERSAL` → `CMAKE_OSX_ARCHITECTURES` (see Phase 1.7).
-- [ ] Implement `installed_program()` equivalent that installs `.app` bundles on macOS.
+- [x] Implement `installed_program()` equivalent that installs `.app` bundles on macOS.
+
+`installed_program()` detects `MACOSX_BUNDLE` targets and runs `install(TARGETS …
+BUNDLE DESTINATION .)`; CLI tools keep the existing runtime + man-page rules. `PuTTY.app` is
+registered via `installed_program(PuTTY)`. Apple frameworks are required at
+configure time and exposed as `platform_libraries` for targets that need them
+(not linked globally, to avoid Swift module conflicts).
 
 **Phase 2 exit criteria:** All C platform modules compile; CLI tools (`plink`, `pscp`, …) link against `macos/` platform when `PUTTY_MACOS_GUI=ON`; session files read/write under Application Support.
 

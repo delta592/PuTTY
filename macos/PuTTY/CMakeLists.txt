@@ -19,3 +19,4 @@ target_link_libraries(PuTTY PRIVATE
 putty_macos_configure_swift_target(PuTTY)
 putty_macos_add_app_resources(PuTTY PuTTY.icns)
 putty_macos_register_gui_app(PuTTY)
+installed_program(PuTTY)

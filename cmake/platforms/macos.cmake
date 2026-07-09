@@ -37,27 +37,45 @@ set(CMAKE_REQUIRED_DEFINITIONS ${CMAKE_REQUIRED_DEFINITIONS}
 # macOS has no X11 integration in the AppKit GUI build.
 set(NOT_X_WINDOWS ON)
 
-# Unix feature probes (expanded in Phase 2.6; shared with macos/platform/).
+# Unix feature probes (aligned with cmake/platforms/unix.cmake).
+check_include_file(sys/auxv.h HAVE_SYS_AUXV_H)
+check_include_file(asm/hwcap.h HAVE_ASM_HWCAP_H)
 check_include_file(sys/sysctl.h HAVE_SYS_SYSCTL_H)
 check_include_file(sys/types.h HAVE_SYS_TYPES_H)
 check_include_file(glob.h HAVE_GLOB_H)
 check_include_file(utmp.h HAVE_UTMP_H)
 check_include_file(utmpx.h HAVE_UTMPX_H)
+check_include_file(poll.h HAVE_POLL_H)
 
 check_symbol_exists(futimes "sys/time.h" HAVE_FUTIMES)
 check_symbol_exists(getaddrinfo "sys/types.h;sys/socket.h;netdb.h"
   HAVE_GETADDRINFO)
 check_symbol_exists(posix_openpt "stdlib.h;fcntl.h" HAVE_POSIX_OPENPT)
 check_symbol_exists(ptsname "stdlib.h" HAVE_PTSNAME)
+check_symbol_exists(setresuid "unistd.h" HAVE_SETRESUID)
+check_symbol_exists(setresgid "unistd.h" HAVE_SETRESGID)
 check_symbol_exists(strsignal "string.h" HAVE_STRSIGNAL)
 check_symbol_exists(updwtmpx "utmpx.h" HAVE_UPDWTMPX)
 check_symbol_exists(fstatat "sys/types.h;sys/stat.h;unistd.h" HAVE_FSTATAT)
 check_symbol_exists(dirfd "sys/types.h;dirent.h" HAVE_DIRFD)
 check_symbol_exists(setpwent "sys/types.h;pwd.h" HAVE_SETPWENT)
 check_symbol_exists(endpwent "sys/types.h;pwd.h" HAVE_ENDPWENT)
+check_symbol_exists(getauxval "sys/auxv.h" HAVE_GETAUXVAL)
+check_symbol_exists(elf_aux_info "sys/auxv.h" HAVE_ELF_AUX_INFO)
 check_symbol_exists(sysctlbyname "sys/types.h;sys/sysctl.h" HAVE_SYSCTLBYNAME)
 check_symbol_exists(CLOCK_MONOTONIC "time.h" HAVE_CLOCK_MONOTONIC)
 check_symbol_exists(clock_gettime "time.h" HAVE_CLOCK_GETTIME)
+
+check_c_source_compiles("
+#define _GNU_SOURCE
+#include <features.h>
+#include <sys/socket.h>
+int main(int argc, char **argv) {
+    struct ucred cr;
+    socklen_t crlen = sizeof(cr);
+    return getsockopt(0, SOL_SOCKET, SO_PEERCRED, &cr, &crlen) +
+           cr.pid + cr.uid + cr.gid;
+}" HAVE_SO_PEERCRED)
 
 check_c_source_compiles("
 #include <sys/types.h>
@@ -114,17 +132,63 @@ if(PUTTY_GSSAPI STREQUAL DYNAMIC)
 endif()
 
 if(PUTTY_GSSAPI STREQUAL STATIC)
+  set(KRB5_CFLAGS)
+  set(KRB5_LDFLAGS)
+
   find_package(PkgConfig)
   pkg_check_modules(KRB5 krb5-gssapi)
+
+  if(NOT KRB5_FOUND)
+    find_program(KRB5_CONFIG krb5-config)
+    if(KRB5_CONFIG)
+      execute_process(COMMAND ${KRB5_CONFIG} --cflags gssapi
+        OUTPUT_VARIABLE krb5_config_cflags
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        RESULT_VARIABLE krb5_config_cflags_result)
+      execute_process(COMMAND ${KRB5_CONFIG} --libs gssapi
+        OUTPUT_VARIABLE krb5_config_libs
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        RESULT_VARIABLE krb5_config_libs_result)
+
+      if(krb5_config_cflags_result EQUAL 0 AND krb5_config_libs_result EQUAL 0)
+        set(KRB5_INCLUDE_DIRS)
+        set(KRB5_LIBRARY_DIRS)
+        set(KRB5_LIBRARIES)
+        set(KRB5_CFLAGS ${krb5_config_cflags})
+
+        separate_arguments(krb5_config_libs NATIVE_COMMAND
+          ${krb5_config_libs})
+        foreach(opt ${krb5_config_libs})
+          string(REGEX MATCH "^-l" ok ${opt})
+          if(ok)
+            list(APPEND KRB5_LIBRARIES ${opt})
+            continue()
+          endif()
+          string(REGEX MATCH "^-L" ok ${opt})
+          if(ok)
+            string(REGEX REPLACE "^-L" "" optval ${opt})
+            list(APPEND KRB5_LIBRARY_DIRS ${optval})
+            continue()
+          endif()
+          list(APPEND KRB5_LDFLAGS ${opt})
+        endforeach()
+
+        message(STATUS "Found Kerberos via krb5-config")
+        set(KRB5_FOUND YES)
+      endif()
+    endif()
+  endif()
+
   if(KRB5_FOUND)
     include_directories(${KRB5_INCLUDE_DIRS})
     link_directories(${KRB5_LIBRARY_DIRS})
     link_libraries(${KRB5_LIBRARIES})
     add_compile_options(${KRB5_CFLAGS})
+    add_link_options(${KRB5_LDFLAGS})
     set(STATIC_GSSAPI ON)
   else()
     message(WARNING
-      "Could not find krb5 via pkg-config -- \
+      "Could not find krb5 via pkg-config or krb5-config -- \
 cannot provide static GSSAPI support")
     set(NO_GSSAPI ON)
   endif()
@@ -135,10 +199,16 @@ if(PUTTY_GSSAPI STREQUAL OFF)
 endif()
 
 # Apple system frameworks (used by macos/platform/ and Swift targets).
-find_library(MACOS_SECURITY_FRAMEWORK Security)
-find_library(MACOS_COREFOUNDATION_FRAMEWORK CoreFoundation)
-find_library(MACOS_IOKIT_FRAMEWORK IOKit)
-find_library(MACOS_SYSTEMCONFIGURATION_FRAMEWORK SystemConfiguration)
+find_library(MACOS_SECURITY_FRAMEWORK Security REQUIRED)
+find_library(MACOS_COREFOUNDATION_FRAMEWORK CoreFoundation REQUIRED)
+find_library(MACOS_IOKIT_FRAMEWORK IOKit REQUIRED)
+find_library(MACOS_SYSTEMCONFIGURATION_FRAMEWORK SystemConfiguration REQUIRED)
+
+set(platform_libraries
+  ${MACOS_SECURITY_FRAMEWORK}
+  ${MACOS_COREFOUNDATION_FRAMEWORK}
+  ${MACOS_IOKIT_FRAMEWORK}
+  ${MACOS_SYSTEMCONFIGURATION_FRAMEWORK})
 
 if(CMAKE_OSX_DEPLOYMENT_TARGET STREQUAL "")
   set(CMAKE_OSX_DEPLOYMENT_TARGET ${PUTTY_MACOS_DEPLOYMENT_TARGET}
@@ -150,8 +220,18 @@ if(STRICT AND (CMAKE_C_COMPILER_ID MATCHES "GNU" OR
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Werror -Wpointer-arith -Wvla")
 endif()
 
-# Install helper for CLI tools; .app bundle install rules added in Phase 8.
+# Install helper for CLI tools and .app bundles.
 function(installed_program target)
+  if(NOT TARGET ${target})
+    message(FATAL_ERROR "installed_program: no target named '${target}'")
+  endif()
+
+  get_target_property(_is_bundle ${target} MACOSX_BUNDLE)
+  if(_is_bundle)
+    install(TARGETS ${target} BUNDLE DESTINATION .)
+    return()
+  endif()
+
   if(CMAKE_VERSION VERSION_LESS 3.14)
     install(TARGETS ${target} RUNTIME DESTINATION bin)
   else()
