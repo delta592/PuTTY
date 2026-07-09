@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import PuttyBridge
+import PuttyMacUI
 
 @main
 @MainActor

@@ -2,21 +2,21 @@ import AppKit
 import CoreText
 import PuttyBridge
 
-struct TerminalDrawRequest: Sendable {
-    let x: Int32
-    let y: Int32
-    let len: Int32
-    var attr: UInt32
-    let lattr: Int32
-    let codepoints: [UInt32]
-    let fgTrueColour: PuttyBridgeOptionalRgb?
-    let bgTrueColour: PuttyBridgeOptionalRgb?
-    let isCursor: Bool
-    var passiveCursor: Bool = false
-    var activeNonBlockCursor: Bool = false
+public struct TerminalDrawRequest: Sendable {
+    public let x: Int32
+    public let y: Int32
+    public let len: Int32
+    public var attr: UInt32
+    public let lattr: Int32
+    public let codepoints: [UInt32]
+    public let fgTrueColour: PuttyBridgeOptionalRgb?
+    public let bgTrueColour: PuttyBridgeOptionalRgb?
+    public let isCursor: Bool
+    public var passiveCursor: Bool = false
+    public var activeNonBlockCursor: Bool = false
 }
 
-func terminalDrawRequest(
+public func terminalDrawRequest(
     from params: PuttyBridgeTermWinDrawParams,
     isCursor: Bool
 ) -> TerminalDrawRequest {
@@ -46,7 +46,7 @@ func terminalDrawRequest(
 
 /// Core Text terminal renderer (Phase 4.3–4.4).
 @MainActor
-final class TerminalTextRenderer {
+public final class TerminalTextRenderer {
     private struct PaintCell {
         var request: TerminalDrawRequest
         var columnSpan: Int
@@ -75,12 +75,14 @@ final class TerminalTextRenderer {
     private var lastEnqueueRow: Int32 = -1
     private var lastEnqueueX: Int32 = -1
 
-    func attach(termWin: OpaquePointer) {
+    public init() {}
+
+    public func attach(termWin: OpaquePointer) {
         self.termWin = termWin
         refreshMetrics()
     }
 
-    func refreshMetrics() {
+    public func refreshMetrics() {
         guard let termWin else { return }
         cellWidth = CGFloat(putty_bridge_termwin_cell_width_pt(termWin))
         cellHeight = CGFloat(putty_bridge_termwin_cell_height_pt(termWin))
@@ -91,7 +93,7 @@ final class TerminalTextRenderer {
         paletteCache.invalidate()
     }
 
-    func beginPaint() {
+    public func beginPaint() {
         rowCells.removeAll(keepingCapacity: true)
         rowsNeedSort.removeAll(keepingCapacity: true)
         trustSigils.removeAll(keepingCapacity: true)
@@ -99,7 +101,7 @@ final class TerminalTextRenderer {
         lastEnqueueX = -1
     }
 
-    func enqueue(_ request: TerminalDrawRequest) {
+    public func enqueue(_ request: TerminalDrawRequest) {
         var adjusted = request
         prepareCursorAttributes(&adjusted)
 
@@ -119,11 +121,11 @@ final class TerminalTextRenderer {
         rowCells[adjusted.y, default: []].append(cell)
     }
 
-    func enqueueTrustSigil(x: Int32, y: Int32) {
+    public func enqueueTrustSigil(x: Int32, y: Int32) {
         trustSigils.append((x, y))
     }
 
-    func endPaint() {
+    public func endPaint() {
         guard let context = NSGraphicsContext.current?.cgContext else { return }
 
         for y in rowCells.keys.sorted() {
@@ -136,7 +138,7 @@ final class TerminalTextRenderer {
         }
     }
 
-    func charWidth(for codepoint: Int32) -> Int32 {
+    public func charWidth(for codepoint: Int32) -> Int32 {
         guard cellWidth > 0 else { return 1 }
 
         let font = fontCache.ctFont(bold: false, wide: false)

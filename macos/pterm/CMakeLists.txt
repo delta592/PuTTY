@@ -1,8 +1,7 @@
-# pterm.app — local PTY terminal (Phase 7.2).
+# pterm.app — local PTY terminal (Phase 7.2 / 7.5).
 #
-# Reuses TerminalView / session Swift sources from macos/PuTTY/ by path
-# (PuttyMacUI extraction is Phase 7.5). Links pterm-macos-bridge with
-# pty_backend instead of putty-macos-bridge.
+# Links putty-macui (shared TerminalView / session Swift) and
+# pterm-macos-bridge (pty_backend + non-network app constants).
 
 set(_pterm_app_version "0.0.0")
 
@@ -67,25 +66,8 @@ target_link_libraries(pterm-macos-bridge PRIVATE
 # pterm.app
 # ---------------------------------------------------------------------------
 
-set(_pterm_shared_swift
-  ${CMAKE_CURRENT_SOURCE_DIR}/../PuTTY/PuttyConfHandle.swift
-  ${CMAKE_CURRENT_SOURCE_DIR}/../PuTTY/PuttyEventLoop.swift
-  ${CMAKE_CURRENT_SOURCE_DIR}/../PuTTY/SessionWindowController.swift
-  ${CMAKE_CURRENT_SOURCE_DIR}/../PuTTY/SessionSpecialsMenu.swift
-  ${CMAKE_CURRENT_SOURCE_DIR}/../PuTTY/SessionEventLog.swift
-  ${CMAKE_CURRENT_SOURCE_DIR}/../PuTTY/EventLogWindowController.swift
-  ${CMAKE_CURRENT_SOURCE_DIR}/../PuTTY/TerminalView.swift
-  ${CMAKE_CURRENT_SOURCE_DIR}/../PuTTY/TerminalTextRenderer.swift
-  ${CMAKE_CURRENT_SOURCE_DIR}/../PuTTY/TerminalFontCache.swift
-  ${CMAKE_CURRENT_SOURCE_DIR}/../PuTTY/TerminalPaletteCache.swift
-  ${CMAKE_CURRENT_SOURCE_DIR}/../PuTTY/OsxKeys.swift
-  ${CMAKE_CURRENT_SOURCE_DIR}/../PuTTY/TerminalClipboard.swift
-  ${CMAKE_CURRENT_SOURCE_DIR}/../PuTTY/TerminalScrollContainer.swift
-  ${CMAKE_CURRENT_SOURCE_DIR}/../PuTTY/TerminalWindowChrome.swift)
-
 add_executable(pterm MACOSX_BUNDLE
-  PtermApp.swift
-  ${_pterm_shared_swift})
+  PtermApp.swift)
 
 set_target_properties(pterm PROPERTIES
   MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_BINARY_DIR}/Info.plist
@@ -100,6 +82,7 @@ target_compile_options(pterm PRIVATE
 
 target_link_libraries(pterm PRIVATE
   "-framework AppKit"
+  putty-macui
   pterm-macos-bridge
   macguifrontend
   guiterminal eventloop settings network utils)

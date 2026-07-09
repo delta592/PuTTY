@@ -1007,12 +1007,16 @@ double putty_bridge_termwin_ascent_pt(const PuttyBridgeTermWin *btw)
 int32_t putty_bridge_termwin_cursor_type(const PuttyBridgeTermWin *btw)
 {
     PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
+    if (!btw || !btw->mtw)
+        return 0;
     return btw->mtw->cursor_type;
 }
 
 int32_t putty_bridge_termwin_bold_style(const PuttyBridgeTermWin *btw)
 {
     PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
+    if (!btw || !btw->mtw)
+        return 0;
     return btw->mtw->bold_style;
 }
 

@@ -15,8 +15,15 @@ set(PUTTY_MACOS_PUTTYBRIDGE_MODULE_DIR
 
 function(putty_macos_configure_swift_target target)
   set_target_properties(${target} PROPERTIES
-    Swift_LANGUAGE_VERSION 6
-    Swift_MODULE_SEARCH_PATHS "${PUTTY_MACOS_PUTTYBRIDGE_MODULE_DIR}")
+    Swift_LANGUAGE_VERSION 6)
+  # Clang module PuttyBridge (module.modulemap under macos/bridge/).
+  target_include_directories(${target} PRIVATE
+    ${PUTTY_MACOS_PUTTYBRIDGE_MODULE_DIR})
+  # Swift module PuttyMacUI (when the static library has been defined).
+  if(DEFINED PUTTY_MACOS_PUTTYMACUI_MODULE_DIR)
+    target_include_directories(${target} PRIVATE
+      ${PUTTY_MACOS_PUTTYMACUI_MODULE_DIR})
+  endif()
 endfunction()
 
 function(putty_macos_register_gui_app target)
@@ -284,6 +291,7 @@ target_link_libraries(putty-mac-askpass-smoke-c
 # ---------------------------------------------------------------------------
 
 add_subdirectory(bridge)
+add_subdirectory(PuttyMacUI)
 add_subdirectory(PuTTY)
 add_subdirectory(pterm)
 add_subdirectory(puttygen)

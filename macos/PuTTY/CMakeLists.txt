@@ -16,21 +16,7 @@ configure_file(
 
 add_executable(PuTTY MACOSX_BUNDLE
   PuTTYApp.swift
-  PuttyConfHandle.swift
-  PuttyEventLoop.swift
-  SessionWindowController.swift
-  SessionSpecialsMenu.swift
-  SessionSavedSessionsMenu.swift
-  SessionEventLog.swift
-  EventLogWindowController.swift
-  TerminalView.swift
-  TerminalTextRenderer.swift
-  TerminalFontCache.swift
-  TerminalPaletteCache.swift
-  OsxKeys.swift
-  TerminalClipboard.swift
-  TerminalScrollContainer.swift
-  TerminalWindowChrome.swift)
+  SessionSavedSessionsMenu.swift)
 
 set_target_properties(PuTTY PROPERTIES
   MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_BINARY_DIR}/Info.plist
@@ -44,6 +30,7 @@ target_compile_options(PuTTY PRIVATE
 
 target_link_libraries(PuTTY PRIVATE
   "-framework AppKit"
+  putty-macui
   putty-macos-bridge
   macguifrontend
   guiterminal eventloop sshclient otherbackends settings network crypto utils)

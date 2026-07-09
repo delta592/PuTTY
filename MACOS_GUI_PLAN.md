@@ -929,11 +929,11 @@ enumeration.
 - [x] Separate bundle ID `org.tartarus.projects.putty.pterm`.
 
 `macos/pterm/` builds `pterm.app` with `pterm-macos-bridge` (pterm
-`be_list`, `pterm-app.c`, `pty.c`, slim cmdline). Shared Swift UI is
-referenced from `macos/PuTTY/` by path (PuttyMacUI extraction is Phase
-7.5). Menus omit New/Duplicate/Saved Sessions/Event Log; keep Restart,
-Change Settings, Specials. `initial_config_box` sets `CONF_protocol=-1`
-and opens immediately; `new_session_window` always connects for
+`be_list`, `pterm-app.c`, `pty.c`, slim cmdline). Shared Swift UI comes
+from `putty-macui` (`macos/PuttyMacUI/`, Phase 7.5). Menus omit
+New/Duplicate/Saved Sessions/Event Log; keep Restart, Change Settings,
+Specials. `initial_config_box` sets `CONF_protocol=-1` and opens
+immediately; `new_session_window` always connects for
 `TOOLTYPE_NONNETWORK`. Native AppKit — no `osxlaunch` env wrapper.
 
 **Smoke:** `putty-mac-pterm-smoke-c` (`putty_mac_pterm_smoke`) checks
@@ -980,9 +980,18 @@ future work in `AGENT.md`.
 
 ### 7.5 Shared code between apps
 
-- [ ] Extract shared Swift package / static framework `PuttyMacUI` for `TerminalView`, config UI, bridge wrappers.
-- [ ] Per-app targets only differ in `Info.plist`, icons, and app constants (`use_event_log`, etc.).
-- [ ] All release `.app` bundles (PuTTY, pterm, PuTTYgen) must be Universal 2 when `PUTTY_MACOS_UNIVERSAL=ON`; shared libraries must not hard-code a single architecture.
+- [x] Extract shared Swift package / static framework `PuttyMacUI` for `TerminalView`, config UI, bridge wrappers.
+- [x] Per-app targets only differ in `Info.plist`, icons, and app constants (`use_event_log`, etc.).
+- [x] All release `.app` bundles (PuTTY, pterm, PuTTYgen) must be Universal 2 when `PUTTY_MACOS_UNIVERSAL=ON`; shared libraries must not hard-code a single architecture.
+
+**Implementation:** CMake `STATIC` library `putty-macui` (`Swift_MODULE_NAME
+PuttyMacUI`) under `macos/PuttyMacUI/` — TerminalView stack, session
+window/specials/event-log, `PuttyConfHandle` / `PuttyEventLoop`. PuTTY.app
+and pterm.app link it and keep only `@main` shells (+ PuTTY Saved
+Sessions). puttygen stays on `PuttygenBridge`. Dual C bridges unchanged.
+`putty-macui` inherits `CMAKE_OSX_ARCHITECTURES`; `verify-universal`
+still checks the three registered `.app` executables (Xcode generator +
+`PUTTY_MACOS_UNIVERSAL_ACTIVE`).
 
 **Phase 7 exit criteria:** PuTTY, pterm, and PuTTYgen run as independent `.app` bundles; agent strategy documented and minimally functional.
 

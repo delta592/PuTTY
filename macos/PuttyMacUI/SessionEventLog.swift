@@ -3,8 +3,8 @@ import PuttyBridge
 
 /// Owns per-session Event Log windows and the Window → Event Log menu (Phase 6.4).
 @MainActor
-final class SessionEventLog: NSObject {
-    static let shared = SessionEventLog()
+public final class SessionEventLog: NSObject {
+    public static let shared = SessionEventLog()
 
     private weak var menuItem: NSMenuItem?
     private weak var keyController: SessionWindowController?
@@ -14,7 +14,7 @@ final class SessionEventLog: NSObject {
         super.init()
     }
 
-    func install(into windowMenu: NSMenu) {
+    public func install(into windowMenu: NSMenu) {
         let item = windowMenu.addItem(
             withTitle: "Event Log",
             action: #selector(showEventLogMenu(_:)),

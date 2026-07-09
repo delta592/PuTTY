@@ -24,8 +24,8 @@ final class SpecialCommandTarget: NSObject {
 
 /// Rebuilds Session → Special Commands from backend_get_specials() (Phase 5.6).
 @MainActor
-final class SessionSpecialsMenu {
-    static let shared = SessionSpecialsMenu()
+public final class SessionSpecialsMenu {
+    public static let shared = SessionSpecialsMenu()
 
     private var separatorBefore: NSMenuItem!
     private var separatorAfter: NSMenuItem!
@@ -36,7 +36,7 @@ final class SessionSpecialsMenu {
 
     private init() {}
 
-    func install(into sessionMenu: NSMenu) {
+    public func install(into sessionMenu: NSMenu) {
         separatorBefore = NSMenuItem.separator()
         sessionMenu.addItem(separatorBefore)
 

@@ -79,21 +79,8 @@ add_executable(putty-bridge-termwin-perf-c
 target_link_libraries(putty-bridge-termwin-perf-c PRIVATE
   putty-macos-bridge)
 
-# Phase 4.4 full Swift Core Text paint benchmark.
-add_executable(PuttyBridgeTermPerfTest
-  PuttyBridgeTermPerfTest.swift
-  ${CMAKE_CURRENT_SOURCE_DIR}/../PuTTY/TerminalTextRenderer.swift
-  ${CMAKE_CURRENT_SOURCE_DIR}/../PuTTY/TerminalFontCache.swift
-  ${CMAKE_CURRENT_SOURCE_DIR}/../PuTTY/TerminalPaletteCache.swift)
-
-target_compile_options(PuttyBridgeTermPerfTest PRIVATE
-  "$<$<COMPILE_LANGUAGE:Swift>:-parse-as-library>")
-
-target_link_libraries(PuttyBridgeTermPerfTest PRIVATE
-  "-framework AppKit"
-  putty-macos-bridge)
-
-putty_macos_configure_swift_target(PuttyBridgeTermPerfTest)
+# PuttyBridgeTermPerfTest (Swift Core Text paint) is defined in PuttyMacUI/
+# after putty-macui exists; see macos/PuttyMacUI/CMakeLists.txt.
 
 putty_add_bridge_smoke(putty-bridge-termwin-input-smoke-c
   FUNC putty_bridge_termwin_input_smoke
@@ -150,7 +137,6 @@ add_custom_target(putty-mac-termwin-gate
     putty-mac-termwin-smoke-c
     putty-bridge-termwin-exit-c
     putty-bridge-termwin-perf-c
-    PuttyBridgeTermPerfTest
     putty-bridge-termwin-input-smoke-c
     putty-bridge-termwin-clipboard-smoke-c
     putty-bridge-termwin-scroll-resize-smoke-c

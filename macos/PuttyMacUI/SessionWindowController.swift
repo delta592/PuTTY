@@ -3,13 +3,13 @@ import PuttyBridge
 
 /// Shared by PuTTY and pterm AppDelegates for Session menu enablement.
 @MainActor
-protocol SessionMenuUpdating: AnyObject {
+public protocol SessionMenuUpdating: AnyObject {
     func updateSessionActionMenus()
 }
 
 /// Owns one terminal session window (Phase 5.5).
 @MainActor
-final class SessionWindowController: NSWindowController, NSWindowDelegate {
+public final class SessionWindowController: NSWindowController, NSWindowDelegate {
     private static var openControllers: [SessionWindowController] = []
 
     private let scrollContainer: TerminalScrollContainer
@@ -17,17 +17,17 @@ final class SessionWindowController: NSWindowController, NSWindowDelegate {
     private let sessionConf: PuttyConfHandle?
 
     /// TermWin handle for menu/specials bridge callbacks (Phase 5.6).
-    var activeTermWin: OpaquePointer? {
+    public var activeTermWin: OpaquePointer? {
         scrollContainer.terminalView.termWin
     }
 
-    static func openNew(conf: PuttyConfHandle?, connect: Bool) {
+    public static func openNew(conf: PuttyConfHandle?, connect: Bool) {
         let controller = SessionWindowController(conf: conf, connect: connect)
         openControllers.append(controller)
         controller.present()
     }
 
-    init(conf: PuttyConfHandle?, connect: Bool) {
+    public init(conf: PuttyConfHandle?, connect: Bool) {
         self.sessionConf = conf
         self.connectOnOpen = connect
 
@@ -53,7 +53,7 @@ final class SessionWindowController: NSWindowController, NSWindowDelegate {
     }
 
     @available(*, unavailable)
-    required init?(coder: NSCoder) {
+    public required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
 
@@ -75,11 +75,11 @@ final class SessionWindowController: NSWindowController, NSWindowDelegate {
         NSApp.delegate as? SessionMenuUpdating
     }
 
-    func refreshSpecialsMenu() {
+    public func refreshSpecialsMenu() {
         SessionSpecialsMenu.shared.refresh(for: self)
     }
 
-    func windowDidBecomeKey(_ notification: Notification) {
+    public func windowDidBecomeKey(_ notification: Notification) {
         _ = notification
         SessionSpecialsMenu.shared.setKeyController(self)
         SessionEventLog.shared.setKeyController(self)
@@ -92,7 +92,7 @@ final class SessionWindowController: NSWindowController, NSWindowDelegate {
             termWin, SessionRemoteExitBridge.onExit, ctx)
     }
 
-    func sessionDidRemoteExit() {
+    public func sessionDidRemoteExit() {
         refreshSpecialsMenu()
         menuUpdater?.updateSessionActionMenus()
     }
@@ -102,7 +102,7 @@ final class SessionWindowController: NSWindowController, NSWindowDelegate {
         window?.performClose(nil)
     }
 
-    func windowShouldClose(_ sender: NSWindow) -> Bool {
+    public func windowShouldClose(_ sender: NSWindow) -> Bool {
         _ = sender
         guard let termWin = scrollContainer.terminalView.termWin else { return true }
         if !putty_bridge_termwin_should_warn_on_close(termWin) {
@@ -125,7 +125,7 @@ final class SessionWindowController: NSWindowController, NSWindowDelegate {
         return alert.runModal() == .alertFirstButtonReturn
     }
 
-    func windowWillClose(_ notification: Notification) {
+    public func windowWillClose(_ notification: Notification) {
         _ = notification
         SessionSpecialsMenu.shared.resignKeyController(self)
         SessionEventLog.shared.sessionWillClose(self)

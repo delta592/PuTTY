@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import PuttyBridge
+import PuttyMacUI
 
 /// Off-screen harness exercising the full Swift Core Text paint path (Phase 4.4).
 @MainActor
@@ -14,7 +15,6 @@ final class TermPerfHarness {
         let handle = putty_bridge_termwin_new()
         guard let handle else { return false }
         termWin = handle
-        renderer.attach(termWin: handle)
 
         var callbacks = PuttyBridgeTermWinCallbacks(
             setup_draw_ctx: Self.setupDrawCtx,
@@ -39,6 +39,7 @@ final class TermPerfHarness {
         putty_bridge_termwin_set_callbacks(handle, &callbacks, ctx)
 
         guard putty_bridge_termwin_init_demo(handle) else { return false }
+        renderer.attach(termWin: handle)
 
         let font = NSFont(name: "SFMono-Regular", size: 12)
             ?? NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
