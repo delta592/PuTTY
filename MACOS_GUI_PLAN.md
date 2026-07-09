@@ -399,11 +399,17 @@ exposed via typed getters/setters and `PuttyConfProtocol` constants.
 
 ### 3.4 Event loop integration hooks
 
-- [ ] `size_t putty_session_output(PuttySession *, const void *data, size_t len)` — feed keyboard to ldisc.
-- [ ] `void putty_run_timers(uint64_t now_ms)` — call existing `run_timers()`.
-- [ ] `bool putty_toplevel_callback_pending(void)`.
-- [ ] `void putty_run_toplevel_callbacks(void)`.
-- [ ] FD registration: `putty_uxsel_fill_pollfds(...)` wrapping `uxsel` + `pollwrap` for `DispatchSource` integration.
+- [x] `size_t putty_session_output(PuttySession *, const void *data, size_t len)` — feed keyboard to ldisc.
+- [x] `void putty_run_timers(uint64_t now_ms)` — call existing `run_timers()`.
+- [x] `bool putty_toplevel_callback_pending(void)`.
+- [x] `void putty_run_toplevel_callbacks(void)`.
+- [x] FD registration: `putty_uxsel_fill_pollfds(...)` wrapping `uxsel` + `pollwrap` for `DispatchSource` integration.
+
+`putty-eventloop.c` exposes `putty_pollwrapper_*` helpers and
+`putty_uxsel_list_fds` / `putty_uxsel_select_result` for one-shot poll or
+per-fd DispatchSource wiring. `putty_bridge_eventloop_init()` calls
+`uxsel_init()` once. `putty_bridge_eventloop_smoke()` verifies timers,
+callbacks, poll, and no-op session output before connect.
 
 ### 3.5 Memory and threading rules
 

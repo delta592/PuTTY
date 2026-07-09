@@ -157,10 +157,58 @@ bool putty_conf_get_bool(const PuttyConf *conf, PuttyConfBoolKey key);
 void putty_conf_set_bool(PuttyConf *conf, PuttyConfBoolKey key, bool value);
 
 /* ---------------------------------------------------------------------- */
+/* Event loop (Phase 3.4) */
+
+/** Millisecond clock compatible with putty_run_timers() (GETTICKCOUNT). */
+uint64_t putty_bridge_now_ms(void);
+
+/** Initialise uxsel and toplevel-callback notification (idempotent). */
+void putty_bridge_eventloop_init(void);
+
+/** Run due PuTTY timers; pass the same clock used for scheduling. */
+void putty_run_timers(uint64_t now_ms);
+
+bool putty_toplevel_callback_pending(void);
+void putty_run_toplevel_callbacks(void);
+
+/** Feed keyboard/paste bytes to the session line discipline. */
+size_t putty_session_output(PuttySession *session, const void *data, size_t len);
+
+/** Poll readiness bits (match SELECT_* / uxsel rwx values). */
+#define PUTTY_BRIDGE_POLL_R 1
+#define PUTTY_BRIDGE_POLL_W 2
+#define PUTTY_BRIDGE_POLL_X 4
+
+typedef struct PuttyBridgePollFd {
+    int fd;
+    unsigned int rwx;
+} PuttyBridgePollFd;
+
+typedef struct PuttyPollWrapper PuttyPollWrapper;
+
+PuttyPollWrapper *putty_pollwrapper_new(void);
+void putty_pollwrapper_free(PuttyPollWrapper *wrapper);
+void putty_pollwrapper_clear(PuttyPollWrapper *wrapper);
+
+/** Register all uxsel fds in pw (mirrors unix/cliloop.c setup). */
+void putty_uxsel_fill_pollfds(PuttyPollWrapper *wrapper);
+
+/** List uxsel fds for DispatchSource registration (truncates if max_out small). */
+size_t putty_uxsel_list_fds(PuttyBridgePollFd *out, size_t max_out);
+
+/** Deliver fd readiness to uxsel after poll or DispatchSource fires. */
+void putty_uxsel_select_result(int fd, unsigned int rwx_event);
+
+int putty_pollwrapper_poll_instant(PuttyPollWrapper *wrapper);
+int putty_pollwrapper_poll_timeout(PuttyPollWrapper *wrapper, int timeout_ms);
+void putty_pollwrapper_process_events(PuttyPollWrapper *wrapper);
+
+/* ---------------------------------------------------------------------- */
 /* Smoke tests (not for production use) */
 
 int putty_bridge_session_smoke(void);
 int putty_bridge_conf_smoke(void);
+int putty_bridge_eventloop_smoke(void);
 
 #ifdef __cplusplus
 }
