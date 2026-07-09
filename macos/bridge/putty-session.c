@@ -7,8 +7,6 @@
 
 #include "putty-bridge-internal.h"
 
-#include "storage.h"
-
 static const TermWinVtable bridge_termwin_vt;
 static const SeatVtable bridge_seat_vt;
 static const LogPolicyVtable bridge_logpolicy_vt;
@@ -32,12 +30,17 @@ Conf *putty_bridge_conf_copy(const PuttyConf *conf)
 
 static Conf *session_new_conf(const PuttyConf *conf)
 {
-    Conf *copy = putty_bridge_conf_copy(conf);
+    PuttyConf *defaults;
+    Conf *copy;
+
+    copy = putty_bridge_conf_copy(conf);
     if (copy)
         return copy;
 
-    copy = conf_new();
-    do_defaults(NULL, copy);
+    defaults = putty_conf_new();
+    copy = defaults->conf;
+    defaults->conf = NULL;
+    putty_conf_free(defaults);
     return copy;
 }
 

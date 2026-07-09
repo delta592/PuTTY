@@ -386,10 +386,16 @@ connecting.
 
 ### 3.3 Configuration access
 
-- [ ] `Conf *putty_conf_new(void)` / `putty_conf_free`.
-- [ ] `bool putty_conf_load_session(Conf *, const char *session_name)`.
-- [ ] `bool putty_conf_save_session(Conf *, const char *session_name)`.
-- [ ] Expose `conf_get_*` / `conf_set_*` wrappers only where Swift settings UI needs them; bulk editing goes through the abstract `controlbox` (Phase 6).
+- [x] `PuttyConf *putty_conf_new(void)` / `putty_conf_free`.
+- [x] `bool putty_conf_load_session(PuttyConf *, const char *session_name)`.
+- [x] `bool putty_conf_save_session(PuttyConf *, const char *session_name)`.
+- [x] Expose `conf_get_*` / `conf_set_*` wrappers only where Swift settings UI needs them; bulk editing goes through the abstract `controlbox` (Phase 6).
+
+`putty-conf.c` wraps `Conf` in the opaque `PuttyConf` handle. Connection-dialog
+fields (host, username, port, protocol, tcp_nodelay, tcp_keepalives) are
+exposed via typed getters/setters and `PuttyConfProtocol` constants.
+`putty_bridge_conf_smoke()` round-trips a temporary saved session through
+`~/Library/Application Support/PuTTY/sessions/`.
 
 ### 3.4 Event loop integration hooks
 

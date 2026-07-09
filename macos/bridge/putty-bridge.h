@@ -22,6 +22,7 @@
 #ifndef PUTTY_MACOS_PUTTY_BRIDGE_H
 #define PUTTY_MACOS_PUTTY_BRIDGE_H
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -100,9 +101,66 @@ void putty_session_reconfigure(PuttySession *session, const PuttyConf *conf);
 struct Backend *putty_session_get_backend(PuttySession *session);
 
 /* ---------------------------------------------------------------------- */
-/* Smoke test (Phase 3.2; not for production use) */
+/* Configuration (Phase 3.3) */
+
+/** Protocol values match PuTTY PROT_* constants. */
+enum PuttyConfProtocol {
+    PUTTY_CONF_PROT_RAW = 0,
+    PUTTY_CONF_PROT_TELNET = 1,
+    PUTTY_CONF_PROT_RLOGIN = 2,
+    PUTTY_CONF_PROT_SSH = 3,
+    PUTTY_CONF_PROT_SSHCONN = 4,
+    PUTTY_CONF_PROT_SERIAL = 5,
+    PUTTY_CONF_PROT_SUPDUP = 6,
+};
+
+/** Small set of boolean settings exposed for the connection dialog. */
+typedef enum PuttyConfBoolKey {
+    PUTTY_CONF_BOOL_TCP_NODELAY,
+    PUTTY_CONF_BOOL_TCP_KEEPALIVES,
+} PuttyConfBoolKey;
+
+/** Load default settings (same as "Default Settings" saved session). */
+PuttyConf *putty_conf_new(void);
+
+/** Deep copy of all settings. */
+PuttyConf *putty_conf_copy(const PuttyConf *conf);
+
+void putty_conf_free(PuttyConf *conf);
+
+/**
+ * Load a named saved session into conf. Returns false if the session
+ * did not exist (conf is still filled with usable defaults).
+ */
+bool putty_conf_load_session(PuttyConf *conf, const char *session_name);
+
+/** Persist conf under session_name. Returns false on I/O error. */
+bool putty_conf_save_session(PuttyConf *conf, const char *session_name);
+
+/** String getters return pointers owned by conf (valid until next mutation). */
+const char *putty_conf_get_host(const PuttyConf *conf);
+void putty_conf_set_host(PuttyConf *conf, const char *host);
+
+const char *putty_conf_get_username(const PuttyConf *conf);
+void putty_conf_set_username(PuttyConf *conf, const char *username);
+
+int putty_conf_get_port(const PuttyConf *conf);
+void putty_conf_set_port(PuttyConf *conf, int port);
+
+int putty_conf_get_protocol(const PuttyConf *conf);
+void putty_conf_set_protocol(PuttyConf *conf, int protocol);
+
+/** Well-known default port for a PUTTY_CONF_PROT_* value. */
+int putty_conf_default_port_for_protocol(int protocol);
+
+bool putty_conf_get_bool(const PuttyConf *conf, PuttyConfBoolKey key);
+void putty_conf_set_bool(PuttyConf *conf, PuttyConfBoolKey key, bool value);
+
+/* ---------------------------------------------------------------------- */
+/* Smoke tests (not for production use) */
 
 int putty_bridge_session_smoke(void);
+int putty_bridge_conf_smoke(void);
 
 #ifdef __cplusplus
 }
