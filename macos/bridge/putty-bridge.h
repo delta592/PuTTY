@@ -194,6 +194,41 @@ void putty_bridge_print_help(FILE *fp);
 void putty_bridge_print_version(FILE *fp);
 
 /* ---------------------------------------------------------------------- */
+/* App launch / initial config (Phase 6.3) */
+
+/**
+ * Called when C wants Swift to open a session window.
+ * - conf non-NULL: caller transfers ownership; Swift must putty_conf_free().
+ * - conf NULL: quit request (initial config Cancel with no open windows).
+ * - connect: true when conf is launchable and a backend should start.
+ */
+typedef void (*PuttyBridgeOpenSessionFn)(
+    void *ctx, PuttyConf *conf, bool connect);
+
+void putty_bridge_set_open_session_callback(
+    PuttyBridgeOpenSessionFn fn, void *ctx);
+
+/** Track live session windows (for Cancel → quit when none remain). */
+void putty_bridge_session_window_opened(void);
+void putty_bridge_session_window_closed(void);
+int putty_bridge_open_session_window_count(void);
+
+/** True when conf lacks a host/session suitable for immediate connect. */
+bool putty_bridge_needs_initial_config(const PuttyConf *conf);
+
+/**
+ * Start the app: if connect_immediately and conf is host-ok, open a session
+ * window; otherwise show initial_config_box. Takes ownership of conf.
+ */
+void putty_bridge_start_app(PuttyConf *conf, bool connect_immediately);
+
+/** Session → New Session: show initial config box with defaults. */
+void putty_bridge_launch_new_session(void);
+
+/** Headless smoke for launch / need-config decisions. Returns 0 on OK. */
+int putty_bridge_launch_smoke(void);
+
+/* ---------------------------------------------------------------------- */
 /* Event loop (Phase 3.4) */
 
 /** Millisecond clock compatible with putty_run_timers() (GETTICKCOUNT). */

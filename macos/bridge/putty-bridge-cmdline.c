@@ -162,8 +162,7 @@ void putty_bridge_print_help(FILE *fp)
                 "  --version         Show version and build info\n"
                 "  -pgpfp            Display PGP key fingerprints\n"
                 "\n"
-                "If no host or -load is given, a local terminal window opens.\n"
-                "The full settings editor is not yet available on macOS.\n"
+                "If no host or -load is given, the configuration dialog opens.\n"
                 ) < 0 || fflush(fp) < 0) {
         perror("output error");
         exit(1);

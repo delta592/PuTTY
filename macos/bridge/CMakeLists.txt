@@ -9,6 +9,7 @@ add_library(putty-macos-bridge STATIC
   putty-session.c
   putty-conf.c
   putty-bridge-cmdline.c
+  putty-bridge-launch.c
   putty-eventloop.c
   putty-bridge-thread.c
   putty-bridge-platform.c
@@ -167,7 +168,12 @@ add_custom_target(putty-mac-seat-gate
     putty-bridge-ssh-exit-c
   COMMENT "Build MacGuiSeat gate binaries")
 
+putty_add_bridge_smoke(putty-bridge-launch-smoke-c
+  FUNC putty_bridge_launch_smoke
+  OK_MSG "putty-bridge-launch-smoke: ok")
+
 add_custom_target(putty-mac-config-gate
   DEPENDS
     putty-mac-config-smoke-c
-  COMMENT "Build config controlbox / settings UX gate binaries (Phase 6.1–6.2)")
+    putty-bridge-launch-smoke-c
+  COMMENT "Build config / launch gate binaries (Phase 6.1–6.3)")

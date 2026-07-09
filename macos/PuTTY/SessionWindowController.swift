@@ -98,5 +98,6 @@ final class SessionWindowController: NSWindowController, NSWindowDelegate {
         _ = notification
         SessionSpecialsMenu.shared.resignKeyController(self)
         Self.openControllers.removeAll { $0 === self }
+        putty_bridge_session_window_closed()
     }
 }

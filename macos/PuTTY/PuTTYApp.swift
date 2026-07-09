@@ -34,12 +34,14 @@ enum PuTTYMain {
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    private let initialConf: PuttyConfHandle?
-    private let initialConnect: Bool
+    private var pendingConf: PuttyConfHandle?
+    private let pendingConnect: Bool
+    /// Retained for the C open-session callback lifetime.
+    private var openSessionBox: OpenSessionBox?
 
     init(initialConf: PuttyConfHandle?, initialConnect: Bool) {
-        self.initialConf = initialConf
-        self.initialConnect = initialConnect
+        self.pendingConf = initialConf
+        self.pendingConnect = initialConnect
         super.init()
     }
 
@@ -48,15 +50,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         PuttyEventLoop.start()
         installMenus()
 
-        SessionWindowController.openNew(conf: initialConf, connect: initialConnect)
-        if let initialConf {
-            putty_conf_free(initialConf)
-        }
+        let box = OpenSessionBox(owner: self)
+        openSessionBox = box
+        putty_bridge_set_open_session_callback(
+            { ctx, conf, connect in
+                guard let ctx else { return }
+                Unmanaged<OpenSessionBox>.fromOpaque(ctx)
+                    .takeUnretainedValue()
+                    .handleOpen(conf: conf, connect: connect)
+            },
+            Unmanaged.passUnretained(box).toOpaque()
+        )
+
+        let conf = pendingConf
+        pendingConf = nil
+        // Takes ownership of conf.
+        putty_bridge_start_app(conf, pendingConnect)
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         _ = sender
-        return true
+        // Keep running while the initial config dialog is the only window.
+        return putty_bridge_open_session_window_count() == 0
+            && NSApp.windows.contains { $0.isVisible } == false
+    }
+
+    fileprivate func openSession(conf: PuttyConfHandle?, connect: Bool) {
+        if conf == nil {
+            NSApp.terminate(nil)
+            return
+        }
+        SessionWindowController.openNew(conf: conf, connect: connect)
+        putty_conf_free(conf)
+        putty_bridge_session_window_opened()
     }
 
     private func installMenus() {
@@ -95,7 +121,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func newSession(_ sender: Any?) {
         _ = sender
-        SessionWindowController.openNew(conf: nil, connect: false)
+        putty_bridge_launch_new_session()
     }
 
     @objc private func changeSettings(_ sender: Any?) {
@@ -114,5 +140,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func closeSession(_ sender: Any?) {
         _ = sender
         NSApp.keyWindow?.performClose(nil)
+    }
+}
+
+/// Heap box so the C open-session callback can reach AppDelegate.
+@MainActor
+private final class OpenSessionBox {
+    private weak var owner: AppDelegate?
+
+    init(owner: AppDelegate) {
+        self.owner = owner
+    }
+
+    func handleOpen(conf: PuttyConfHandle?, connect: Bool) {
+        owner?.openSession(conf: conf, connect: connect)
     }
 }
