@@ -424,6 +424,27 @@ public bridge entry point. Release builds (`NDEBUG`) omit the checks.
 
 **Phase 3 exit criteria:** Swift test harness can create a `PuttySession`, start an SSH connection to a test server, and receive output bytes via callback — with no AppKit terminal view yet (output may go to `stdout` or a simple `NSTextView`).
 
+**Verified (2026-07-08): PASSING.** Root cause was a double-free in
+`macos/utils/filename.c`: `strbuf_to_str()` already frees the strbuf wrapper, so
+calling `strbuf_free()` afterward corrupted the heap during `do_defaults()`.
+Also fixed `putty_conf_get_username()` to use `conf_get_str_ambi()` for
+`CONF_username` (`STR_AMBI`).
+
+Run (requires local `sshd` on port 22 with key auth; set host key via
+`PUTTY_BRIDGE_TEST_HOSTKEY` if needed):
+
+```bash
+env -u LDFLAGS -u CPPFLAGS cmake --build build-macos-gui --target \
+  test_conf plink putty-bridge-conf-smoke-c \
+  putty-bridge-phase3-exit-c PuttyBridgePhase3ExitTest
+./build-macos-gui/test_conf && ./build-macos-gui/plink --help
+./build-macos-gui/putty-bridge-conf-smoke-c
+./build-macos-gui/putty-bridge-phase3-exit-c
+./build-macos-gui/PuttyBridgePhase3ExitTest
+```
+
+Set `PUTTY_BRIDGE_PHASE3_SKIP=1` to skip live SSH when no test server is available.
+
 ---
 
 ## Phase 4 — Terminal view and `TermWin` implementation

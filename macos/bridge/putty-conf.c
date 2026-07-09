@@ -97,7 +97,7 @@ const char *putty_conf_get_username(const PuttyConf *conf)
     PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     if (!conf || !conf->conf)
         return "";
-    return conf_get_str(conf->conf, CONF_username);
+    return conf_get_str_ambi(conf->conf, CONF_username, NULL);
 }
 
 void putty_conf_set_username(PuttyConf *conf, const char *username)

@@ -10,6 +10,7 @@
 #include <stdlib.h>
 
 #include "putty.h"
+#include "ssh.h"
 
 const bool buildinfo_gtk_relevant = false;
 
@@ -56,4 +57,25 @@ void nonfatal(const char *fmt, ...)
     vfprintf(stderr, fmt, ap);
     va_end(ap);
     fputc('\n', stderr);
+}
+
+void setup(bool single)
+{
+    (void)single;
+    enable_dit();
+    settings_set_default_protocol(be_default_protocol);
+    {
+        const struct BackendVtable *vt =
+            backend_vt_from_proto(be_default_protocol);
+        settings_set_default_port(0);
+        if (vt)
+            settings_set_default_port(vt->default_port);
+    }
+}
+
+void cleanup_exit(int code)
+{
+    sk_cleanup();
+    random_save_seed();
+    exit(code);
 }

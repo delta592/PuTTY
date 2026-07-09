@@ -10,8 +10,13 @@ add_library(putty-macos-bridge STATIC
   putty-conf.c
   putty-eventloop.c
   putty-bridge-thread.c
+  putty-bridge-phase3-exit.c
+  putty-bridge-platform.c
   putty-bridge-app.c
-  ${CMAKE_CURRENT_SOURCE_DIR}/../platform/no-gtk.c)
+  ${CMAKE_SOURCE_DIR}/stubs/no-console.c
+  ${CMAKE_SOURCE_DIR}/stubs/no-print.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/../platform/no-gtk.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/../platform/unicode.c)
 
 target_include_directories(putty-macos-bridge PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR})
@@ -31,6 +36,7 @@ target_link_libraries(putty-macos-bridge PRIVATE
   network
   crypto
   utils
+  charset
   ${platform_libraries})
 
 # Compile-time check that Swift can import the PuttyBridge clang module.
@@ -41,3 +47,27 @@ target_link_libraries(PuttyBridgeSwiftSmoke PRIVATE
   putty-macos-bridge)
 
 putty_macos_configure_swift_target(PuttyBridgeSwiftSmoke)
+
+# Phase 3 exit-criteria harness: SSH session + output callback (Swift driver).
+add_executable(PuttyBridgePhase3ExitTest
+  PuttyBridgePhase3ExitTest.swift)
+
+target_compile_options(PuttyBridgePhase3ExitTest PRIVATE
+  "$<$<COMPILE_LANGUAGE:Swift>:-parse-as-library>")
+
+target_link_libraries(PuttyBridgePhase3ExitTest PRIVATE
+  putty-macos-bridge)
+
+putty_macos_configure_swift_target(PuttyBridgePhase3ExitTest)
+
+add_executable(putty-bridge-phase3-exit-c
+  putty-bridge-phase3-exit-main.c)
+
+target_link_libraries(putty-bridge-phase3-exit-c PRIVATE
+  putty-macos-bridge)
+
+add_executable(putty-bridge-conf-smoke-c
+  putty-bridge-conf-smoke-main.c)
+
+target_link_libraries(putty-bridge-conf-smoke-c PRIVATE
+  putty-macos-bridge)

@@ -19,7 +19,7 @@ static char *macos_filename_path_from_utf8(const char *str)
 {
     BinarySource src[1];
 
-    if (!str)
+    if (!str || !str[0])
         return dupstr("");
 
     BinarySource_BARE_INIT(src, str, strlen(str));
@@ -31,9 +31,7 @@ static char *macos_filename_path_from_utf8(const char *str)
     }
 
     strbuf *nfc = utf8_to_nfc(ptrlen_from_asciz(str));
-    char *ret = strbuf_to_str(nfc);
-    strbuf_free(nfc);
-    return ret;
+    return strbuf_to_str(nfc);
 }
 
 Filename *filename_from_str(const char *str)

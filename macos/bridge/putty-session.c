@@ -23,13 +23,6 @@ static PuttySession *session_from_termwin(TermWin *tw)
     return container_of(tw, PuttySession, termwin);
 }
 
-Conf *putty_bridge_conf_copy(const PuttyConf *conf)
-{
-    if (!conf)
-        return NULL;
-    return conf_copy(conf->conf);
-}
-
 static Conf *session_new_conf(const PuttyConf *conf)
 {
     PuttyConf *defaults;
@@ -260,6 +253,8 @@ static size_t bridge_seat_output(
 {
     PuttySession *session = session_from_seat(seat);
     (void)type;
+    if (session->callbacks.on_output && data && len > 0)
+        session->callbacks.on_output(session->callback_ctx, data, len);
     if (!session->term)
         return 0;
     return term_data(session->term, data, len);
@@ -485,6 +480,8 @@ void putty_session_start(PuttySession *session)
 
     if (!session || session->started || session->exited)
         return;
+
+    sk_init();
 
     session->cmdline_get_passwd_state = cmdline_get_passwd_input_state_new;
     prepare_session(session->conf);
