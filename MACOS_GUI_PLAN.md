@@ -519,9 +519,17 @@ See `macos/PuTTY/TERMINAL_PERFORMANCE.md` for benchmark commands and Instruments
 
 ### 4.6 Clipboard
 
-- [ ] `clip_write` → `NSPasteboard.general` (UTF-8 plain text; optional styled text later).
-- [ ] `clip_request_paste` → async pasteboard read, then inject via ldisc.
-- [ ] Match HIG: no implicit copy-on-select unless configured in `Conf`.
+- [x] `clip_write` → `NSPasteboard.general` (UTF-8 plain text; optional styled text later).
+- [x] `clip_request_paste` → async pasteboard read, then inject via ldisc.
+- [x] Match HIG: no implicit copy-on-select unless configured in `Conf`.
+
+`TerminalClipboard` writes UTF-8 plain text to `NSPasteboard.general` (and
+`NSPasteboard.find` for `CLIP_CUSTOM_1`), reads paste data asynchronously via
+`readObjects(forClasses:completionHandler:)`, and calls
+`term_lost_clipboard_ownership` when the general pasteboard changes after a
+selection copy. `putty_bridge_termwin_setup_clipboards()` mirrors GTK
+`setup_clipboards`: `CONF_mouseautocopy` defaults off per HIG
+(`CLIPUI_DEFAULT_AUTOCOPY` in `platform.h`).
 
 ### 4.7 Scrollbar and resize
 

@@ -10,6 +10,7 @@
 #include "termwin.h"
 #include "osxkeys.h"
 #include "terminal.h"
+#include "platform.h"
 
 struct PuttyBridgeTermWin {
     MacTermWin *mtw;
@@ -262,6 +263,7 @@ bool putty_bridge_termwin_init_demo(PuttyBridgeTermWin *btw)
     mac_termwin_set_terminal(btw->mtw, btw->term);
     btw->term->ldisc = NULL;
     term_size(btw->term, 24, 80, conf_get_int(btw->conf, CONF_savelines));
+    putty_bridge_termwin_setup_clipboards(btw);
 
     term_data(btw->term, banner, sizeof(banner) - 1);
     term_update(btw->term);
@@ -655,6 +657,118 @@ void putty_bridge_termwin_paste_text(
         return;
 
     term_do_paste(btw->term, data, len);
+}
+
+void putty_bridge_termwin_setup_clipboards(PuttyBridgeTermWin *btw)
+{
+    Terminal *term;
+    Conf *conf;
+
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
+    if (!btw->term || !btw->conf)
+        return;
+
+    term = btw->term;
+    conf = btw->conf;
+
+    assert(term->mouse_select_clipboards[0] == CLIP_LOCAL);
+
+    term->n_mouse_select_clipboards = 1;
+    term->mouse_select_clipboards[term->n_mouse_select_clipboards++] =
+        MOUSE_SELECT_CLIPBOARD;
+
+    if (conf_get_bool(conf, CONF_mouseautocopy)) {
+        term->mouse_select_clipboards[term->n_mouse_select_clipboards++] =
+            CLIP_CLIPBOARD;
+    }
+
+    switch (conf_get_int(conf, CONF_mousepaste)) {
+      case CLIPUI_IMPLICIT:
+        term->mouse_paste_clipboard = MOUSE_PASTE_CLIPBOARD;
+        break;
+      case CLIPUI_EXPLICIT:
+        term->mouse_paste_clipboard = CLIP_CLIPBOARD;
+        break;
+      case CLIPUI_CUSTOM:
+        term->mouse_paste_clipboard = CLIP_CUSTOM_1;
+        break;
+      default:
+        term->mouse_paste_clipboard = CLIP_NULL;
+        break;
+    }
+}
+
+void putty_bridge_termwin_lost_clipboard_ownership(
+    PuttyBridgeTermWin *btw, int32_t clipboard)
+{
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
+    if (!btw->term)
+        return;
+
+    term_lost_clipboard_ownership(btw->term, clipboard);
+}
+
+bool putty_bridge_termwin_mouse_autocopy_enabled(const PuttyBridgeTermWin *btw)
+{
+    if (!btw->conf)
+        return false;
+    return conf_get_bool(btw->conf, CONF_mouseautocopy);
+}
+
+int32_t putty_bridge_termwin_mouse_select_clipboard_count(
+    const PuttyBridgeTermWin *btw)
+{
+    if (!btw->term)
+        return 0;
+    return btw->term->n_mouse_select_clipboards;
+}
+
+int putty_bridge_termwin_clipboard_smoke(void)
+{
+    PuttyBridgeTermWin *btw;
+
+    btw = putty_bridge_termwin_new();
+    if (!putty_bridge_termwin_init_demo(btw)) {
+        putty_bridge_termwin_free(btw);
+        return 1;
+    }
+
+    /* HIG default: no implicit copy-on-select to system clipboard. */
+    if (putty_bridge_termwin_mouse_autocopy_enabled(btw)) {
+        putty_bridge_termwin_free(btw);
+        return 2;
+    }
+    if (putty_bridge_termwin_mouse_select_clipboard_count(btw) != 2) {
+        putty_bridge_termwin_free(btw);
+        return 3;
+    }
+    if (btw->term->mouse_select_clipboards[0] != CLIP_LOCAL) {
+        putty_bridge_termwin_free(btw);
+        return 4;
+    }
+    {
+        int i;
+        for (i = 0; i < btw->term->n_mouse_select_clipboards; i++) {
+            if (btw->term->mouse_select_clipboards[i] == CLIP_CLIPBOARD) {
+                putty_bridge_termwin_free(btw);
+                return 5;
+            }
+        }
+    }
+
+    conf_set_bool(btw->conf, CONF_mouseautocopy, true);
+    putty_bridge_termwin_setup_clipboards(btw);
+    if (putty_bridge_termwin_mouse_select_clipboard_count(btw) != 3) {
+        putty_bridge_termwin_free(btw);
+        return 6;
+    }
+    if (btw->term->mouse_select_clipboards[2] != CLIP_CLIPBOARD) {
+        putty_bridge_termwin_free(btw);
+        return 7;
+    }
+
+    putty_bridge_termwin_free(btw);
+    return 0;
 }
 
 int putty_bridge_termwin_input_smoke(void)

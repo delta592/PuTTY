@@ -78,13 +78,13 @@ private enum TerminalViewBridge {
 
     static let clipWrite: @convention(c) (
         UnsafeMutableRawPointer?, Int32, UnsafePointer<wchar_t>?, Int32, Bool
-    ) -> Void = { ctx, _, text, len, _ in
+    ) -> Void = { ctx, clipboard, text, len, mustDeselect in
         guard let ctx, let text, len > 0 else { return }
         let codepoints = (0..<Int(len)).map { UInt32(bitPattern: Int32(text[$0])) }
         let string = String(decoding: codepoints, as: UTF32.self)
         let view = Unmanaged<TerminalView>.fromOpaque(ctx).takeUnretainedValue()
         Task { @MainActor in
-            view.writeClipboardString(string)
+            view.writeToClipboard(string, clipboard: clipboard, mustDeselect: mustDeselect)
         }
     }
 
@@ -92,7 +92,9 @@ private enum TerminalViewBridge {
         { ctx, clipboard in
             guard let ctx else { return }
             let view = Unmanaged<TerminalView>.fromOpaque(ctx).takeUnretainedValue()
-            MainActor.assumeIsolated { view.handlePasteRequest(clipboard: clipboard) }
+            Task { @MainActor in
+                view.requestClipboardPaste(clipboard: clipboard)
+            }
         }
 }
 
@@ -110,6 +112,7 @@ final class TerminalView: NSView {
     private var rawMousePointer = false
     private var scrollAccumulator: CGFloat = 0
     private let scrollLineHeight: CGFloat = 3
+    private var clipboard: TerminalClipboard?
 
     private lazy var contextMenu: NSMenu = buildContextMenu()
 
@@ -162,6 +165,8 @@ final class TerminalView: NSView {
             fputs("TerminalView: putty_bridge_termwin_init_demo failed\n", stderr)
             return
         }
+
+        clipboard = TerminalClipboard(termWin: handle!)
 
         updateBackingScale()
         syncTerminalGridSize()
@@ -465,19 +470,14 @@ final class TerminalView: NSView {
         resetCursorRects()
     }
 
-    fileprivate func writeClipboardString(_ string: String) {
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(string, forType: .string)
+    fileprivate func writeToClipboard(
+        _ string: String, clipboard: Int32, mustDeselect: Bool
+    ) {
+        self.clipboard?.write(text: string, clipboard: clipboard, mustDeselect: mustDeselect)
     }
 
-    fileprivate func handlePasteRequest(clipboard: Int32) {
-        guard let termWin else { return }
-        if clipboard == PUTTY_BRIDGE_CLIP_LOCAL {
-            putty_bridge_termwin_request_paste(termWin, clipboard)
-            return
-        }
-        guard let string = NSPasteboard.general.string(forType: .string) else { return }
-        pasteString(string, termWin: termWin)
+    fileprivate func requestClipboardPaste(clipboard: Int32) {
+        self.clipboard?.requestPaste(clipboard: clipboard)
     }
 
     // MARK: - Input helpers
@@ -491,18 +491,6 @@ final class TerminalView: NSView {
         menu.addItem(withTitle: "Select All", action: #selector(selectAllAction(_:)), keyEquivalent: "")
         menu.addItem(withTitle: "Copy All", action: #selector(copyAllAction(_:)), keyEquivalent: "")
         return menu
-    }
-
-    private func pasteString(_ string: String, termWin: OpaquePointer) {
-        var codepoints = [wchar_t]()
-        codepoints.reserveCapacity(string.unicodeScalars.count)
-        for scalar in string.unicodeScalars {
-            codepoints.append(wchar_t(scalar.value))
-        }
-        guard !codepoints.isEmpty else { return }
-        codepoints.withUnsafeBufferPointer { buf in
-            putty_bridge_termwin_paste_text(termWin, buf.baseAddress, Int32(buf.count))
-        }
     }
 
     private func cellAt(pointInView point: NSPoint) -> (x: Int32, y: Int32) {

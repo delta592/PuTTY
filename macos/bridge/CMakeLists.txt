@@ -103,3 +103,9 @@ add_executable(putty-bridge-termwin-input-smoke-c
 
 target_link_libraries(putty-bridge-termwin-input-smoke-c PRIVATE
   putty-macos-bridge)
+
+add_executable(putty-bridge-termwin-clipboard-smoke-c
+  putty-bridge-termwin-clipboard-smoke-main.c)
+
+target_link_libraries(putty-bridge-termwin-clipboard-smoke-c PRIVATE
+  putty-macos-bridge)

@@ -210,6 +210,17 @@ void putty_bridge_termwin_request_paste(
 void putty_bridge_termwin_paste_text(
     PuttyBridgeTermWin *btw, const wchar_t *data, int32_t len);
 
+void putty_bridge_termwin_setup_clipboards(PuttyBridgeTermWin *btw);
+void putty_bridge_termwin_lost_clipboard_ownership(
+    PuttyBridgeTermWin *btw, int32_t clipboard);
+bool putty_bridge_termwin_mouse_autocopy_enabled(
+    const PuttyBridgeTermWin *btw);
+int32_t putty_bridge_termwin_mouse_select_clipboard_count(
+    const PuttyBridgeTermWin *btw);
+
+/** Smoke test: clipboard setup matches Conf (HIG autocopy default). Returns 0 on success. */
+int putty_bridge_termwin_clipboard_smoke(void);
+
 /** Smoke test: feed keys and mouse events to demo terminal. Returns 0 on success. */
 int putty_bridge_termwin_input_smoke(void);
 
