@@ -120,6 +120,14 @@ static void mac_gui_seat_request_redraw(MacGuiSeat *seat)
 
 /* --- SeatVtable --- */
 
+static void mac_seat_sent(Seat *seat, size_t bufsize)
+{
+    MacGuiSeat *mgs = seat_from_seat(seat);
+
+    if (mgs->backend)
+        backend_unthrottle(mgs->backend, bufsize);
+}
+
 static size_t mac_seat_output(
     Seat *seat, SeatOutputType type, const void *data, size_t len)
 {
@@ -302,7 +310,7 @@ static void mac_seat_echoedit_update(Seat *seat, bool echoing, bool editing)
 static const SeatVtable mac_gui_seat_vt = {
     .output = mac_seat_output,
     .eof = mac_seat_eof,
-    .sent = nullseat_sent,
+    .sent = mac_seat_sent,
     .banner = mac_seat_banner,
     .get_userpass_input = mac_seat_get_userpass_input,
     .notify_session_started = nullseat_notify_session_started,

@@ -26,11 +26,6 @@ void nonfatal(const char *fmt, ...)
     (void)fmt;
 }
 
-void timer_change_notify(unsigned long next)
-{
-    (void)next;
-}
-
 char *platform_default_s(const char *name)
 {
     if (!strcmp(name, "TermType"))

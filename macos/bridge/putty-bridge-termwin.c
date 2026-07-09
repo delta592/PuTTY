@@ -6,6 +6,7 @@
 
 #include "putty-bridge-termwin.h"
 
+#include "putty-bridge.h"
 #include "putty-bridge-thread.h"
 #include "seat.h"
 #include "seat-dialogs.h"
@@ -1402,6 +1403,27 @@ int putty_bridge_termwin_phase53_exit_smoke(void)
     if (!descs || strcmp(descs->hk_accept_action, "click Accept") != 0) {
         putty_bridge_termwin_free(btw);
         return 101;
+    }
+
+    putty_bridge_termwin_free(btw);
+    return 0;
+}
+
+int putty_bridge_termwin_phase54_exit_smoke(void)
+{
+    PuttyBridgeTermWin *btw;
+    int rc;
+
+    rc = putty_bridge_eventloop_phase54_smoke();
+    if (rc != 0)
+        return rc;
+
+    putty_bridge_eventloop_start();
+
+    btw = putty_bridge_termwin_new();
+    if (!putty_bridge_termwin_init_session(btw)) {
+        putty_bridge_termwin_free(btw);
+        return 100;
     }
 
     putty_bridge_termwin_free(btw);

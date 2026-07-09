@@ -6,6 +6,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var window: NSWindow?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        PuttyEventLoop.start()
+
         let contentRect = NSRect(x: 0, y: 0, width: 800, height: 600)
         let window = NSWindow(
             contentRect: contentRect,

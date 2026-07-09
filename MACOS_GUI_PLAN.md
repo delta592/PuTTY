@@ -604,7 +604,7 @@ env -u LDFLAGS -u CPPFLAGS cmake --build build-macos-gui --target putty-mac-seat
 `TerminalView` redraw through `MacTermWinCallbacks.request_redraw`.
 `mac_seat_banner()` routes auth banners through the same output path (GTK
 semantics via `nullseat_banner_to_stderr` → `seat_output`). `eof` returns true,
-`sent` uses `nullseat_sent`, and `mac_tw_unthrottle` forwards to
+`sent` uses `mac_seat_sent` → `backend_unthrottle`, and `mac_tw_unthrottle` forwards to
 `backend_unthrottle`. `mac_seat_echoedit_update()` stores echo/edit state,
 notifies Swift via `on_echoedit_update`, and invalidates the terminal view when
 the line discipline changes.
@@ -648,12 +648,27 @@ env -u LDFLAGS -u CPPFLAGS cmake --build build-macos-gui --target \
 
 ### 5.4 Event loop: CFRunLoop + PuTTY timers
 
-- [ ] Replace GTK main loop with:
+- [x] Replace GTK main loop with:
   - `CFRunLoopRun()` / `@MainActor` app lifecycle
   - `DispatchSource` on FDs registered through `uxsel`
   - `Timer` or display-link-driven timer tick calling `run_timers()` and `run_toplevel_callbacks()`
-- [ ] Ensure `select_result()` fires on socket readiness without blocking UI.
-- [ ] Handle `backend_send()` backpressure via `seat.sent`.
+- [x] Ensure `select_result()` fires on socket readiness without blocking UI.
+- [x] Handle `backend_send()` backpressure via `seat.sent`.
+
+`macos/platform/eventloop-appkit.m` implements `uxsel_input_add` /
+`uxsel_input_remove` with `DISPATCH_SOURCE_TYPE_READ` and `WRITE` on the main
+queue, `timer_change_notify` via dispatch timer sources, and
+`mac_eventloop_schedule_toplevel_callbacks()` for `request_callback_notifications`.
+Weak stubs in `cliloop.c` remain for CLI tools; GUI binaries override via
+macguifrontend. `PuttyEventLoop.start()` (from `PuTTYApp`) calls
+`putty_bridge_eventloop_start()` to arm initial timers. `mac_seat_sent()` forwards
+`backend_unthrottle()` for send-buffer backpressure (alongside `mac_tw_unthrottle`).
+
+```bash
+env -u LDFLAGS -u CPPFLAGS cmake --build build-macos-gui --target \
+  putty-bridge-termwin-phase54-exit-c
+./build-macos-gui/putty-bridge-termwin-phase54-exit-c
+```
 
 ### 5.5 Window controller
 
@@ -665,7 +680,7 @@ env -u LDFLAGS -u CPPFLAGS cmake --build build-macos-gui --target \
 
 - [ ] `update_specials_menu` → rebuild **Session → Special Commands** submenu from `backend_get_specials()`.
 
-**Phase 5 exit criteria:** Full SSH login to remote host, interactive shell, file transfer not required yet; host key prompt works; window closes cleanly.
+**Phase 5 exit criteria:** Full SSH login to remote host using endpoint 192.168.0.19 interactive shell, file transfer not required yet; host key prompt works; window closes cleanly.
 
 ---
 

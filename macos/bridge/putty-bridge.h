@@ -174,6 +174,12 @@ uint64_t putty_bridge_now_ms(void);
 /** Initialise uxsel and toplevel-callback notification (idempotent). */
 void putty_bridge_eventloop_init(void);
 
+/** Start AppKit event-loop integration (timers + dispatch sources). */
+void putty_bridge_eventloop_start(void);
+
+/** Run one CFRunLoop iteration (smoke tests). */
+void putty_bridge_eventloop_pump_once(void);
+
 /** Run due PuTTY timers; pass the same clock used for scheduling. */
 void putty_run_timers(uint64_t now_ms);
 
@@ -224,6 +230,9 @@ bool putty_bridge_is_main_thread(void);
 int putty_bridge_session_smoke(void);
 int putty_bridge_conf_smoke(void);
 int putty_bridge_eventloop_smoke(void);
+
+/** Phase 5.4 exit gate: DispatchSource timers + toplevel callbacks. Returns 0 on success. */
+int putty_bridge_eventloop_phase54_smoke(void);
 int putty_bridge_thread_smoke(void);
 
 /**

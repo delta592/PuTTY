@@ -46,6 +46,7 @@ add_library(macguifrontend STATIC
   platform/termwin.c
   platform/seat.c
   platform/seat-dialogs.m
+  platform/eventloop-appkit.m
   platform/osxkeys.c)
 be_list(macguifrontend PuTTY)
 target_link_libraries(macguifrontend PUBLIC

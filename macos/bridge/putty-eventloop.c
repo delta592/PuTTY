@@ -6,6 +6,7 @@
 
 #include "putty-bridge-internal.h"
 
+#include "eventloop-appkit.h"
 #include "putty-bridge-thread.h"
 
 struct PuttyPollWrapper {
@@ -19,11 +20,7 @@ static bool bridge_eventloop_ready;
 
 static void bridge_notify_toplevel_callback(void *ctx)
 {
-    /*
-     * Swift should poll putty_toplevel_callback_pending() on the main
-     * queue (or register a wake hook here in a later phase).
-     */
-    (void)ctx;
+    mac_eventloop_schedule_toplevel_callbacks(ctx);
 }
 
 void putty_bridge_eventloop_init(void)
@@ -200,13 +197,25 @@ void putty_pollwrapper_process_events(PuttyPollWrapper *wrapper)
     }
 }
 
-void timer_change_notify(unsigned long next)
+void putty_bridge_eventloop_start(void)
 {
-    /*
-     * Swift schedules the next timer via NSTimer / DispatchSource after
-     * calling putty_run_timers(). Nothing to do until the AppKit loop
-     * wires a wake source (Phase 5+).
-     */
+    unsigned long now;
+    unsigned long next;
+
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
+    putty_bridge_eventloop_init();
+    now = (unsigned long)putty_bridge_now_ms();
+    run_timers(now, &next);
+}
+
+void putty_bridge_eventloop_pump_once(void)
+{
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
+    mac_eventloop_pump_once();
+}
+
+__attribute__((weak)) void timer_change_notify(unsigned long next)
+{
     (void)next;
 }
 
@@ -243,6 +252,34 @@ int putty_bridge_eventloop_smoke(void)
     if (putty_session_output(session, test_input, sizeof(test_input) - 1) != 0)
         return -4;
     putty_session_free(session);
+
+    return 0;
+}
+
+static void phase54_toplevel_smoke_cb(void *ctx)
+{
+    bool *ran = (bool *)ctx;
+    *ran = true;
+}
+
+int putty_bridge_eventloop_phase54_smoke(void)
+{
+    bool toplevel_ran = false;
+
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
+
+    putty_bridge_eventloop_start();
+    queue_toplevel_callback(phase54_toplevel_smoke_cb, &toplevel_ran);
+
+    for (int i = 0; i < 20 && !toplevel_ran; i++)
+        putty_bridge_eventloop_pump_once();
+
+    if (!toplevel_ran)
+        return 1;
+
+    putty_run_timers(putty_bridge_now_ms());
+    if (putty_toplevel_callback_pending())
+        putty_run_toplevel_callbacks();
 
     return 0;
 }
