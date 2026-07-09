@@ -430,20 +430,15 @@ calling `strbuf_free()` afterward corrupted the heap during `do_defaults()`.
 Also fixed `putty_conf_get_username()` to use `conf_get_str_ambi()` for
 `CONF_username` (`STR_AMBI`).
 
-Run (requires local `sshd` on port 22 with key auth; set host key via
-`PUTTY_BRIDGE_TEST_HOSTKEY` if needed):
+Run (historical; Phase 3 gate binaries removed — use `putty-bridge-ssh-exit-c` for
+live SSH regression):
 
 ```bash
 env -u LDFLAGS -u CPPFLAGS cmake --build build-macos-gui --target \
-  test_conf plink putty-bridge-conf-smoke-c \
-  putty-bridge-phase3-exit-c PuttyBridgePhase3ExitTest
+  test_conf plink putty-bridge-conf-smoke-c PuttyBridgeSwiftSmoke
 ./build-macos-gui/test_conf && ./build-macos-gui/plink --help
 ./build-macos-gui/putty-bridge-conf-smoke-c
-./build-macos-gui/putty-bridge-phase3-exit-c
-./build-macos-gui/PuttyBridgePhase3ExitTest
 ```
-
-Set `PUTTY_BRIDGE_PHASE3_SKIP=1` to skip live SSH when no test server is available.
 
 ---
 
@@ -712,7 +707,7 @@ env -u LDFLAGS -u CPPFLAGS cmake --build build-macos-gui --target \
 192.168.0.19 interactive shell, file transfer not required yet; host key prompt
 works; window closes cleanly.
 
-Automated gate (`putty-bridge-phase5-exit-c`):
+Automated gate (`putty-bridge-ssh-exit-c`):
 
 - `mac_gui_seat_dialogs_smoke()` — host-key accept + weak-crypto reject + password dialog.
 - MacGuiSeat SSH via `putty_bridge_termwin_open(connect=true)` to
@@ -728,18 +723,19 @@ env -u LDFLAGS -u CPPFLAGS cmake --build build-macos-gui --target \
   putty-mac-seat-dialogs-smoke-c putty-bridge-termwin-phase52-exit-c \
   putty-bridge-termwin-phase53-exit-c putty-bridge-termwin-phase54-exit-c \
   putty-bridge-termwin-phase55-exit-c putty-bridge-termwin-phase56-exit-c \
-  putty-bridge-phase5-exit-c
+  putty-bridge-ssh-exit-c
 
 for t in putty-mac-seat-smoke-c putty-mac-seat-output-smoke-c \
   putty-mac-seat-dialogs-smoke-c putty-bridge-termwin-phase52-exit-c \
   putty-bridge-termwin-phase53-exit-c putty-bridge-termwin-phase54-exit-c \
   putty-bridge-termwin-phase55-exit-c putty-bridge-termwin-phase56-exit-c \
-  putty-bridge-phase5-exit-c; do
+  putty-bridge-ssh-exit-c; do
   ./build-macos-gui/$t || exit 1
 done
 ```
 
-Set `PUTTY_BRIDGE_PHASE5_SKIP=1` to skip the live SSH integration test.
+Set `PUTTY_BRIDGE_SSH_EXIT_SKIP=1` to skip the live SSH integration test
+(`PUTTY_BRIDGE_PHASE5_SKIP=1` is accepted as a legacy alias).
 Set `PUTTY_BRIDGE_TEST_HOST`, `PUTTY_BRIDGE_TEST_USER`, `PUTTY_BRIDGE_TEST_PORT`,
 and `PUTTY_BRIDGE_TEST_HOSTKEY` to override defaults.
 

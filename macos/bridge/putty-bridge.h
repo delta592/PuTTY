@@ -264,13 +264,10 @@ int putty_bridge_eventloop_phase54_smoke(void);
 int putty_bridge_thread_smoke(void);
 
 /**
- * Phase 3 exit-criteria integration test: SSH session + output callback.
- * Uses PUTTY_BRIDGE_TEST_HOST (default 127.0.0.1), PUTTY_BRIDGE_TEST_PORT
- * (22), PUTTY_BRIDGE_TEST_USER (default $USER), PUTTY_BRIDGE_TEST_HOSTKEY
- * (default localhost SHA256 fingerprint). Set PUTTY_BRIDGE_PHASE3_SKIP=1 to
- * skip (returns 0). Returns 0 when output bytes were received.
+ * Live SSH integration test through MacGuiSeat + TermWin (default host
+ * 192.168.0.19). Set PUTTY_BRIDGE_SSH_EXIT_SKIP=1 to skip.
  */
-int putty_bridge_phase3_exit_test(void);
+int putty_bridge_ssh_exit_test(void);
 
 #include "putty-bridge-termwin.h"
 

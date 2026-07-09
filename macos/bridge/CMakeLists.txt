@@ -9,10 +9,8 @@ add_library(putty-macos-bridge STATIC
   putty-session.c
   putty-conf.c
   putty-bridge-cmdline.c
-  putty-bridge-phase5-exit.c
   putty-eventloop.c
   putty-bridge-thread.c
-  putty-bridge-phase3-exit.c
   putty-bridge-platform.c
   putty-bridge-app.c
   putty-bridge-termwin.c
@@ -44,6 +42,22 @@ target_link_libraries(putty-macos-bridge PRIVATE
   charset
   ${platform_libraries})
 
+# Shared main() for C smoke / exit harnesses (one source, many executables).
+function(putty_add_bridge_smoke target)
+  cmake_parse_arguments(ARG "" "FUNC;OK_MSG" "EXTRA_SOURCES" ${ARGN})
+  if(NOT ARG_FUNC OR NOT ARG_OK_MSG)
+    message(FATAL_ERROR "putty_add_bridge_smoke requires FUNC and OK_MSG")
+  endif()
+  add_executable(${target} putty-bridge-smoke-main.c ${ARG_EXTRA_SOURCES})
+  target_compile_definitions(${target} PRIVATE
+    PUTTY_BRIDGE_SMOKE_FUNC=${ARG_FUNC}
+    PUTTY_SMOKE_LABEL="${ARG_FUNC}"
+    PUTTY_SMOKE_OK_MSG="${ARG_OK_MSG}")
+  target_include_directories(${target} PRIVATE
+    ${CMAKE_SOURCE_DIR}/macos/platform)
+  target_link_libraries(${target} PRIVATE putty-macos-bridge)
+endfunction()
+
 # Compile-time check that Swift can import the PuttyBridge clang module.
 add_library(PuttyBridgeSwiftSmoke STATIC
   PuttyBridgeSmoke.swift)
@@ -53,31 +67,11 @@ target_link_libraries(PuttyBridgeSwiftSmoke PRIVATE
 
 putty_macos_configure_swift_target(PuttyBridgeSwiftSmoke)
 
-# Phase 3 exit-criteria harness: SSH session + output callback (Swift driver).
-add_executable(PuttyBridgePhase3ExitTest
-  PuttyBridgePhase3ExitTest.swift)
+putty_add_bridge_smoke(putty-bridge-conf-smoke-c
+  FUNC putty_bridge_conf_smoke
+  OK_MSG "putty-bridge-conf-smoke: ok")
 
-target_compile_options(PuttyBridgePhase3ExitTest PRIVATE
-  "$<$<COMPILE_LANGUAGE:Swift>:-parse-as-library>")
-
-target_link_libraries(PuttyBridgePhase3ExitTest PRIVATE
-  putty-macos-bridge)
-
-putty_macos_configure_swift_target(PuttyBridgePhase3ExitTest)
-
-add_executable(putty-bridge-phase3-exit-c
-  putty-bridge-phase3-exit-main.c)
-
-target_link_libraries(putty-bridge-phase3-exit-c PRIVATE
-  putty-macos-bridge)
-
-add_executable(putty-bridge-conf-smoke-c
-  putty-bridge-conf-smoke-main.c)
-
-target_link_libraries(putty-bridge-conf-smoke-c PRIVATE
-  putty-macos-bridge)
-
-# Phase 4.4 terminal paint performance gate (C noop-callback driver).
+# Phase 4.4 terminal paint performance gate (custom driver with noop callbacks).
 add_executable(putty-bridge-termwin-perf-c
   putty-bridge-termwin-perf-main.c)
 
@@ -100,68 +94,47 @@ target_link_libraries(PuttyBridgeTermPerfTest PRIVATE
 
 putty_macos_configure_swift_target(PuttyBridgeTermPerfTest)
 
-add_executable(putty-bridge-termwin-input-smoke-c
-  putty-bridge-termwin-input-smoke-main.c)
+putty_add_bridge_smoke(putty-bridge-termwin-input-smoke-c
+  FUNC putty_bridge_termwin_input_smoke
+  OK_MSG "putty-bridge-termwin-input-smoke: ok")
 
-target_link_libraries(putty-bridge-termwin-input-smoke-c PRIVATE
-  putty-macos-bridge)
+putty_add_bridge_smoke(putty-bridge-termwin-clipboard-smoke-c
+  FUNC putty_bridge_termwin_clipboard_smoke
+  OK_MSG "putty-bridge-termwin-clipboard-smoke: ok")
 
-add_executable(putty-bridge-termwin-clipboard-smoke-c
-  putty-bridge-termwin-clipboard-smoke-main.c)
+putty_add_bridge_smoke(putty-bridge-termwin-scroll-resize-smoke-c
+  FUNC putty_bridge_termwin_scroll_resize_smoke
+  OK_MSG "putty-bridge-termwin-scroll-resize-smoke: ok")
 
-target_link_libraries(putty-bridge-termwin-clipboard-smoke-c PRIVATE
-  putty-macos-bridge)
+putty_add_bridge_smoke(putty-bridge-termwin-bell-title-smoke-c
+  FUNC putty_bridge_termwin_bell_title_smoke
+  OK_MSG "putty-bridge-termwin-bell-title-smoke: ok")
 
-add_executable(putty-bridge-termwin-scroll-resize-smoke-c
-  putty-bridge-termwin-scroll-resize-smoke-main.c)
+putty_add_bridge_smoke(putty-bridge-termwin-phase4-exit-c
+  FUNC putty_bridge_termwin_phase4_exit_smoke
+  OK_MSG "putty-bridge-termwin-phase4-exit: ok")
 
-target_link_libraries(putty-bridge-termwin-scroll-resize-smoke-c PRIVATE
-  putty-macos-bridge)
+putty_add_bridge_smoke(putty-bridge-termwin-phase52-exit-c
+  FUNC putty_bridge_termwin_phase52_exit_smoke
+  OK_MSG "putty-bridge-termwin-phase52-exit: ok")
 
-add_executable(putty-bridge-termwin-bell-title-smoke-c
-  putty-bridge-termwin-bell-title-smoke-main.c)
+putty_add_bridge_smoke(putty-bridge-termwin-phase53-exit-c
+  FUNC putty_bridge_termwin_phase53_exit_smoke
+  OK_MSG "putty-bridge-termwin-phase53-exit: ok")
 
-target_link_libraries(putty-bridge-termwin-bell-title-smoke-c PRIVATE
-  putty-macos-bridge)
+putty_add_bridge_smoke(putty-bridge-termwin-phase54-exit-c
+  FUNC putty_bridge_termwin_phase54_exit_smoke
+  OK_MSG "putty-bridge-termwin-phase54-exit: ok")
 
-add_executable(putty-bridge-termwin-phase4-exit-c
-  putty-bridge-termwin-phase4-exit-main.c)
+putty_add_bridge_smoke(putty-bridge-termwin-phase55-exit-c
+  FUNC putty_bridge_termwin_phase55_exit_smoke
+  OK_MSG "putty-bridge-termwin-phase55-exit: ok")
 
-target_link_libraries(putty-bridge-termwin-phase4-exit-c PRIVATE
-  putty-macos-bridge)
+putty_add_bridge_smoke(putty-bridge-termwin-phase56-exit-c
+  FUNC putty_bridge_termwin_phase56_exit_smoke
+  OK_MSG "putty-bridge-termwin-phase56-exit: ok")
 
-add_executable(putty-bridge-termwin-phase52-exit-c
-  putty-bridge-termwin-phase52-exit-main.c)
-
-target_link_libraries(putty-bridge-termwin-phase52-exit-c PRIVATE
-  putty-macos-bridge)
-
-add_executable(putty-bridge-termwin-phase53-exit-c
-  putty-bridge-termwin-phase53-exit-main.c)
-
-target_link_libraries(putty-bridge-termwin-phase53-exit-c PRIVATE
-  putty-macos-bridge)
-
-add_executable(putty-bridge-termwin-phase54-exit-c
-  putty-bridge-termwin-phase54-exit-main.c)
-
-target_link_libraries(putty-bridge-termwin-phase54-exit-c PRIVATE
-  putty-macos-bridge)
-
-add_executable(putty-bridge-termwin-phase55-exit-c
-  putty-bridge-termwin-phase55-exit-main.c)
-
-target_link_libraries(putty-bridge-termwin-phase55-exit-c PRIVATE
-  putty-macos-bridge)
-
-add_executable(putty-bridge-termwin-phase56-exit-c
-  putty-bridge-termwin-phase56-exit-main.c)
-
-target_link_libraries(putty-bridge-termwin-phase56-exit-c PRIVATE
-  putty-macos-bridge)
-
-add_executable(putty-bridge-phase5-exit-c
-  putty-bridge-phase5-exit-main.c)
-
-target_link_libraries(putty-bridge-phase5-exit-c PRIVATE
-  putty-macos-bridge)
+putty_add_bridge_smoke(putty-bridge-ssh-exit-c
+  FUNC putty_bridge_ssh_exit_test
+  OK_MSG "putty-bridge-ssh-exit: ok"
+  EXTRA_SOURCES putty-bridge-ssh-exit.c)

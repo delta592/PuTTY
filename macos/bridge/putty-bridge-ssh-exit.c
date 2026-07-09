@@ -1,9 +1,8 @@
 /*
- * putty-bridge-phase5-exit.c — Phase 5 exit-criteria integration test.
+ * putty-bridge-ssh-exit.c — live SSH integration test for MacGuiSeat + TermWin.
  *
- * Validates MacGuiSeat SSH login to the plan test host (default 192.168.0.19),
- * host-key dialog machinery, shell output in the terminal buffer, SSH specials
- * menu availability, and clean session teardown.
+ * Validates SSH login to the plan test host (default 192.168.0.19), host-key
+ * dialog machinery, shell output in the terminal buffer, and clean teardown.
  */
 
 #include <stdbool.h>
@@ -17,22 +16,26 @@
 
 #include "seat-dialogs.h"
 
-static const char *phase5_env_or_default(const char *name, const char *def)
+static const char *ssh_exit_env_or_default(const char *name, const char *def)
 {
     const char *value = getenv(name);
     return (value && *value) ? value : def;
 }
 
-static bool phase5_skip_requested(void)
+static bool ssh_exit_skip_requested(void)
 {
-    const char *skip = getenv("PUTTY_BRIDGE_PHASE5_SKIP");
+    const char *skip = getenv("PUTTY_BRIDGE_SSH_EXIT_SKIP");
+    if (skip && skip[0] == '1' && skip[1] == '\0')
+        return true;
+    /* Legacy name from Phase 5 gate. */
+    skip = getenv("PUTTY_BRIDGE_PHASE5_SKIP");
     return skip && skip[0] == '1' && skip[1] == '\0';
 }
 
-static void phase5_configure_hostkey(PuttyConf *conf)
+static void ssh_exit_configure_hostkey(PuttyConf *conf)
 {
     char hostkey[256];
-    const char *configured = phase5_env_or_default(
+    const char *configured = ssh_exit_env_or_default(
         "PUTTY_BRIDGE_TEST_HOSTKEY",
         "SHA256:QV1VZsAC792TF0SzLDcwbQ1feceWY481HUZDvbEBiaE");
 
@@ -44,7 +47,7 @@ static void phase5_configure_hostkey(PuttyConf *conf)
         conf_set_str_str(conf->conf, CONF_ssh_manual_hostkeys, hostkey, "");
 }
 
-static bool phase5_pump_until(
+static bool ssh_exit_pump_until(
     PuttyBridgeTermWin *btw, uint64_t deadline_ms, bool *saw_output)
 {
     while (putty_bridge_now_ms() < deadline_ms) {
@@ -68,7 +71,7 @@ static bool phase5_pump_until(
     return false;
 }
 
-int putty_bridge_phase5_exit_test(void)
+int putty_bridge_ssh_exit_test(void)
 {
     PuttyConf *conf;
     PuttyBridgeTermWin *btw;
@@ -80,16 +83,16 @@ int putty_bridge_phase5_exit_test(void)
 
     PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
 
-    if (phase5_skip_requested()) {
-        fputs("PuttyBridge phase5 exit test: skipped (PUTTY_BRIDGE_PHASE5_SKIP=1)\n",
+    if (ssh_exit_skip_requested()) {
+        fputs("PuttyBridge ssh exit test: skipped (PUTTY_BRIDGE_SSH_EXIT_SKIP=1)\n",
               stderr);
         return 0;
     }
 
-    host = phase5_env_or_default("PUTTY_BRIDGE_TEST_HOST", "192.168.0.19");
-    user = phase5_env_or_default("PUTTY_BRIDGE_TEST_USER", getenv("USER"));
+    host = ssh_exit_env_or_default("PUTTY_BRIDGE_TEST_HOST", "192.168.0.19");
+    user = ssh_exit_env_or_default("PUTTY_BRIDGE_TEST_USER", getenv("USER"));
     port = (int)strtol(
-        phase5_env_or_default("PUTTY_BRIDGE_TEST_PORT", "22"), &endptr, 10);
+        ssh_exit_env_or_default("PUTTY_BRIDGE_TEST_PORT", "22"), &endptr, 10);
     if (!user || !*user)
         user = "root";
 
@@ -98,7 +101,7 @@ int putty_bridge_phase5_exit_test(void)
     rc = mac_gui_seat_dialogs_smoke();
     if (rc != 0) {
         fprintf(stderr,
-                "PuttyBridge phase5 exit test: host-key dialog smoke failed (%d)\n",
+                "PuttyBridge ssh exit test: host-key dialog smoke failed (%d)\n",
                 rc);
         return 100 + rc;
     }
@@ -117,7 +120,7 @@ int putty_bridge_phase5_exit_test(void)
     putty_conf_set_port(conf, port);
     putty_conf_set_username(conf, user);
     conf_set_bool(conf->conf, CONF_tryagent, true);
-    phase5_configure_hostkey(conf);
+    ssh_exit_configure_hostkey(conf);
 
     btw = putty_bridge_termwin_new();
     if (!btw) {
@@ -128,7 +131,7 @@ int putty_bridge_phase5_exit_test(void)
 
     if (!putty_bridge_termwin_open(btw, conf, true)) {
         fprintf(stderr,
-                "PuttyBridge phase5 exit test: putty_bridge_termwin_open failed "
+                "PuttyBridge ssh exit test: putty_bridge_termwin_open failed "
                 "for %s@%s:%d\n",
                 user, host, port);
         putty_bridge_termwin_free(btw);
@@ -140,10 +143,10 @@ int putty_bridge_phase5_exit_test(void)
     putty_conf_free(conf);
     conf = NULL;
 
-    if (!phase5_pump_until(
+    if (!ssh_exit_pump_until(
             btw, putty_bridge_now_ms() + 30000, &saw_output) || !saw_output) {
         fprintf(stderr,
-                "PuttyBridge phase5 exit test: no shell output from %s@%s:%d "
+                "PuttyBridge ssh exit test: no shell output from %s@%s:%d "
                 "(active=%d)\n",
                 user, host, port,
                 putty_bridge_termwin_session_is_active(btw) ? 1 : 0);
@@ -153,19 +156,17 @@ int putty_bridge_phase5_exit_test(void)
     }
 
     if (!putty_bridge_termwin_session_is_active(btw)) {
-        fputs("PuttyBridge phase5 exit test: session not active after login\n",
+        fputs("PuttyBridge ssh exit test: session not active after login\n",
               stderr);
         putty_bridge_termwin_free(btw);
         unsetenv("PUTTY_MACOS_DIALOG_AUTO_ACCEPT");
         return -5;
     }
 
-    /* Allow handshake / main channel setup to finish after first screen paint. */
-    (void)phase5_pump_until(
-        btw, putty_bridge_now_ms() + 5000, &saw_output);
+    (void)ssh_exit_pump_until(btw, putty_bridge_now_ms() + 5000, &saw_output);
 
     if (!putty_bridge_termwin_should_warn_on_close(btw)) {
-        fputs("PuttyBridge phase5 exit test: warn-on-close not enabled\n",
+        fputs("PuttyBridge ssh exit test: warn-on-close not enabled\n",
               stderr);
         putty_bridge_termwin_free(btw);
         unsetenv("PUTTY_MACOS_DIALOG_AUTO_ACCEPT");
@@ -181,7 +182,7 @@ int putty_bridge_phase5_exit_test(void)
         unsetenv("PUTTY_MACOS_DIALOG_AUTO_ACCEPT");
 
         fprintf(stderr,
-                "PuttyBridge phase5 exit test: PASS (%s@%s:%d shell output, "
+                "PuttyBridge ssh exit test: PASS (%s@%s:%d shell output, "
                 "host-key dialog smoke, warn-on-close=%d, specials=%d, "
                 "clean teardown)\n",
                 user, host, port, warn_on_close ? 1 : 0, has_specials ? 1 : 0);
