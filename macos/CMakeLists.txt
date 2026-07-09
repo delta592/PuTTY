@@ -40,11 +40,11 @@ add_sources_from_current_dir(console
 add_sources_from_current_dir(settings
   platform/storage.c
   platform/paths.c
-  platform/stubs.c
-  platform/gui-seat-list.c)
+  platform/stubs.c)
 
 add_library(macguifrontend STATIC
   platform/termwin.c
+  platform/seat.c
   platform/osxkeys.c)
 be_list(macguifrontend PuTTY)
 target_link_libraries(macguifrontend PUBLIC
@@ -112,6 +112,18 @@ add_executable(putty-mac-termwin-smoke-c
   platform/no-gtk.c)
 target_link_libraries(putty-mac-termwin-smoke-c
   macguifrontend eventloop charset settings utils)
+
+add_executable(putty-mac-seat-smoke-c
+  platform/seat-smoke-main.c
+  platform/seat-smoke-platform.c
+  ${CMAKE_SOURCE_DIR}/stubs/no-print.c
+  ${CMAKE_SOURCE_DIR}/stubs/no-gss.c
+  ${CMAKE_SOURCE_DIR}/stubs/no-console.c
+  platform/unicode.c
+  platform/no-gtk.c)
+be_list(putty-mac-seat-smoke-c PuTTY SSH SERIAL OTHERBACKENDS)
+target_link_libraries(putty-mac-seat-smoke-c
+  macguifrontend eventloop charset settings utils network crypto sshclient otherbackends)
 
 add_executable(test_terminal
   ${CMAKE_SOURCE_DIR}/test/test_terminal.c

@@ -577,9 +577,21 @@ Set `PUTTY_BRIDGE_PERF_SKIP=1` to skip perf timing assertions on non-Apple-Silic
 
 ### 5.1 `MacGuiSeat` and vtables
 
-- [ ] Implement `SeatVtable` in `macos/platform/seat.c` (reference: `windows/win-gui-seat.h`, `unix/window.c` gtk seat).
-- [ ] Implement `LogPolicyVtable` for event log and log-file prompts.
-- [ ] Link `MacGuiSeat` ↔ `MacTermWin` ↔ `Terminal` ↔ `Backend` ↔ `Ldisc`.
+- [x] Implement `SeatVtable` in `macos/platform/seat.c` (reference: `windows/win-gui-seat.h`, `unix/window.c` gtk seat).
+- [x] Implement `LogPolicyVtable` for event log and log-file prompts.
+- [x] Link `MacGuiSeat` ↔ `MacTermWin` ↔ `Terminal` ↔ `Backend` ↔ `Ldisc`.
+
+`macos/platform/seat.h` defines `MacGuiSeat` with embedded `MacTermWin`, `Seat`, and
+`LogPolicy`. `mac_gui_seat_new()` wires `term_init` + `log_init`; `mac_gui_seat_start()`
+runs `backend_init` + `ldisc_create`; `mac_gui_seat_start_local_echo()` uses
+`null_backend` for offline smoke. `MacGuiSeatCallbacks` forwards event-log,
+askappend, exit, and menu-update hooks to Swift (Phase 5.3/5.5 wire AppKit UI).
+Security prompts remain `nullseat_*` stubs until Phase 5.3.
+
+```bash
+env -u LDFLAGS -u CPPFLAGS cmake --build build-macos-gui --target putty-mac-seat-smoke-c
+./build-macos-gui/putty-mac-seat-smoke-c
+```
 
 ### 5.2 Output path
 

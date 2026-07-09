@@ -94,6 +94,9 @@ struct MacTermWin {
     int scroll_total, scroll_start, scroll_page;
 };
 
+void mac_termwin_init(MacTermWin *mtw);
+void mac_termwin_destroy(MacTermWin *mtw);
+
 MacTermWin *mac_termwin_new(void);
 void mac_termwin_free(MacTermWin *mtw);
 

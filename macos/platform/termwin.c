@@ -366,10 +366,8 @@ static const TermWinVtable mac_termwin_vt = {
 
 /* --- Public API --- */
 
-MacTermWin *mac_termwin_new(void)
+void mac_termwin_init(MacTermWin *mtw)
 {
-    MacTermWin *mtw = snew(MacTermWin);
-
     memset(mtw, 0, sizeof(*mtw));
     mtw->termwin.vt = &mac_termwin_vt;
     mtw->backing_scale = 1.0;
@@ -377,6 +375,20 @@ MacTermWin *mac_termwin_new(void)
     mtw->cell_height_pt = PUTTY_MAC_FONT_POINT_SIZE * 1.2;
     mtw->ascent_pt = PUTTY_MAC_FONT_POINT_SIZE;
     mtw->descent_pt = PUTTY_MAC_FONT_POINT_SIZE * 0.2;
+}
+
+void mac_termwin_destroy(MacTermWin *mtw)
+{
+    if (!mtw)
+        return;
+    assert(!mtw->draw_ctx_active);
+}
+
+MacTermWin *mac_termwin_new(void)
+{
+    MacTermWin *mtw = snew(MacTermWin);
+
+    mac_termwin_init(mtw);
     return mtw;
 }
 
@@ -384,7 +396,7 @@ void mac_termwin_free(MacTermWin *mtw)
 {
     if (!mtw)
         return;
-    assert(!mtw->draw_ctx_active);
+    mac_termwin_destroy(mtw);
     sfree(mtw);
 }
 
