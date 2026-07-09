@@ -276,6 +276,12 @@ int putty_bridge_termwin_phase4_exit_smoke(void);
 /** Phase 5.2 exit gate: seat.output path through MacGuiSeat. Returns 0 on success. */
 int putty_bridge_termwin_phase52_exit_smoke(void);
 
+/** Phase 5.3 exit gate: security dialog wiring through MacGuiSeat. Returns 0 on success. */
+int putty_bridge_termwin_phase53_exit_smoke(void);
+
+/** Attach terminal window for sheet-modal security prompts (NSWindow *). */
+void putty_bridge_set_parent_window(void *nswindow);
+
 #ifdef __cplusplus
 }
 #endif

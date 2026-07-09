@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "seat.h"
+#include "seat-dialogs.h"
 
 #include "platform.h"
 
@@ -154,9 +155,9 @@ static SeatPromptResult mac_seat_get_userpass_input(Seat *seat, prompts_t *p)
 
     spr = cmdline_get_passwd_input(
         p, &mgs->cmdline_get_passwd_state, true);
-    if (spr.kind == SPRK_INCOMPLETE && mgs->term)
-        spr = term_get_userpass_input(mgs->term, p);
-    return spr;
+    if (spr.kind != SPRK_INCOMPLETE)
+        return spr;
+    return mac_seat_get_userpass_input_dialog(p);
 }
 
 static void mac_seat_notify_remote_exit(Seat *seat)
@@ -175,13 +176,13 @@ static void mac_seat_notify_remote_exit(Seat *seat)
 static void mac_seat_connection_fatal(Seat *seat, const char *msg)
 {
     MacGuiSeat *mgs = seat_from_seat(seat);
+    char *title = dupprintf("%s Fatal Error", appname);
 
     if (mgs->callbacks.on_connection_fatal)
         mgs->callbacks.on_connection_fatal(mgs->callback_ctx, msg);
-    else {
-        seat_stderr_pl(seat, ptrlen_from_asciz(msg));
-        seat_stderr_pl(seat, PTRLEN_LITERAL("\r\n"));
-    }
+    else
+        mac_seat_show_connection_fatal(title, msg, NULL_HELPCTX);
+    sfree(title);
 
     mgs->exited = true;
     mac_gui_seat_destroy_connection(mgs);
@@ -191,13 +192,13 @@ static void mac_seat_connection_fatal(Seat *seat, const char *msg)
 static void mac_seat_nonfatal(Seat *seat, const char *msg)
 {
     MacGuiSeat *mgs = seat_from_seat(seat);
+    char *title = dupprintf("%s Error", appname);
 
     if (mgs->callbacks.on_nonfatal)
         mgs->callbacks.on_nonfatal(mgs->callback_ctx, msg);
-    else {
-        seat_stderr_pl(seat, ptrlen_from_asciz(msg));
-        seat_stderr_pl(seat, PTRLEN_LITERAL("\r\n"));
-    }
+    else
+        mac_seat_show_nonfatal(title, msg, NULL_HELPCTX);
+    sfree(title);
 }
 
 static void mac_seat_update_specials_menu(Seat *seat)
@@ -312,10 +313,10 @@ static const SeatVtable mac_gui_seat_vt = {
     .update_specials_menu = mac_seat_update_specials_menu,
     .get_ttymode = mac_seat_get_ttymode,
     .set_busy_status = mac_seat_set_busy_status,
-    .confirm_ssh_host_key = nullseat_confirm_ssh_host_key,
-    .confirm_weak_crypto_primitive = nullseat_confirm_weak_crypto_primitive,
-    .confirm_weak_cached_hostkey = nullseat_confirm_weak_cached_hostkey,
-    .prompt_descriptions = nullseat_prompt_descriptions,
+    .confirm_ssh_host_key = mac_seat_confirm_ssh_host_key,
+    .confirm_weak_crypto_primitive = mac_seat_confirm_weak_crypto_primitive,
+    .confirm_weak_cached_hostkey = mac_seat_confirm_weak_cached_hostkey,
+    .prompt_descriptions = mac_seat_prompt_descriptions,
     .is_utf8 = mac_seat_is_utf8,
     .echoedit_update = mac_seat_echoedit_update,
     .get_display = nullseat_get_display,

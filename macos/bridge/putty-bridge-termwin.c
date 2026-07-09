@@ -8,6 +8,7 @@
 
 #include "putty-bridge-thread.h"
 #include "seat.h"
+#include "seat-dialogs.h"
 #include "termwin.h"
 #include "osxkeys.h"
 #include "terminal.h"
@@ -1368,6 +1369,39 @@ int putty_bridge_termwin_phase52_exit_smoke(void)
     if (smoke_bridge_redraw_requests < 1) {
         putty_bridge_termwin_free(btw);
         return 2;
+    }
+
+    putty_bridge_termwin_free(btw);
+    return 0;
+}
+
+void putty_bridge_set_parent_window(void *nswindow)
+{
+    mac_gui_dialogs_set_parent_window(nswindow);
+}
+
+int putty_bridge_termwin_phase53_exit_smoke(void)
+{
+    PuttyBridgeTermWin *btw;
+    Seat *seat;
+    const SeatDialogPromptDescriptions *descs;
+    int rc;
+
+    rc = mac_gui_seat_dialogs_smoke();
+    if (rc != 0)
+        return rc;
+
+    btw = putty_bridge_termwin_new();
+    if (!putty_bridge_termwin_init_session(btw)) {
+        putty_bridge_termwin_free(btw);
+        return 100;
+    }
+
+    seat = mac_gui_seat_get_seat(btw->seat);
+    descs = seat_prompt_descriptions(seat);
+    if (!descs || strcmp(descs->hk_accept_action, "click Accept") != 0) {
+        putty_bridge_termwin_free(btw);
+        return 101;
     }
 
     putty_bridge_termwin_free(btw);

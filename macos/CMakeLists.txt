@@ -45,10 +45,12 @@ add_sources_from_current_dir(settings
 add_library(macguifrontend STATIC
   platform/termwin.c
   platform/seat.c
+  platform/seat-dialogs.m
   platform/osxkeys.c)
 be_list(macguifrontend PuTTY)
 target_link_libraries(macguifrontend PUBLIC
-  guiterminal eventloop settings utils charset)
+  guiterminal eventloop settings utils charset
+  "-framework AppKit" "-framework Foundation")
 target_include_directories(macguifrontend PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/platform)
 
@@ -135,6 +137,18 @@ add_executable(putty-mac-seat-output-smoke-c
   platform/no-gtk.c)
 be_list(putty-mac-seat-output-smoke-c PuTTY SSH SERIAL OTHERBACKENDS)
 target_link_libraries(putty-mac-seat-output-smoke-c
+  macguifrontend eventloop charset settings utils network crypto sshclient otherbackends)
+
+add_executable(putty-mac-seat-dialogs-smoke-c
+  platform/seat-dialogs-smoke-main.c
+  platform/seat-smoke-platform.c
+  ${CMAKE_SOURCE_DIR}/stubs/no-print.c
+  ${CMAKE_SOURCE_DIR}/stubs/no-gss.c
+  ${CMAKE_SOURCE_DIR}/stubs/no-console.c
+  platform/unicode.c
+  platform/no-gtk.c)
+be_list(putty-mac-seat-dialogs-smoke-c PuTTY SSH SERIAL OTHERBACKENDS)
+target_link_libraries(putty-mac-seat-dialogs-smoke-c
   macguifrontend eventloop charset settings utils network crypto sshclient otherbackends)
 
 add_executable(test_terminal

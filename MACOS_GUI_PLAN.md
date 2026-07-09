@@ -585,8 +585,8 @@ Set `PUTTY_BRIDGE_PERF_SKIP=1` to skip perf timing assertions on non-Apple-Silic
 `LogPolicy`. `mac_gui_seat_new()` wires `term_init` + `log_init`; `mac_gui_seat_start()`
 runs `backend_init` + `ldisc_create`; `mac_gui_seat_start_local_echo()` uses
 `null_backend` for offline smoke. `MacGuiSeatCallbacks` forwards event-log,
-askappend, exit, and menu-update hooks to Swift (Phase 5.3/5.5 wire AppKit UI).
-Security prompts remain `nullseat_*` stubs until Phase 5.3.
+askappend, exit, and menu-update hooks to Swift (Phase 5.5 wires more AppKit UI).
+Security prompts are implemented in Phase 5.3 (`seat-dialogs.m`).
 
 ```bash
 env -u LDFLAGS -u CPPFLAGS cmake --build build-macos-gui --target putty-mac-seat-smoke-c
@@ -622,11 +622,29 @@ env -u LDFLAGS -u CPPFLAGS cmake --build build-macos-gui --target \
 
 ### 5.3 Security prompts (modal sheets)
 
-- [ ] `confirm_ssh_host_key` — `NSAlert` sheet with fingerprint, trust-on-first-use, cache update.
-- [ ] `confirm_weak_crypto_primitive` / `confirm_weak_cached_hostkey`.
-- [ ] `get_userpass_input` — secure `NSSecureTextField` dialog; support keyboard-interactive auth.
-- [ ] `connection_fatal` / `nonfatal` — alert panels with Help buttons where applicable.
-- [ ] Implement `SeatDialogPromptDescriptions` strings matching macOS HIG tone.
+- [x] `confirm_ssh_host_key` — `NSAlert` sheet with fingerprint, trust-on-first-use, cache update.
+- [x] `confirm_weak_crypto_primitive` / `confirm_weak_cached_hostkey`.
+- [x] `get_userpass_input` — secure `NSSecureTextField` dialog; support keyboard-interactive auth.
+- [x] `connection_fatal` / `nonfatal` — alert panels with Help buttons where applicable.
+- [x] Implement `SeatDialogPromptDescriptions` strings matching macOS HIG tone.
+
+`macos/platform/seat-dialogs.m` implements AppKit security prompts wired into
+`MacGuiSeat` via `seat.c`. Host-key accept calls `store_host_key()`; async
+prompts return `SPR_INCOMPLETE` and invoke callbacks on the main queue.
+`mac_seat_get_userpass_input()` uses `NSSecureTextField` / `NSTextField` in an
+`NSAlert` accessory view (replacing terminal line-editing fallback). Fatal and
+nonfatal errors show `NSAlert` panels with Help. `TerminalView` calls
+`putty_bridge_set_parent_window()` so sheets attach to the session window.
+
+Automated smoke tests use `PUTTY_MACOS_DIALOG_AUTO_ACCEPT` /
+`PUTTY_MACOS_DIALOG_AUTO_REJECT` env vars (no GUI interaction required).
+
+```bash
+env -u LDFLAGS -u CPPFLAGS cmake --build build-macos-gui --target \
+  putty-mac-seat-dialogs-smoke-c putty-bridge-termwin-phase53-exit-c
+./build-macos-gui/putty-mac-seat-dialogs-smoke-c
+./build-macos-gui/putty-bridge-termwin-phase53-exit-c
+```
 
 ### 5.4 Event loop: CFRunLoop + PuTTY timers
 

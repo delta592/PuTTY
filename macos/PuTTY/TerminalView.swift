@@ -240,6 +240,11 @@ final class TerminalView: NSView {
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
+        if let window = window {
+            putty_bridge_set_parent_window(Unmanaged.passUnretained(window).toOpaque())
+        } else {
+            putty_bridge_set_parent_window(nil)
+        }
         updateBackingScale()
         syncTerminalGridSizeIfNeeded()
         setNeedsDisplay(bounds)
