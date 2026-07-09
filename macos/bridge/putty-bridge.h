@@ -33,6 +33,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -164,6 +165,33 @@ int putty_conf_default_port_for_protocol(int protocol);
 
 bool putty_conf_get_bool(const PuttyConf *conf, PuttyConfBoolKey key);
 void putty_conf_set_bool(PuttyConf *conf, PuttyConfBoolKey key, bool value);
+
+/** True when conf has enough information to open a network/serial session. */
+bool putty_conf_launchable(const PuttyConf *conf);
+
+/** Value of the WarnOnClose setting. */
+bool putty_conf_warn_on_close(const PuttyConf *conf);
+
+/* ---------------------------------------------------------------------- */
+/* Command line (Phase 5.5) */
+
+typedef enum PuttyBridgeCmdlineAction {
+    PUTTY_BRIDGE_CMDLINE_LAUNCH = 0,
+    PUTTY_BRIDGE_CMDLINE_EXIT_HELP,
+    PUTTY_BRIDGE_CMDLINE_EXIT_VERSION,
+    PUTTY_BRIDGE_CMDLINE_EXIT_OK,
+} PuttyBridgeCmdlineAction;
+
+/**
+ * Parse argv (including argv[0]). On LAUNCH, *conf_out receives a new PuttyConf
+ * owned by the caller. *connect_out is true when a connection should start
+ * immediately (host or launchable -load).
+ */
+PuttyBridgeCmdlineAction putty_bridge_process_command_line(
+    int argc, char **argv, PuttyConf **conf_out, bool *connect_out);
+
+void putty_bridge_print_help(FILE *fp);
+void putty_bridge_print_version(FILE *fp);
 
 /* ---------------------------------------------------------------------- */
 /* Event loop (Phase 3.4) */

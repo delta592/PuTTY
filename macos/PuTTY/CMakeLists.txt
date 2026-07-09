@@ -16,7 +16,9 @@ configure_file(
 
 add_executable(PuTTY MACOSX_BUNDLE
   PuTTYApp.swift
+  PuttyConfHandle.swift
   PuttyEventLoop.swift
+  SessionWindowController.swift
   TerminalView.swift
   TerminalTextRenderer.swift
   TerminalFontCache.swift

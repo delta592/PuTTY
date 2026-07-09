@@ -225,13 +225,18 @@ final class TerminalView: NSView {
         )
         let ctx = Unmanaged.passUnretained(self).toOpaque()
         putty_bridge_termwin_set_callbacks(handle, &callbacks, ctx)
+    }
 
-        guard putty_bridge_termwin_init_session(handle) else {
-            fputs("TerminalView: putty_bridge_termwin_init_session failed\n", stderr)
+    /// Open the MacGuiSeat-backed session (Phase 5.5). Call once after the view is in a window.
+    func openSession(conf: PuttyConfHandle?, connect: Bool) {
+        guard let termWin else { return }
+
+        if !putty_bridge_termwin_open(termWin, conf, connect) {
+            fputs("TerminalView: putty_bridge_termwin_open failed\n", stderr)
             return
         }
 
-        clipboard = TerminalClipboard(termWin: handle!)
+        clipboard = TerminalClipboard(termWin: termWin)
 
         updateBackingScale()
         syncTerminalGridSize()

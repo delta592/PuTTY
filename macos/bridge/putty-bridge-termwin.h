@@ -149,6 +149,19 @@ bool putty_bridge_termwin_init_demo(PuttyBridgeTermWin *btw);
 /** Phase 5.2: MacGuiSeat-backed session wired to TerminalView callbacks. */
 bool putty_bridge_termwin_init_session(PuttyBridgeTermWin *btw);
 
+/**
+ * Open a MacGuiSeat-backed session using conf (copied). When connect is true
+ * and conf is launchable, starts the backend; otherwise local echo is used.
+ */
+bool putty_bridge_termwin_open(
+    PuttyBridgeTermWin *btw, const PuttyConf *conf, bool connect);
+
+bool putty_bridge_termwin_session_is_active(const PuttyBridgeTermWin *btw);
+bool putty_bridge_termwin_should_warn_on_close(const PuttyBridgeTermWin *btw);
+/** Caller must free with putty_bridge_termwin_free_close_warn_text(). */
+char *putty_bridge_termwin_close_warn_text(const PuttyBridgeTermWin *btw);
+void putty_bridge_termwin_free_close_warn_text(char *text);
+
 void putty_bridge_termwin_set_backing_scale(PuttyBridgeTermWin *btw, double scale);
 double putty_bridge_termwin_get_backing_scale(const PuttyBridgeTermWin *btw);
 
@@ -281,6 +294,9 @@ int putty_bridge_termwin_phase53_exit_smoke(void);
 
 /** Phase 5.4 exit gate: AppKit event loop + session init. Returns 0 on success. */
 int putty_bridge_termwin_phase54_exit_smoke(void);
+
+/** Phase 5.5 exit gate: session window controller wiring. Returns 0 on success. */
+int putty_bridge_termwin_phase55_exit_smoke(void);
 
 /** Attach terminal window for sheet-modal security prompts (NSWindow *). */
 void putty_bridge_set_parent_window(void *nswindow);

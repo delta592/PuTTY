@@ -94,6 +94,15 @@ int mac_gui_seat_smoke(void);
 /** Phase 5.2 smoke: seat.output schedules a TermWin refresh. */
 int mac_gui_seat_output_smoke(void);
 
+/** True when the session has started and not yet exited (Phase 5.5). */
+bool mac_gui_seat_is_active(MacGuiSeat *seat);
+
+/** True when CONF_warn_on_close applies to this window (Phase 5.5). */
+bool mac_gui_seat_should_warn_on_close(MacGuiSeat *seat);
+
+/** Backend-specific close warning, or NULL. Caller must sfree() if non-NULL. */
+char *mac_gui_seat_close_warn_text(MacGuiSeat *seat);
+
 #ifdef __cplusplus
 }
 #endif

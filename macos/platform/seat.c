@@ -726,3 +726,24 @@ int mac_gui_seat_output_smoke(void)
     mac_gui_seat_free(seat);
     return 0;
 }
+
+bool mac_gui_seat_is_active(MacGuiSeat *seat)
+{
+    return seat && seat->started && !seat->exited;
+}
+
+bool mac_gui_seat_should_warn_on_close(MacGuiSeat *seat)
+{
+    if (!mac_gui_seat_is_active(seat))
+        return false;
+    return conf_get_bool(seat->conf, CONF_warn_on_close);
+}
+
+char *mac_gui_seat_close_warn_text(MacGuiSeat *seat)
+{
+    if (!seat || !seat->backend || seat->backend->vt == &null_backend)
+        return NULL;
+    if (!seat->backend->vt->close_warn_text)
+        return NULL;
+    return seat->backend->vt->close_warn_text(seat->backend);
+}

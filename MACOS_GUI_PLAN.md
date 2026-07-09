@@ -672,9 +672,23 @@ env -u LDFLAGS -u CPPFLAGS cmake --build build-macos-gui --target \
 
 ### 5.5 Window controller
 
-- [ ] `SessionWindowController: NSWindowController` owns `PuttySession`, `TerminalView`, menus.
-- [ ] Implement close-with-confirmation when session active (`WarnOnClose` setting).
-- [ ] Support `-load` session argument and `--help` parity with Unix PuTTY.
+- [x] `SessionWindowController: NSWindowController` owns `PuttySession`, `TerminalView`, menus.
+- [x] Implement close-with-confirmation when session active (`WarnOnClose` setting).
+- [x] Support `-load` session argument and `--help` parity with Unix PuTTY.
+
+`SessionWindowController` owns an `NSWindow`, `TerminalScrollContainer`, and
+`TerminalView`. `putty_bridge_termwin_open()` starts a real backend when
+`-load`/host makes the configuration launchable, otherwise local echo.
+`windowShouldClose` shows an `NSAlert` when `WarnOnClose` is enabled and the
+session is still active. `putty_bridge_process_command_line()` handles `-load`,
+`--help`, `--version`, and standard `cmdline_process_param` options;
+`PuTTYApp` dispatches to `SessionWindowController.openNew()`.
+
+```bash
+env -u LDFLAGS -u CPPFLAGS cmake --build build-macos-gui --target \
+  putty-bridge-termwin-phase55-exit-c
+./build-macos-gui/putty-bridge-termwin-phase55-exit-c
+```
 
 ### 5.6 Special commands menu
 

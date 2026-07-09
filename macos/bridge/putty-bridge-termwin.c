@@ -4,9 +4,9 @@
 
 #include <string.h>
 
-#include "putty-bridge-termwin.h"
-
 #include "putty-bridge.h"
+#include "putty-bridge-termwin.h"
+#include "putty-bridge-internal.h"
 #include "putty-bridge-thread.h"
 #include "seat.h"
 #include "seat-dialogs.h"
@@ -355,13 +355,22 @@ void putty_bridge_termwin_set_callbacks(
 
 bool putty_bridge_termwin_init_session(PuttyBridgeTermWin *btw)
 {
-    static const char banner[] =
+    return putty_bridge_termwin_open(btw, NULL, false);
+}
+
+static bool putty_bridge_termwin_open_internal(
+    PuttyBridgeTermWin *btw, const PuttyConf *pc, bool connect)
+{
+    static const char offline_banner[] =
         "PuTTY for macOS — TerminalView\r\n\r\n";
+    Conf *conf_copy = NULL;
+    bool launchable;
+    bool ok;
 
     PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
-    if (btw->session_initialised)
-        return true;
-    if (btw->demo_initialised)
+    if (!btw)
+        return false;
+    if (btw->session_initialised || btw->demo_initialised)
         return false;
 
     if (btw->mtw) {
@@ -369,7 +378,12 @@ bool putty_bridge_termwin_init_session(PuttyBridgeTermWin *btw)
         btw->mtw = NULL;
     }
 
-    btw->seat = mac_gui_seat_new(NULL);
+    if (pc && pc->conf)
+        conf_copy = putty_bridge_conf_copy(pc);
+
+    btw->seat = mac_gui_seat_new(conf_copy);
+    if (conf_copy)
+        conf_free(conf_copy);
     if (!btw->seat)
         return false;
 
@@ -378,7 +392,13 @@ bool putty_bridge_termwin_init_session(PuttyBridgeTermWin *btw)
     btw->conf = mac_gui_seat_get_conf(btw->seat);
     bridge_install_termwin_callbacks(btw);
 
-    if (!mac_gui_seat_start_local_echo(btw->seat)) {
+    launchable = conf_launchable(btw->conf);
+    if (connect && launchable)
+        ok = mac_gui_seat_start(btw->seat);
+    else
+        ok = mac_gui_seat_start_local_echo(btw->seat);
+
+    if (!ok) {
         mac_gui_seat_free(btw->seat);
         btw->seat = NULL;
         btw->mtw = NULL;
@@ -390,12 +410,46 @@ bool putty_bridge_termwin_init_session(PuttyBridgeTermWin *btw)
     btw->demo_ldisc = mac_gui_seat_get_ldisc(btw->seat);
     putty_bridge_termwin_setup_clipboards(btw);
 
-    seat_output(
-        mac_gui_seat_get_seat(btw->seat), SEAT_OUTPUT_STDOUT,
-        banner, sizeof(banner) - 1);
+    if (!connect || !launchable) {
+        seat_output(
+            mac_gui_seat_get_seat(btw->seat), SEAT_OUTPUT_STDOUT,
+            offline_banner, sizeof(offline_banner) - 1);
+    }
 
     btw->session_initialised = true;
     return true;
+}
+
+bool putty_bridge_termwin_open(
+    PuttyBridgeTermWin *btw, const PuttyConf *conf, bool connect)
+{
+    return putty_bridge_termwin_open_internal(btw, conf, connect);
+}
+
+bool putty_bridge_termwin_session_is_active(const PuttyBridgeTermWin *btw)
+{
+    if (!btw || !btw->seat)
+        return false;
+    return mac_gui_seat_is_active(btw->seat);
+}
+
+bool putty_bridge_termwin_should_warn_on_close(const PuttyBridgeTermWin *btw)
+{
+    if (!btw || !btw->seat)
+        return false;
+    return mac_gui_seat_should_warn_on_close(btw->seat);
+}
+
+char *putty_bridge_termwin_close_warn_text(const PuttyBridgeTermWin *btw)
+{
+    if (!btw || !btw->seat)
+        return NULL;
+    return mac_gui_seat_close_warn_text(btw->seat);
+}
+
+void putty_bridge_termwin_free_close_warn_text(char *text)
+{
+    sfree(text);
 }
 
 bool putty_bridge_termwin_init_demo(PuttyBridgeTermWin *btw)
@@ -1426,6 +1480,56 @@ int putty_bridge_termwin_phase54_exit_smoke(void)
         return 100;
     }
 
+    putty_bridge_termwin_free(btw);
+    return 0;
+}
+
+int putty_bridge_termwin_phase55_exit_smoke(void)
+{
+    PuttyConf *conf;
+    PuttyBridgeTermWin *btw;
+    bool connect;
+    PuttyConf *parsed = NULL;
+    char *argv[] = { (char *)"putty", (char *)"--help", NULL };
+    PuttyBridgeCmdlineAction action;
+
+    conf = putty_conf_new();
+    if (!conf)
+        return 1;
+    putty_conf_set_host(conf, "example.com");
+    if (!putty_conf_warn_on_close(conf)) {
+        putty_conf_free(conf);
+        return 2;
+    }
+
+    btw = putty_bridge_termwin_new();
+    if (!putty_bridge_termwin_open(btw, conf, false)) {
+        putty_conf_free(conf);
+        putty_bridge_termwin_free(btw);
+        return 3;
+    }
+    if (!putty_bridge_termwin_session_is_active(btw)) {
+        putty_conf_free(conf);
+        putty_bridge_termwin_free(btw);
+        return 4;
+    }
+    if (!putty_bridge_termwin_should_warn_on_close(btw)) {
+        putty_conf_free(conf);
+        putty_bridge_termwin_free(btw);
+        return 5;
+    }
+
+    action = putty_bridge_process_command_line(
+        2, argv, &parsed, &connect);
+    if (action != PUTTY_BRIDGE_CMDLINE_EXIT_HELP) {
+        putty_conf_free(conf);
+        putty_bridge_termwin_free(btw);
+        if (parsed)
+            putty_conf_free(parsed);
+        return 6;
+    }
+
+    putty_conf_free(conf);
     putty_bridge_termwin_free(btw);
     return 0;
 }
