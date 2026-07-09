@@ -511,11 +511,11 @@ See `macos/PuTTY/TERMINAL_PERFORMANCE.md` for benchmark commands and Instruments
 
 ### 4.5 Input handling
 
-- [ ] Keyboard: `keyDown(with:)` → translate to bytes via `osxkeys` module (Option as Meta, Cmd shortcuts).
-- [ ] Implement dead keys and IME via `NSTextInputClient` on macOS 15.
-- [ ] Mouse: click, drag selection, wheel/trackpad scroll → mouse protocol encodings.
-- [ ] Handle `set_raw_mouse_mode` / pointer shape changes (`NSCursor`).
-- [ ] Context menu: Copy, Paste, Paste Special, Select All, Copy All.
+- [x] Keyboard: `keyDown(with:)` → translate to bytes via `osxkeys` module (Option as Meta, Cmd shortcuts).
+- [x] Implement dead keys and IME via `NSTextInputClient` on macOS 15.
+- [x] Mouse: click, drag selection, wheel/trackpad scroll → mouse protocol encodings.
+- [x] Handle `set_raw_mouse_mode` / pointer shape changes (`NSCursor`).
+- [x] Context menu: Copy, Paste, Paste Special, Select All, Copy All.
 
 ### 4.6 Clipboard
 

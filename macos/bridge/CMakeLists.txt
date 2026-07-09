@@ -97,3 +97,9 @@ target_link_libraries(PuttyBridgeTermPerfTest PRIVATE
   putty-macos-bridge)
 
 putty_macos_configure_swift_target(PuttyBridgeTermPerfTest)
+
+add_executable(putty-bridge-termwin-input-smoke-c
+  putty-bridge-termwin-input-smoke-main.c)
+
+target_link_libraries(putty-bridge-termwin-input-smoke-c PRIVATE
+  putty-macos-bridge)

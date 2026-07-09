@@ -50,6 +50,13 @@ typedef struct PuttyBridgeTermWinCallbacks {
     void (*draw_trust_sigil)(void *ctx, int32_t x, int32_t y);
     void (*request_redraw)(void *ctx, PuttyBridgeTermWinRect dirty);
     int32_t (*char_width)(void *ctx, int32_t uc);
+    void (*set_cursor_pos)(void *ctx, int32_t x, int32_t y);
+    void (*set_raw_mouse_mode)(void *ctx, bool enable);
+    void (*set_raw_mouse_mode_pointer)(void *ctx, bool enable);
+    void (*clip_write)(
+        void *ctx, int32_t clipboard, const wchar_t *text, int32_t len,
+        bool must_deselect);
+    void (*clip_request_paste)(void *ctx, int32_t clipboard);
 } PuttyBridgeTermWinCallbacks;
 
 #define PUTTY_BRIDGE_ATTR_FGMASK      0x000001FFU
@@ -83,6 +90,34 @@ typedef struct PuttyBridgeTermWinCallbacks {
 
 #define PUTTY_BRIDGE_OSC4_CURSOR_FG   260
 #define PUTTY_BRIDGE_OSC4_CURSOR_BG   261
+
+/* Mouse_Button / Mouse_Action (putty.h). */
+#define PUTTY_BRIDGE_SKK_HOME           0
+#define PUTTY_BRIDGE_SKK_END            1
+#define PUTTY_BRIDGE_SKK_INSERT         2
+#define PUTTY_BRIDGE_SKK_DELETE         3
+#define PUTTY_BRIDGE_SKK_PGUP           4
+#define PUTTY_BRIDGE_SKK_PGDN           5
+
+#define PUTTY_BRIDGE_MBT_LEFT           1
+#define PUTTY_BRIDGE_MBT_MIDDLE         2
+#define PUTTY_BRIDGE_MBT_RIGHT          3
+#define PUTTY_BRIDGE_MBT_WHEEL_UP       7
+#define PUTTY_BRIDGE_MBT_WHEEL_DOWN     8
+#define PUTTY_BRIDGE_MBT_WHEEL_LEFT     9
+#define PUTTY_BRIDGE_MBT_WHEEL_RIGHT    10
+
+#define PUTTY_BRIDGE_MA_CLICK           1
+#define PUTTY_BRIDGE_MA_2CLK            2
+#define PUTTY_BRIDGE_MA_3CLK            3
+#define PUTTY_BRIDGE_MA_DRAG            4
+#define PUTTY_BRIDGE_MA_RELEASE         5
+#define PUTTY_BRIDGE_MA_MOVE            6
+
+/* Clipboard IDs (putty.h / platform.h). */
+#define PUTTY_BRIDGE_CLIP_LOCAL         1
+#define PUTTY_BRIDGE_CLIP_CLIPBOARD     2
+#define PUTTY_BRIDGE_CLIP_CUSTOM_1      3
 
 PuttyBridgeTermWin *putty_bridge_termwin_new(void);
 void putty_bridge_termwin_free(PuttyBridgeTermWin *btw);
@@ -135,6 +170,48 @@ bool putty_bridge_termwin_compute_dirty_rect(
  */
 int putty_bridge_termwin_perf_paint_benchmark(
     PuttyBridgeTermWin *btw, int frames, double budget_ms);
+
+/* Phase 4.5 — keyboard / mouse / selection input. */
+void putty_bridge_termwin_key_bytes(
+    PuttyBridgeTermWin *btw, int32_t codepage, const void *data, int32_t len);
+void putty_bridge_termwin_key_special(
+    PuttyBridgeTermWin *btw, const char *nul_terminated);
+void putty_bridge_termwin_key_wide(
+    PuttyBridgeTermWin *btw, const wchar_t *data, int32_t len);
+
+int32_t putty_bridge_termwin_format_return(
+    PuttyBridgeTermWin *btw, char *buf, int32_t buflen, bool *special_out);
+int32_t putty_bridge_termwin_format_arrow(
+    PuttyBridgeTermWin *btw, int32_t xkey, bool shift, bool ctrl, bool alt,
+    char *buf, int32_t buflen, bool *consumed_alt_out);
+int32_t putty_bridge_termwin_format_function(
+    PuttyBridgeTermWin *btw, int32_t fkey_number, bool shift, bool ctrl,
+    bool alt, char *buf, int32_t buflen, bool *consumed_alt_out);
+int32_t putty_bridge_termwin_format_small_keypad(
+    PuttyBridgeTermWin *btw, int32_t key, bool shift, bool ctrl, bool alt,
+    char *buf, int32_t buflen, bool *consumed_alt_out);
+uint8_t putty_bridge_termwin_apply_ctrl(uint8_t c);
+
+void putty_bridge_termwin_mouse(
+    PuttyBridgeTermWin *btw, int32_t button_raw, int32_t action,
+    int32_t cell_x, int32_t cell_y, bool shift, bool ctrl, bool alt);
+void putty_bridge_termwin_scroll_lines(PuttyBridgeTermWin *btw, int32_t lines);
+
+bool putty_bridge_termwin_raw_mouse_active(const PuttyBridgeTermWin *btw);
+bool putty_bridge_termwin_pointer_indicates_raw_mouse(
+    const PuttyBridgeTermWin *btw);
+bool putty_bridge_termwin_mouse_override_shift(const PuttyBridgeTermWin *btw);
+
+void putty_bridge_termwin_copy_selection(PuttyBridgeTermWin *btw);
+void putty_bridge_termwin_copy_all(PuttyBridgeTermWin *btw);
+void putty_bridge_termwin_select_all(PuttyBridgeTermWin *btw);
+void putty_bridge_termwin_request_paste(
+    PuttyBridgeTermWin *btw, int32_t clipboard);
+void putty_bridge_termwin_paste_text(
+    PuttyBridgeTermWin *btw, const wchar_t *data, int32_t len);
+
+/** Smoke test: feed keys and mouse events to demo terminal. Returns 0 on success. */
+int putty_bridge_termwin_input_smoke(void);
 
 #ifdef __cplusplus
 }

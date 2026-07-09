@@ -44,7 +44,8 @@ add_sources_from_current_dir(settings
   platform/gui-seat-list.c)
 
 add_library(macguifrontend STATIC
-  platform/termwin.c)
+  platform/termwin.c
+  platform/osxkeys.c)
 be_list(macguifrontend PuTTY)
 target_link_libraries(macguifrontend PUBLIC
   guiterminal eventloop settings utils charset)
