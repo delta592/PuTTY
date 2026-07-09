@@ -313,8 +313,16 @@ uses `O_CLOEXEC | O_NOFOLLOW` with mode `0600` for private creates.
 
 ### 2.5 Utility sources
 
-- [ ] Reuse applicable `unix/utils/*.c` files via shared lists or symlinks (prefer explicit list in `macos/CMakeLists.txt` to avoid pulling GTK-only utils).
-- [ ] Include `unix/utils/arm_arch_queries.c` for Apple Silicon feature detection (AES/NEON paths in crypto).
+- [x] Reuse applicable `unix/utils/*.c` files via shared lists or symlinks (prefer explicit list in `macos/CMakeLists.txt` to avoid pulling GTK-only utils).
+- [x] Include `unix/utils/arm_arch_queries.c` for Apple Silicon feature detection (AES/NEON paths in crypto).
+
+Utility sources are listed in `macos/cmake/utils_sources.cmake` and wired from
+`macos/CMakeLists.txt`. Nineteen files are symlinks under `macos/utils/` to
+`unix/utils/`; `filename.c` and `fontspec.c` are macOS-native (Phase 2.4).
+`macos/utils/arm_arch_queries.h` is symlinked for local header resolution.
+GTK-only unix utils (`align_label_left.c`, `buildinfo_gtk_version.c`,
+`get_label_text_dimensions.c`, `get_x11_display.c`, `our_dialog.c`,
+`string_width.c`) are excluded.
 
 ### 2.6 Platform CMake probes
 

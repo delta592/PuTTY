@@ -88,8 +88,7 @@ endif()
 
 include_directories(${CMAKE_SOURCE_DIR}/charset)
 include_directories(${CMAKE_SOURCE_DIR}/macos)
-# Platform util headers (e.g. utils/arm_arch_queries.h) remain under unix/
-# until Phase 2.5 migrates macos/utils/ fully.
+# Platform headers outside macos/ (e.g. unix/x11misc.h for x11_ignore_error.c).
 include_directories(${CMAKE_SOURCE_DIR}/unix)
 
 set(extra_dirs charset)

@@ -270,7 +270,7 @@ CmdlineArgList *cmdline_arg_list_from_argv(int argc, char **argv);
 char **cmdline_arg_remainder(CmdlineArg *argp);
 
 /* ---------------------------------------------------------------------- */
-/* Utility functions (macos/platform/ and unix/utils/) */
+/* Utility functions (macos/platform/ and macos/utils/) */
 
 #define strnicmp strncasecmp
 #define stricmp strcasecmp

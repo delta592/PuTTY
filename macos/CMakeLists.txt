@@ -27,28 +27,8 @@ endfunction()
 # Platform C libraries (non-GTK; paths under macos/platform/ and macos/utils/)
 # ---------------------------------------------------------------------------
 
-add_sources_from_current_dir(utils
-  utils/arm_arch_queries.c
-  utils/block_signal.c
-  utils/cloexec.c
-  utils/cmdline_arg.c
-  utils/dputs.c
-  utils/filename.c
-  utils/fontspec.c
-  utils/getticks.c
-  utils/get_username.c
-  utils/keysym_to_unicode.c
-  utils/make_dir_and_check_ours.c
-  utils/make_dir_path.c
-  utils/make_spr_sw_abort_errno.c
-  utils/nonblock.c
-  utils/open_for_write_would_lose_data.c
-  utils/pgp_fingerprints.c
-  utils/pollwrap.c
-  utils/signal.c
-  utils/subprocess_waiter.c
-  utils/x11_ignore_error.c
-  ../utils/ltime.c)
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/utils_sources.cmake)
+add_sources_from_current_dir(utils ${PUTTY_MACOS_UTILS_SOURCES})
 
 add_sources_from_current_dir(eventloop
   platform/cliloop.c
