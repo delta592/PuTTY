@@ -3,7 +3,7 @@
  *
  * Mirrors unix/config-unix.c and the AppKit-relevant pieces of
  * unix/config-gtk.c. X11-only controls (window class, multi-font panel)
- * are intentionally omitted.
+ * are intentionally omitted. Phase 6.2 adds Restore Defaults / Duplicate.
  */
 
 #include <assert.h>
@@ -14,6 +14,8 @@
 #include "dialog.h"
 #include "storage.h"
 
+#include "config-appkit.h"
+
 static void about_handler(dlgcontrol *ctrl, dlgparam *dlg,
                           void *data, int event)
 {
@@ -21,6 +23,117 @@ static void about_handler(dlgcontrol *ctrl, dlgparam *dlg,
     (void)data;
     if (event == EVENT_ACTION)
         about_box(ctrl->context.p);
+}
+
+static void restore_defaults_handler(dlgcontrol *ctrl, dlgparam *dlg,
+                                     void *data, int event)
+{
+    Conf *conf = (Conf *)data;
+
+    (void)ctrl;
+    if (event != EVENT_ACTION)
+        return;
+
+    do_defaults(NULL, conf);
+    dlg_refresh(NULL, dlg);
+}
+
+static dlgcontrol *mac_find_saved_sessions_ctrl(
+    struct controlbox *b, int type)
+{
+    size_t i, j;
+
+    if (!b)
+        return NULL;
+    for (i = 0; i < b->nctrlsets; i++) {
+        struct controlset *s = b->ctrlsets[i];
+        if (!s->pathname || strcmp(s->pathname, "Session") != 0)
+            continue;
+        if (!s->boxname || strcmp(s->boxname, "savedsessions") != 0)
+            continue;
+        for (j = 0; j < s->ncontrols; j++) {
+            dlgcontrol *c = s->ctrls[j];
+            if (c->type != type)
+                continue;
+            if (type == CTRL_EDITBOX &&
+                c->label && !strcmp(c->label, "Saved Sessions"))
+                return c;
+            if (type == CTRL_LISTBOX)
+                return c;
+        }
+    }
+    return NULL;
+}
+
+/*
+ * Duplicate the current Conf under a new saved-session name derived from
+ * the Saved Sessions edit box (or the selected list entry).
+ */
+static void duplicate_session_handler(dlgcontrol *ctrl, dlgparam *dlg,
+                                      void *data, int event)
+{
+    Conf *conf = (Conf *)data;
+    struct controlbox *box;
+    dlgcontrol *edit, *list;
+    char *base = NULL, *newname = NULL, *errmsg;
+    struct sesslist sesslist;
+    int i;
+
+    (void)ctrl;
+    if (event != EVENT_ACTION)
+        return;
+
+    box = mac_config_dlg_ctrlbox(dlg);
+    if (!box) {
+        dlg_beep(dlg);
+        return;
+    }
+
+    edit = mac_find_saved_sessions_ctrl(box, CTRL_EDITBOX);
+    list = mac_find_saved_sessions_ctrl(box, CTRL_LISTBOX);
+    if (!edit || !list) {
+        dlg_beep(dlg);
+        return;
+    }
+
+    base = dlg_editbox_get(edit, dlg);
+    if (!base || !base[0]) {
+        sfree(base);
+        i = dlg_listbox_index(list, dlg);
+        if (i < 0) {
+            dlg_beep(dlg);
+            return;
+        }
+        get_sesslist(&sesslist, true);
+        if (i >= sesslist.nsessions) {
+            get_sesslist(&sesslist, false);
+            dlg_beep(dlg);
+            return;
+        }
+        base = dupstr(sesslist.sessions[i]);
+        get_sesslist(&sesslist, false);
+    }
+
+    newname = dupcat(base, " Copy");
+    sfree(base);
+
+    errmsg = save_settings(newname, conf);
+    if (errmsg) {
+        dlg_error_msg(dlg, errmsg);
+        sfree(errmsg);
+        sfree(newname);
+        return;
+    }
+
+    dlg_editbox_set(edit, dlg, newname);
+    sfree(newname);
+
+    get_sesslist(&sesslist, true);
+    dlg_listbox_clear(list, dlg);
+    for (i = 0; i < sesslist.nsessions; i++)
+        dlg_listbox_add(list, dlg, sesslist.sessions[i]);
+    get_sesslist(&sesslist, false);
+    dlg_refresh(NULL, dlg);
 }
 
 void macos_setup_config_box(struct controlbox *b, bool midsession, int protocol)
@@ -60,14 +173,23 @@ void macos_setup_config_box(struct controlbox *b, bool midsession, int protocol)
         }
     }
 
+    /*
+     * Action panel: About (pre-session), Restore Defaults, Duplicate.
+     * Columns 3/4 are Open|Apply and Cancel from portable setup_config_box.
+     */
+    s = ctrl_getset(b, "", "", "");
     if (!midsession) {
-        /*
-         * About button on the standard action panel (alongside Open/Cancel).
-         */
-        s = ctrl_getset(b, "", "", "");
         c = ctrl_pushbutton(s, "About", 'a', HELPCTX(no_help),
                             about_handler, P(NULL));
         c->column = 0;
+    }
+    c = ctrl_pushbutton(s, "Restore Defaults", NO_SHORTCUT, HELPCTX(no_help),
+                        restore_defaults_handler, P(NULL));
+    c->column = 1;
+    if (!midsession) {
+        c = ctrl_pushbutton(s, "Duplicate", NO_SHORTCUT, HELPCTX(no_help),
+                            duplicate_session_handler, P(NULL));
+        c->column = 2;
     }
 
     /*

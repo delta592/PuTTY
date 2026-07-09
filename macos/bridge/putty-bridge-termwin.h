@@ -337,6 +337,13 @@ int putty_bridge_termwin_specials_exit_smoke(void);
 /** True when the session terminal buffer contains non-blank cells. */
 bool putty_bridge_termwin_terminal_has_visible_text(const PuttyBridgeTermWin *btw);
 
+/**
+ * Open mid-session Change Settings for this termwin (Phase 6.2).
+ * Edits a Conf copy; on Apply, reconfigures the live seat/terminal/backend.
+ * Returns false if the session is not ready for reconfiguration.
+ */
+bool putty_bridge_termwin_change_settings(PuttyBridgeTermWin *btw);
+
 /** Attach terminal window for sheet-modal security prompts (NSWindow *). */
 void putty_bridge_set_parent_window(void *nswindow);
 

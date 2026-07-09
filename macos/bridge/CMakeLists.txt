@@ -170,4 +170,4 @@ add_custom_target(putty-mac-seat-gate
 add_custom_target(putty-mac-config-gate
   DEPENDS
     putty-mac-config-smoke-c
-  COMMENT "Build config controlbox gate binaries (Phase 6.1)")
+  COMMENT "Build config controlbox / settings UX gate binaries (Phase 6.1–6.2)")

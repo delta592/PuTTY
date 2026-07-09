@@ -528,16 +528,20 @@ Override host via
 `PUTTY_BRIDGE_TEST_HOST`, `PUTTY_BRIDGE_TEST_USER`, `PUTTY_BRIDGE_TEST_PORT`,
 and `PUTTY_BRIDGE_TEST_HOSTKEY`.
 
-### Phase 6.1 gate (`putty-mac-config-gate`)
+### Phase 6.1–6.2 gate (`putty-mac-config-gate`)
 
 | Target | Validates |
 |--------|-----------|
-| `putty-mac-config-smoke-c` | controlbox → AppKit mapping + `dlg_*` (§6.1) |
+| `putty-mac-config-smoke-c` | controlbox → AppKit (§6.1) + settings UX (§6.2) |
 
 ```bash
 $PUTTY_BUILD putty-mac-config-gate
 ./build-macos-gui/putty-mac-config-smoke-c
 ```
+
+Runs `mac_config_controlbox_smoke` then `mac_config_settings_ux_smoke`
+(midsession Apply/Restore Defaults, Cancel Conf restore, Saved Sessions
+Load/Save/Delete/Duplicate presence).
 
 ---
 
@@ -814,10 +818,24 @@ see [Phase 6.1 gate](#phase-61-gate-putty-mac-config-gate).
 
 ### 6.2 Settings window UX
 
-- [ ] `NSWindow` with `NSToolbar` + sidebar mirroring config tree paths (`"Connection/Proxy"`, …).
-- [ ] **Apply**, **Cancel**, **Restore defaults** buttons wired to `Conf` copy/compare.
-- [ ] Pre-session vs mid-session reconfiguration (`midsession` flag).
-- [ ] Saved Sessions panel: list, load, save, delete, duplicate.
+- [x] `NSWindow` with `NSToolbar` + sidebar mirroring config tree paths (`"Connection/Proxy"`, …).
+- [x] **Apply**, **Cancel**, **Restore defaults** buttons wired to `Conf` copy/compare.
+- [x] Pre-session vs mid-session reconfiguration (`midsession` flag).
+- [x] Saved Sessions panel: list, load, save, delete, duplicate.
+
+`mac_config_create_box()` takes a Conf backup at open and restores it on
+Cancel (`dlg_end(0)`), matching Windows `do_reconfig`. Apply/Open keep
+edits. Action panel adds **Restore Defaults** (`do_defaults` + refresh)
+and pre-session **Duplicate** (save under "`name` Copy"). Mid-session
+boxes use **Apply** and omit Load/Delete/Duplicate/About; Saved Sessions
+Save remains. `NSToolbar` labels the window; category sidebar selects
+panels. **Session → Change Settings…** calls
+`putty_bridge_termwin_change_settings()` → `term_pre_reconfig` +
+midsession config box → `mac_gui_seat_reconfigure` on Apply.
+
+**Smoke:** `putty-mac-config-smoke-c` also runs
+`mac_config_settings_ux_smoke()` — see
+[Phase 6.1 gate](#phase-61-gate-putty-mac-config-gate) (covers 6.1–6.2).
 
 ### 6.3 Initial connection flow
 

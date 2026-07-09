@@ -75,5 +75,12 @@ int main(void)
     }
 
     puts("mac_config_controlbox_smoke: ok");
+
+    rc = mac_config_settings_ux_smoke();
+    if (rc != 0) {
+        fprintf(stderr, "mac_config_settings_ux_smoke failed (%d)\n", rc);
+        return EXIT_FAILURE;
+    }
+
     return EXIT_SUCCESS;
 }

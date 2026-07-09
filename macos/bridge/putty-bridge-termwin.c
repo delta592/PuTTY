@@ -15,6 +15,7 @@
 #include "terminal.h"
 #include "platform.h"
 #include "misc.h"
+#include "config-appkit.h"
 
 struct PuttyBridgeTermWin {
     MacGuiSeat *seat;
@@ -591,6 +592,59 @@ bool putty_bridge_termwin_terminal_has_visible_text(const PuttyBridgeTermWin *bt
         term_release_line(tl);
     }
     return false;
+}
+
+struct bridge_change_settings_ctx {
+    PuttyBridgeTermWin *btw;
+    Conf *working;
+};
+
+static void bridge_after_change_settings(void *vctx, int result)
+{
+    struct bridge_change_settings_ctx *ctx =
+        (struct bridge_change_settings_ctx *)vctx;
+
+    if (result > 0 && ctx->btw && ctx->btw->seat && ctx->working) {
+        mac_gui_seat_reconfigure(ctx->btw->seat, ctx->working);
+        ctx->btw->conf = mac_gui_seat_get_conf(ctx->btw->seat);
+    }
+
+    if (ctx->working)
+        conf_free(ctx->working);
+    sfree(ctx);
+}
+
+bool putty_bridge_termwin_change_settings(PuttyBridgeTermWin *btw)
+{
+    struct bridge_change_settings_ctx *ctx;
+    char *title;
+    int protcfginfo = 0;
+    Backend *backend;
+
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
+    if (!btw || !btw->conf || !btw->seat)
+        return false;
+
+    ctx = snew(struct bridge_change_settings_ctx);
+    ctx->btw = btw;
+    ctx->working = conf_copy(btw->conf);
+    if (!ctx->working) {
+        sfree(ctx);
+        return false;
+    }
+
+    if (btw->term)
+        term_pre_reconfig(btw->term, ctx->working);
+
+    backend = mac_gui_seat_get_backend(btw->seat);
+    if (backend)
+        protcfginfo = backend_cfg_info(backend);
+
+    title = dupcat(appname, " Reconfiguration");
+    mac_config_create_box(title, ctx->working, true, protcfginfo,
+                          bridge_after_change_settings, ctx);
+    sfree(title);
+    return true;
 }
 
 bool putty_bridge_termwin_init_demo(PuttyBridgeTermWin *btw)

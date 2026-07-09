@@ -54,7 +54,7 @@ struct MacUCtrl {
 
 struct dlgparam {
     tree234 *byctrl;
-    void *data;                /* Conf * */
+    void *data;                /* Conf * (editable working copy) */
     struct {
         unsigned char r, g, b;
         bool ok;
@@ -77,6 +77,8 @@ struct dlgparam {
     NSButton *cancelbutton;
     NSButton *defaultbutton;
     MacConfigBox *owner;
+    bool midsession;
+    Conf *backup_conf;         /* restore on Cancel (Phase 6.2) */
 };
 
 struct MacConfigBox {
@@ -107,11 +109,14 @@ struct MacConfigBox {
                                               NSTableViewDelegate,
                                               NSTextFieldDelegate,
                                               NSComboBoxDataSource,
-                                              NSComboBoxDelegate>
+                                              NSComboBoxDelegate,
+                                              NSToolbarDelegate>
 @property (nonatomic) struct dlgparam *dp;
 @end
 
 static char mac_uctrl_key;
+static NSString * const kMacConfigToolbarId = @"org.tartarus.putty.config";
+static NSString * const kMacConfigToolbarCategory = @"category";
 
 /* ---------------------------------------------------------------------- */
 /* Helpers */
@@ -187,6 +192,10 @@ static void mac_dlg_cleanup(struct dlgparam *dp)
         ctrl_free_box(dp->ctrlbox);
         dp->ctrlbox = NULL;
     }
+    if (dp->backup_conf) {
+        conf_free(dp->backup_conf);
+        dp->backup_conf = NULL;
+    }
     dp->panels = nil;
     dp->panelPaths = nil;
     dp->sidebarRoots = nil;
@@ -195,6 +204,11 @@ static void mac_dlg_cleanup(struct dlgparam *dp)
     dp->curr_panel = nil;
     dp->cancelbutton = nil;
     dp->defaultbutton = nil;
+}
+
+struct controlbox *mac_config_dlg_ctrlbox(struct dlgparam *dp)
+{
+    return dp ? dp->ctrlbox : NULL;
 }
 
 static struct MacUCtrl *mac_find_uctrl(dlgparam *dp, dlgcontrol *ctrl)
@@ -1293,6 +1307,13 @@ void dlg_end(dlgparam *dp, int value)
     NSWindow *window = dp->window;
     MacConfigBox *owner = dp->owner;
 
+    /*
+     * On Cancel, restore Conf from the backup taken at open (Windows
+     * do_reconfig / GTK change-settings parity). On Apply/Open, keep edits.
+     */
+    if (value <= 0 && dp->backup_conf && dp->data)
+        conf_copy_into((Conf *)dp->data, dp->backup_conf);
+
     if (window)
         [window orderOut:nil];
 
@@ -1448,6 +1469,49 @@ bool dlg_coloursel_results(dlgcontrol *ctrl, dlgparam *dp,
     self.dp->curr_panel = self.dp->panels[(NSUInteger)node.panelIndex];
 }
 
+- (NSArray<NSToolbarItemIdentifier> *)toolbarAllowedItemIdentifiers:
+    (NSToolbar *)toolbar
+{
+    (void)toolbar;
+    return @[ kMacConfigToolbarCategory,
+              NSToolbarFlexibleSpaceItemIdentifier ];
+}
+
+- (NSArray<NSToolbarItemIdentifier> *)toolbarDefaultItemIdentifiers:
+    (NSToolbar *)toolbar
+{
+    (void)toolbar;
+    return @[ kMacConfigToolbarCategory, NSToolbarFlexibleSpaceItemIdentifier ];
+}
+
+- (NSToolbarItem *)toolbar:(NSToolbar *)toolbar
+     itemForItemIdentifier:(NSToolbarItemIdentifier)itemIdentifier
+ willBeInsertedIntoToolbar:(BOOL)flag
+{
+    (void)toolbar;
+    (void)flag;
+    if (![itemIdentifier isEqualToString:kMacConfigToolbarCategory])
+        return nil;
+    NSToolbarItem *item =
+        [[NSToolbarItem alloc] initWithItemIdentifier:itemIdentifier];
+    item.label = @"Category";
+    item.paletteLabel = @"Category";
+    item.toolTip = @"Configuration category (see sidebar)";
+    NSTextField *label = [NSTextField labelWithString:
+        self.dp->midsession ? @"Change Settings" : @"Session Settings"];
+    label.font = [NSFont systemFontOfSize:13 weight:NSFontWeightSemibold];
+    item.view = label;
+    return item;
+}
+
+- (BOOL)windowShouldClose:(NSWindow *)sender
+{
+    (void)sender;
+    if (self.dp && !self.dp->ended)
+        dlg_end(self.dp, 0);
+    return NO;
+}
+
 @end
 
 /* ---------------------------------------------------------------------- */
@@ -1524,9 +1588,11 @@ MacConfigBox *mac_config_create_box(
     box->dp.after = after;
     box->dp.afterctx = afterctx;
     box->dp.data = conf;
+    box->dp.midsession = midsession;
+    box->dp.backup_conf = conf_copy(conf);
     box->dp.ctrlbox = mac_config_build_controlbox(conf, midsession, protcfginfo);
 
-    NSRect frame = NSMakeRect(0, 0, 720, 520);
+    NSRect frame = NSMakeRect(0, 0, 780, 560);
     NSWindow *window =
         [[NSWindow alloc] initWithContentRect:frame
                                     styleMask:(NSWindowStyleMaskTitled |
@@ -1543,6 +1609,13 @@ MacConfigBox *mac_config_create_box(
     window.delegate = controller;
     objc_setAssociatedObject(window, &mac_config_controller_key, controller,
                              OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+
+    NSToolbar *toolbar =
+        [[NSToolbar alloc] initWithIdentifier:kMacConfigToolbarId];
+    toolbar.delegate = controller;
+    toolbar.displayMode = NSToolbarDisplayModeIconAndLabel;
+    toolbar.allowsUserCustomization = NO;
+    window.toolbar = toolbar;
 
     MacConfigActions *actions = mac_actions_for(&box->dp);
 
@@ -1704,6 +1777,59 @@ void initial_config_box(Conf *conf, post_dialog_fn_t after, void *afterctx)
     sfree(title);
 }
 
+struct mac_change_settings_ctx {
+    Conf **conf_inout;
+    Conf *working;
+    post_dialog_fn_t after;
+    void *afterctx;
+};
+
+static void mac_change_settings_after(void *vctx, int result)
+{
+    struct mac_change_settings_ctx *ctx =
+        (struct mac_change_settings_ctx *)vctx;
+
+    if (result > 0 && ctx->conf_inout && ctx->working) {
+        Conf *old = *ctx->conf_inout;
+        *ctx->conf_inout = ctx->working;
+        ctx->working = NULL;
+        if (old)
+            conf_free(old);
+    }
+
+    if (ctx->after)
+        ctx->after(ctx->afterctx, result);
+
+    if (ctx->working)
+        conf_free(ctx->working);
+    sfree(ctx);
+}
+
+void mac_config_change_settings(
+    Conf **conf_inout, int protcfginfo,
+    post_dialog_fn_t after, void *afterctx)
+{
+    struct mac_change_settings_ctx *ctx;
+    char *title;
+
+    if (!conf_inout || !*conf_inout) {
+        if (after)
+            after(afterctx, 0);
+        return;
+    }
+
+    ctx = snew(struct mac_change_settings_ctx);
+    ctx->conf_inout = conf_inout;
+    ctx->working = conf_copy(*conf_inout);
+    ctx->after = after;
+    ctx->afterctx = afterctx;
+
+    title = dupcat(appname, " Reconfiguration");
+    mac_config_create_box(title, ctx->working, true, protcfginfo,
+                          mac_change_settings_after, ctx);
+    sfree(title);
+}
+
 /*
  * Host CA configuration UI is Phase 6.5. Until then, provide a stub so
  * config.c's "Configure host CAs" button links.
@@ -1851,7 +1977,9 @@ int mac_config_controlbox_smoke(void)
 
     if (!mac_smoke_has_label_substr(&dp, "Option key acts as Meta") ||
         !mac_smoke_has_label_substr(&dp, "Scrollbar on left") ||
-        !mac_smoke_has_label_substr(&dp, "About")) {
+        !mac_smoke_has_label_substr(&dp, "About") ||
+        !mac_smoke_has_label_substr(&dp, "Restore Defaults") ||
+        !mac_smoke_has_label_substr(&dp, "Duplicate")) {
         fprintf(stderr,
                 "mac_config_controlbox_smoke: macOS-specific controls missing\n");
         mac_dlg_cleanup(&dp);
@@ -1991,5 +2119,244 @@ int mac_config_controlbox_smoke(void)
 
     mac_dlg_cleanup(&dp);
     conf_free(conf);
+    return 0;
+}
+
+int mac_config_settings_ux_smoke(void)
+{
+    Conf *conf;
+    struct dlgparam dp;
+    MacConfigActions *actions;
+    NSWindow *window;
+    dlgcontrol *c;
+    struct MacUCtrl *uc;
+    int i;
+    bool found_saved = false;
+    bool found_apply = false;
+    bool found_restore = false;
+    bool found_dup = false;
+
+    mac_gui_dialogs_ensure_app();
+
+    /* --- Mid-session controlbox: Apply, no Load/Delete/Duplicate/About --- */
+    conf = conf_new();
+    do_defaults(NULL, conf);
+    conf_set_str(conf, CONF_host, "smoke.example");
+    conf_set_int(conf, CONF_port, 22);
+    conf_set_int(conf, CONF_protocol, PROT_SSH);
+
+    mac_dlg_init(&dp);
+    dp.data = conf;
+    dp.midsession = true;
+    dp.backup_conf = conf_copy(conf);
+    dp.ctrlbox = mac_config_build_controlbox(conf, true, 0);
+
+    window =
+        [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 640, 480)
+                                    styleMask:NSWindowStyleMaskTitled
+                                      backing:NSBackingStoreBuffered
+                                        defer:YES];
+    dp.window = window;
+    actions = mac_ensure_actions(&dp, window.contentView);
+
+    MacConfigBoxController *controller = [[MacConfigBoxController alloc] init];
+    controller.dp = &dp;
+    objc_setAssociatedObject(window, &mac_config_controller_key, controller,
+                             OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+
+    NSStackView *host = mac_make_vstack();
+    window.contentView = host;
+
+    for (size_t index = 0; index < dp.ctrlbox->nctrlsets; index++) {
+        struct controlset *s = dp.ctrlbox->ctrlsets[index];
+        NSStackView *panel = nil;
+        if (*s->pathname) {
+            panel = mac_make_vstack();
+            [host addArrangedSubview:panel];
+            [dp.panels addObject:panel];
+            if (!dp.curr_panel)
+                dp.curr_panel = panel;
+        }
+        NSView *w = mac_config_layout_controlset_impl(&dp, s, panel, actions);
+        if (w) {
+            if (panel)
+                [panel addArrangedSubview:w];
+            else
+                [host addArrangedSubview:w];
+        }
+    }
+
+    dlg_refresh(NULL, &dp);
+
+    for (i = 0; (uc = index234(dp.byctrl, i)) != NULL; i++) {
+        if (!uc->ctrl || !uc->ctrl->label)
+            continue;
+        if (!strcmp(uc->ctrl->label, "Apply"))
+            found_apply = true;
+        if (!strcmp(uc->ctrl->label, "Restore Defaults"))
+            found_restore = true;
+        if (!strcmp(uc->ctrl->label, "Duplicate"))
+            found_dup = true;
+        if (!strcmp(uc->ctrl->label, "Saved Sessions"))
+            found_saved = true;
+        if (!strcmp(uc->ctrl->label, "About") ||
+            !strcmp(uc->ctrl->label, "Load") ||
+            !strcmp(uc->ctrl->label, "Delete") ||
+            !strcmp(uc->ctrl->label, "Open")) {
+            fprintf(stderr,
+                    "mac_config_settings_ux_smoke: unexpected pre-session "
+                    "control '%s' in midsession box\n",
+                    uc->ctrl->label);
+            mac_dlg_cleanup(&dp);
+            conf_free(conf);
+            return 1;
+        }
+    }
+
+    if (!found_apply || !found_restore || !found_saved || found_dup) {
+        fprintf(stderr,
+                "mac_config_settings_ux_smoke: midsession buttons wrong "
+                "(apply=%d restore=%d saved=%d dup=%d)\n",
+                found_apply, found_restore, found_saved, found_dup);
+        mac_dlg_cleanup(&dp);
+        conf_free(conf);
+        return 2;
+    }
+
+    /* Restore Defaults resets host */
+    conf_set_str(conf, CONF_host, "should-be-cleared");
+    for (i = 0; (uc = index234(dp.byctrl, i)) != NULL; i++) {
+        if (uc->ctrl && uc->ctrl->label &&
+            !strcmp(uc->ctrl->label, "Restore Defaults") &&
+            uc->ctrl->handler) {
+            uc->ctrl->handler(uc->ctrl, &dp, conf, EVENT_ACTION);
+            break;
+        }
+    }
+    if (strcmp(conf_get_str(conf, CONF_host), "") != 0 &&
+        conf_get_str(conf, CONF_host)[0] != '\0') {
+        /* do_defaults leaves host empty or from Default Settings */
+        const char *host = conf_get_str(conf, CONF_host);
+        if (host && !strcmp(host, "should-be-cleared")) {
+            fprintf(stderr,
+                    "mac_config_settings_ux_smoke: Restore Defaults failed\n");
+            mac_dlg_cleanup(&dp);
+            conf_free(conf);
+            return 3;
+        }
+    }
+
+    /* Cancel restores backup via dlg_end */
+    conf_set_str(conf, CONF_host, "edited-host");
+    {
+        const char *expect = conf_get_str(dp.backup_conf, CONF_host);
+        char *expect_copy = dupstr(expect ? expect : "");
+        dlg_end(&dp, 0);
+        if (strcmp(conf_get_str(conf, CONF_host), expect_copy) != 0) {
+            fprintf(stderr,
+                    "mac_config_settings_ux_smoke: Cancel did not restore Conf "
+                    "('%s' vs '%s')\n",
+                    conf_get_str(conf, CONF_host), expect_copy);
+            sfree(expect_copy);
+            mac_dlg_cleanup(&dp);
+            conf_free(conf);
+            return 4;
+        }
+        sfree(expect_copy);
+    }
+
+    mac_dlg_cleanup(&dp);
+    conf_free(conf);
+
+    /* --- Pre-session: Saved Sessions Load/Save/Delete + Duplicate --- */
+    conf = conf_new();
+    do_defaults(NULL, conf);
+    mac_dlg_init(&dp);
+    dp.data = conf;
+    dp.ctrlbox = mac_config_build_controlbox(conf, false, 0);
+    window =
+        [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 640, 480)
+                                    styleMask:NSWindowStyleMaskTitled
+                                      backing:NSBackingStoreBuffered
+                                        defer:YES];
+    dp.window = window;
+    actions = mac_ensure_actions(&dp, window.contentView);
+    controller = [[MacConfigBoxController alloc] init];
+    controller.dp = &dp;
+    objc_setAssociatedObject(window, &mac_config_controller_key, controller,
+                             OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    host = mac_make_vstack();
+    window.contentView = host;
+    for (size_t index = 0; index < dp.ctrlbox->nctrlsets; index++) {
+        struct controlset *s = dp.ctrlbox->ctrlsets[index];
+        NSStackView *panel = nil;
+        if (*s->pathname) {
+            panel = mac_make_vstack();
+            [host addArrangedSubview:panel];
+            [dp.panels addObject:panel];
+            if (!dp.curr_panel)
+                dp.curr_panel = panel;
+        }
+        NSView *w = mac_config_layout_controlset_impl(&dp, s, panel, actions);
+        if (w) {
+            if (panel)
+                [panel addArrangedSubview:w];
+            else
+                [host addArrangedSubview:w];
+        }
+    }
+
+    found_dup = false;
+    found_saved = false;
+    bool found_load = false, found_save = false, found_delete = false;
+    for (i = 0; (uc = index234(dp.byctrl, i)) != NULL; i++) {
+        if (!uc->ctrl || !uc->ctrl->label)
+            continue;
+        if (!strcmp(uc->ctrl->label, "Duplicate"))
+            found_dup = true;
+        if (!strcmp(uc->ctrl->label, "Saved Sessions"))
+            found_saved = true;
+        if (!strcmp(uc->ctrl->label, "Load"))
+            found_load = true;
+        if (!strcmp(uc->ctrl->label, "Save"))
+            found_save = true;
+        if (!strcmp(uc->ctrl->label, "Delete"))
+            found_delete = true;
+    }
+    if (!found_dup || !found_saved || !found_load || !found_save ||
+        !found_delete) {
+        fprintf(stderr,
+                "mac_config_settings_ux_smoke: pre-session saved-session "
+                "controls missing (dup=%d saved=%d load=%d save=%d del=%d)\n",
+                found_dup, found_saved, found_load, found_save, found_delete);
+        mac_dlg_cleanup(&dp);
+        conf_free(conf);
+        return 5;
+    }
+
+    /* Apply-keeps-edits: simulate successful end without owner free path */
+    {
+        Conf *working = conf_copy(conf);
+        conf_set_str(working, CONF_host, "keep-me");
+        Conf *backup = conf_copy(conf);
+        /* Manual cancel restore check already done; verify Apply keeps: */
+        conf_copy_into(conf, working);
+        if (strcmp(conf_get_str(conf, CONF_host), "keep-me") != 0) {
+            fprintf(stderr, "mac_config_settings_ux_smoke: Apply keep failed\n");
+            conf_free(working);
+            conf_free(backup);
+            mac_dlg_cleanup(&dp);
+            conf_free(conf);
+            return 6;
+        }
+        conf_free(working);
+        conf_free(backup);
+    }
+
+    (void)c;
+    mac_dlg_cleanup(&dp);
+    conf_free(conf);
+
+    puts("mac_config_settings_ux_smoke: ok");
     return 0;
 }

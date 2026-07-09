@@ -77,6 +77,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                                           action: #selector(newSession(_:)),
                                           keyEquivalent: "n")
         newItem.target = self
+        let changeItem = sessionMenu.addItem(
+            withTitle: "Change Settings…",
+            action: #selector(changeSettings(_:)),
+            keyEquivalent: ",")
+        changeItem.target = self
         let closeItem = sessionMenu.addItem(withTitle: "Close",
                                             action: #selector(closeSession(_:)),
                                             keyEquivalent: "w")
@@ -91,6 +96,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func newSession(_ sender: Any?) {
         _ = sender
         SessionWindowController.openNew(conf: nil, connect: false)
+    }
+
+    @objc private func changeSettings(_ sender: Any?) {
+        _ = sender
+        guard let controller = NSApp.keyWindow?.windowController
+                as? SessionWindowController,
+              let termWin = controller.activeTermWin else {
+            NSSound.beep()
+            return
+        }
+        if !putty_bridge_termwin_change_settings(termWin) {
+            NSSound.beep()
+        }
     }
 
     @objc private func closeSession(_ sender: Any?) {
