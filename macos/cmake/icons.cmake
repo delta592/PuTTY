@@ -72,9 +72,11 @@ endfunction()
 
 putty_macos_generate_icns(PuTTY.icns putty)
 putty_macos_generate_icns(Pterm.icns pterm)
+putty_macos_generate_icns(Puttygen.icns puttygen)
 
 set(PUTTY_MACOS_PUTTY_ICNS ${PUTTY_MACOS_ICON_GEN_DIR}/PuTTY.icns)
 set(PUTTY_MACOS_PTERM_ICNS ${PUTTY_MACOS_ICON_GEN_DIR}/Pterm.icns)
+set(PUTTY_MACOS_PUTTYGEN_ICNS ${PUTTY_MACOS_ICON_GEN_DIR}/Puttygen.icns)
 
 # Toolbar template PNG for Assets.xcassets (derived from the mono 32px icon).
 set(PUTTY_MACOS_TOOLBAR_PNG ${PUTTY_MACOS_ICON_GEN_DIR}/putty-toolbar-template.png)
@@ -94,6 +96,7 @@ add_custom_target(putty-macos-icons
   DEPENDS
     ${PUTTY_MACOS_PUTTY_ICNS}
     ${PUTTY_MACOS_PTERM_ICNS}
+    ${PUTTY_MACOS_PUTTYGEN_ICNS}
     ${PUTTY_MACOS_TOOLBAR_PNG})
 
 # Compile shared Assets.xcassets (accent colours + toolbar template) into the
@@ -133,6 +136,8 @@ function(putty_macos_add_app_resources app_target icns_filename)
     set(icns_path ${PUTTY_MACOS_PUTTY_ICNS})
   elseif(icns_filename STREQUAL "Pterm.icns")
     set(icns_path ${PUTTY_MACOS_PTERM_ICNS})
+  elseif(icns_filename STREQUAL "Puttygen.icns")
+    set(icns_path ${PUTTY_MACOS_PUTTYGEN_ICNS})
   else()
     message(FATAL_ERROR "Unknown macOS icns filename: ${icns_filename}")
   endif()

@@ -1,0 +1,7 @@
+/*
+ * PuttygenBridge — clang module for the PuTTYgen AppKit GUI.
+ */
+module PuttygenBridge {
+    header "puttygen-bridge.h"
+    export *
+}

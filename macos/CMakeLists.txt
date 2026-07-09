@@ -275,6 +275,7 @@ installed_program(pageant)
 add_subdirectory(bridge)
 add_subdirectory(PuTTY)
 add_subdirectory(pterm)
+add_subdirectory(puttygen)
 
 if(PUTTY_MACOS_UNIVERSAL AND PUTTY_MACOS_UNIVERSAL_ACTIVE)
   get_property(_putty_macos_gui_apps GLOBAL PROPERTY PUTTY_MACOS_GUI_APP_TARGETS)

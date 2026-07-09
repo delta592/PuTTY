@@ -941,10 +941,21 @@ pterm constants, `pty_backend`, and immediate open with `connect=true`.
 
 ### 7.3 PuTTYgen.app
 
-- [ ] Wrap existing `cmdgen.c` + keygen UI in AppKit, or port `windows/puttygen.c` patterns.
-- [ ] Link `keygen`, `crypto`, `utils` libraries.
-- [ ] Key export/import, passphrase generation, randomness via `noise.c`.
+- [x] Wrap existing `cmdgen.c` + keygen UI in AppKit, or port `windows/puttygen.c` patterns.
+- [x] Link `keygen`, `crypto`, `utils` libraries.
+- [x] Key export/import, passphrase generation, randomness via `noise.c`.
 
+`macos/puttygen/` builds `puttygen.app` (`org.tartarus.projects.putty.puttygen`)
+with `puttygen-macos-bridge` calling the same keygen APIs as Windows
+PuTTYgen / `cmdgen.c` (not a `#include` of `cmdgen.c`). AppKit UI:
+generate Ed25519/RSA/ECDSA, load PPK+OpenSSH, save PPK, save public
+OpenSSH line, export OpenSSH private, fingerprint + comment +
+passphrase fields. Entropy via `random_setup_special()` /
+`noise_get_heavy()` and `get_random_data()` before generate. Icon:
+`Puttygen.icns`.
+
+**Smoke:** `putty-mac-puttygen-smoke-c` (`puttygen_bridge_smoke`) —
+Ed25519 generate → PPK save/load round-trip.
 ### 7.4 Pageant / agent integration
 
 - [ ] Evaluate **macOS OpenSSH agent** (`$SSH_AUTH_SOCK`) as default vs embedded agent.
