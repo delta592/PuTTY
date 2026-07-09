@@ -94,9 +94,11 @@ struct FontSpec {
 FontSpec *fontspec_new(const char *name);
 #endif
 
-/* Default terminal fonts (Phase 2.4 selects PostScript names precisely). */
-#define DEFAULT_MAC_CLIENT_FONT "SF Mono 12"
-#define DEFAULT_MAC_SERVER_FONT "SF Mono 12"
+/* Default terminal fonts (mac:PostScriptName:pointSize for AppKit/Core Text). */
+#define PUTTY_MAC_FONT_PS_NAME "SFMono-Regular"
+#define PUTTY_MAC_FONT_POINT_SIZE 12
+#define DEFAULT_MAC_CLIENT_FONT "mac:SFMono-Regular:12"
+#define DEFAULT_MAC_SERVER_FONT "mac:SFMono-Regular:12"
 #define DEFAULT_MAC_FONT DEFAULT_MAC_CLIENT_FONT
 
 /* ---------------------------------------------------------------------- */

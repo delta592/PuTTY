@@ -302,9 +302,14 @@ container. Avoid sandbox initially unless distribution requirements demand it
 
 ### 2.4 Font and filename helpers
 
-- [ ] Implement `FontSpec` using PostScript / SF Mono family names.
-- [ ] Implement `filename_from_str` / `filename_to_str` using UTF-8 paths.
-- [ ] Wire `f_open()` with `fopen` and appropriate privacy flags.
+- [x] Implement `FontSpec` using PostScript / SF Mono family names.
+- [x] Implement `filename_from_str` / `filename_to_str` using UTF-8 paths.
+- [x] Wire `f_open()` with `fopen` and appropriate privacy flags.
+
+Default fonts use the storage form `mac:PostScriptName:pointSize`
+(default `mac:SFMono-Regular:12`). `filename_from_str()` normalises valid
+UTF-8 paths to NFC; `f_open()` sets close-on-exec on all descriptors and
+uses `O_CLOEXEC | O_NOFOLLOW` with mode `0600` for private creates.
 
 ### 2.5 Utility sources
 
