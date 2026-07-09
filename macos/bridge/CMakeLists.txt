@@ -121,3 +121,9 @@ add_executable(putty-bridge-termwin-bell-title-smoke-c
 
 target_link_libraries(putty-bridge-termwin-bell-title-smoke-c PRIVATE
   putty-macos-bridge)
+
+add_executable(putty-bridge-termwin-phase4-exit-c
+  putty-bridge-termwin-phase4-exit-main.c)
+
+target_link_libraries(putty-bridge-termwin-phase4-exit-c PRIVATE
+  putty-macos-bridge)

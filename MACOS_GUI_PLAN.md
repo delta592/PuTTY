@@ -544,6 +544,31 @@ selection copy. `putty_bridge_termwin_setup_clipboards()` mirrors GTK
 
 **Phase 4 exit criteria:** Local echo test session displays correctly; `test_terminal`-equivalent manual QA passes; performance gate met.
 
+**Verified (2026-07-08): PASSING.** Demo `TerminalView` session uses a local-echo
+line discipline (`FORCE_ON` echo, noop backend) so keystrokes render in the
+terminal. Automated gate:
+
+```bash
+env -u LDFLAGS -u CPPFLAGS cmake --build build-macos-gui --target \
+  putty-mac-termwin-smoke-c putty-bridge-termwin-phase4-exit-c \
+  putty-bridge-termwin-perf-c PuttyBridgeTermPerfTest \
+  putty-bridge-termwin-input-smoke-c putty-bridge-termwin-clipboard-smoke-c \
+  putty-bridge-termwin-scroll-resize-smoke-c putty-bridge-termwin-bell-title-smoke-c \
+  test_terminal PuTTY
+
+./build-macos-gui/putty-mac-termwin-smoke-c
+./build-macos-gui/putty-bridge-termwin-phase4-exit-c   # local echo + 120×80 perf
+./build-macos-gui/putty-bridge-termwin-perf-c
+./build-macos-gui/PuttyBridgeTermPerfTest              # Core Text perf gate
+./build-macos-gui/putty-bridge-termwin-input-smoke-c
+./build-macos-gui/putty-bridge-termwin-clipboard-smoke-c
+./build-macos-gui/putty-bridge-termwin-scroll-resize-smoke-c
+./build-macos-gui/putty-bridge-termwin-bell-title-smoke-c
+./build-macos-gui/test_terminal                        # test_terminal-equivalent QA
+```
+
+Set `PUTTY_BRIDGE_PERF_SKIP=1` to skip perf timing assertions on non-Apple-Silicon CI.
+
 ---
 
 ## Phase 5 — `Seat`, `LogPolicy`, and event loop

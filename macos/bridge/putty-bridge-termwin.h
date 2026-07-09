@@ -264,6 +264,12 @@ bool putty_bridge_termwin_bell_wavefile_path(
 /** Smoke test: bell and title callbacks / title decode. Returns 0 on success. */
 int putty_bridge_termwin_bell_title_smoke(void);
 
+/**
+ * Phase 4 exit gate: local echo through ldisc, grid sanity, paint + perf budget.
+ * Returns 0 on success.
+ */
+int putty_bridge_termwin_phase4_exit_smoke(void);
+
 #ifdef __cplusplus
 }
 #endif

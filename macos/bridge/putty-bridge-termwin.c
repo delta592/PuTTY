@@ -21,6 +21,9 @@ struct PuttyBridgeTermWin {
     bool demo_initialised;
     PuttyBridgeTermWinCallbacks swift_callbacks;
     void *swift_view_ctx;
+    Seat demo_seat;
+    Backend demo_backend;
+    Ldisc *demo_ldisc;
 };
 
 static PuttyBridgeOptionalRgb bridge_optional_rgb(optionalrgb rgb)
@@ -237,6 +240,22 @@ static void bridge_set_icon_title(void *ctx, const char *title, int codepage)
     sfree(utf8);
 }
 
+static size_t bridge_demo_seat_output(
+    Seat *seat, SeatOutputType type, const void *data, size_t len)
+{
+    PuttyBridgeTermWin *btw = container_of(seat, PuttyBridgeTermWin, demo_seat);
+
+    (void)type;
+    if (!btw->term || !data || len == 0)
+        return 0;
+    return term_data(btw->term, data, len);
+}
+
+static const SeatVtable bridge_demo_seat_vt = {
+    .output = bridge_demo_seat_output,
+    .echoedit_update = nullseat_echoedit_update,
+};
+
 static Mouse_Button bridge_translate_button(Mouse_Button button)
 {
     if (button == MBT_LEFT)
@@ -290,6 +309,10 @@ void putty_bridge_termwin_free(PuttyBridgeTermWin *btw)
     if (!btw)
         return;
 
+    if (btw->demo_ldisc) {
+        ldisc_free(btw->demo_ldisc);
+        btw->demo_ldisc = NULL;
+    }
     if (btw->term) {
         term_free(btw->term);
         btw->term = NULL;
@@ -334,9 +357,18 @@ bool putty_bridge_termwin_init_demo(PuttyBridgeTermWin *btw)
         return false;
 
     mac_termwin_set_terminal(btw->mtw, btw->term);
-    btw->term->ldisc = NULL;
     term_size(btw->term, 24, 80, conf_get_int(btw->conf, CONF_savelines));
     putty_bridge_termwin_setup_clipboards(btw);
+
+    conf_set_int(btw->conf, CONF_localecho, FORCE_ON);
+    conf_set_int(btw->conf, CONF_localedit, FORCE_OFF);
+    btw->demo_seat.vt = &bridge_demo_seat_vt;
+    btw->demo_backend.vt = &null_backend;
+    btw->demo_ldisc = ldisc_create(
+        btw->conf, btw->term, &btw->demo_backend, &btw->demo_seat);
+    if (!btw->demo_ldisc)
+        return false;
+    ldisc_echoedit_update(btw->demo_ldisc);
 
     term_data(btw->term, banner, sizeof(banner) - 1);
     term_update(btw->term);
@@ -1167,6 +1199,65 @@ int putty_bridge_termwin_bell_title_smoke(void)
     if (smoke_bell_mode != PUTTY_BRIDGE_BELL_WAVEFILE) {
         putty_bridge_termwin_free(btw);
         return 10;
+    }
+
+    putty_bridge_termwin_free(btw);
+    return 0;
+}
+
+static bool smoke_term_has_char(
+    Terminal *term, int x, int y, wchar_t expect)
+{
+    termline *tl = term_get_line(term, y);
+    bool found = false;
+
+    if (tl && 0 <= x && x < tl->cols)
+        found = (tl->chars[x].chr == expect);
+    term_release_line(tl);
+    return found;
+}
+
+int putty_bridge_termwin_phase4_exit_smoke(void)
+{
+    PuttyBridgeTermWin *btw;
+    int start_x, start_y, end_x, end_y, rc;
+
+    btw = putty_bridge_termwin_new();
+    if (!putty_bridge_termwin_init_demo(btw)) {
+        putty_bridge_termwin_free(btw);
+        return 1;
+    }
+    if (!btw->demo_ldisc) {
+        putty_bridge_termwin_free(btw);
+        return 2;
+    }
+    if (putty_bridge_termwin_cols(btw) != 80 ||
+        putty_bridge_termwin_rows(btw) != 24) {
+        putty_bridge_termwin_free(btw);
+        return 3;
+    }
+
+    term_get_cursor_position(btw->term, &start_x, &start_y);
+    putty_bridge_termwin_key_bytes(btw, -1, "q", 1);
+    term_update(btw->term);
+
+    if (!smoke_term_has_char(btw->term, start_x, start_y, CSET_ASCII | 'q')) {
+        putty_bridge_termwin_free(btw);
+        return 4;
+    }
+
+    term_get_cursor_position(btw->term, &end_x, &end_y);
+    if (end_x != start_x + 1 || end_y != start_y) {
+        putty_bridge_termwin_free(btw);
+        return 5;
+    }
+
+    putty_bridge_termwin_paint(btw, 0, 0, 79, 23);
+
+    rc = putty_bridge_termwin_perf_paint_benchmark(btw, 120, 16.67);
+    if (rc != 0) {
+        putty_bridge_termwin_free(btw);
+        return 6;
     }
 
     putty_bridge_termwin_free(btw);

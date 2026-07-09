@@ -113,6 +113,17 @@ add_executable(putty-mac-termwin-smoke-c
 target_link_libraries(putty-mac-termwin-smoke-c
   macguifrontend eventloop charset settings utils)
 
+add_executable(test_terminal
+  ${CMAKE_SOURCE_DIR}/test/test_terminal.c
+  ${CMAKE_SOURCE_DIR}/stubs/no-gss.c
+  ${CMAKE_SOURCE_DIR}/stubs/no-storage.c
+  ${CMAKE_SOURCE_DIR}/stubs/no-timing.c
+  ${CMAKE_SOURCE_DIR}/stubs/no-printing.c
+  platform/unicode.c
+  platform/no-gtk.c)
+target_link_libraries(test_terminal
+  guiterminal settings eventloop utils)
+
 add_executable(fuzzterm
   ${CMAKE_SOURCE_DIR}/test/fuzzterm.c
   ${CMAKE_SOURCE_DIR}/stubs/no-print.c

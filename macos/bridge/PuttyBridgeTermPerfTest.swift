@@ -28,7 +28,12 @@ final class TermPerfHarness {
             set_raw_mouse_mode: nil,
             set_raw_mouse_mode_pointer: nil,
             clip_write: nil,
-            clip_request_paste: nil
+            clip_request_paste: nil,
+            set_scrollbar: nil,
+            request_resize: nil,
+            bell: nil,
+            set_title: nil,
+            set_icon_title: nil
         )
         let ctx = Unmanaged.passUnretained(self).toOpaque()
         putty_bridge_termwin_set_callbacks(handle, &callbacks, ctx)
