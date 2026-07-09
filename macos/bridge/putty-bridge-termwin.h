@@ -16,6 +16,12 @@
 extern "C" {
 #endif
 
+/*
+ * Forward declaration only — putty-bridge.h includes this header, so we must
+ * not include putty-bridge.h here (circular). Standalone includers (e.g. the
+ * termwin perf driver) need PuttyConf for putty_bridge_termwin_open().
+ */
+typedef struct PuttyConf PuttyConf;
 typedef struct PuttyBridgeTermWin PuttyBridgeTermWin;
 
 typedef struct PuttyBridgeTermWinRect {

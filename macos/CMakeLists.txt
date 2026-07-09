@@ -7,16 +7,17 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/icons.cmake)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/bundle_version.cmake)
 
-# Swift / Objective-C toolchain (Phase 1.3; languages enabled at project()).
-set(CMAKE_Swift_LANGUAGE_VERSION 6)
+# Swift language version is set once in the root CMakeLists.txt via
+# CMAKE_Swift_LANGUAGE_VERSION (before/at project()). Do not also set the
+# per-target Swift_LANGUAGE_VERSION property: with the Xcode generator that
+# injects a redundant -swift-version into OTHER_SWIFT_FLAGS and triggers
+# "language mode was overridden by extra Swift flags".
 
 set(PUTTY_MACOS_PUTTYBRIDGE_MODULE_DIR
   ${CMAKE_CURRENT_SOURCE_DIR}/bridge
   CACHE INTERNAL "PuttyBridge module.modulemap directory")
 
 function(putty_macos_configure_swift_target target)
-  set_target_properties(${target} PROPERTIES
-    Swift_LANGUAGE_VERSION 6)
   # Clang module PuttyBridge (module.modulemap under macos/bridge/).
   target_include_directories(${target} PRIVATE
     ${PUTTY_MACOS_PUTTYBRIDGE_MODULE_DIR})
@@ -124,6 +125,8 @@ add_executable(putty-mac-termwin-smoke-c
   platform/termwin-smoke-main.c
   ${CMAKE_SOURCE_DIR}/stubs/no-print.c
   ${CMAKE_SOURCE_DIR}/stubs/no-gss.c
+  # eventloop/uxsel calls noise_ultralight; this smoke has no RNG/sshcommon.
+  ${CMAKE_SOURCE_DIR}/stubs/no-rand.c
   platform/unicode.c
   platform/no-gtk.c)
 be_list(putty-mac-termwin-smoke-c PuTTY)

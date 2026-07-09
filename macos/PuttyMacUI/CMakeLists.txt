@@ -21,7 +21,10 @@ add_library(putty-macui STATIC
 
 set_target_properties(putty-macui PROPERTIES
   Swift_MODULE_NAME PuttyMacUI
-  Swift_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+  Swift_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+  # Xcode derives PRODUCT_MODULE_NAME from the target name (putty_macui)
+  # unless overridden; consumers import PuttyMacUI.
+  XCODE_ATTRIBUTE_PRODUCT_MODULE_NAME PuttyMacUI)
 
 target_compile_options(putty-macui PRIVATE
   "$<$<COMPILE_LANGUAGE:Swift>:-parse-as-library>")
@@ -49,9 +52,7 @@ putty_macos_configure_swift_target(putty-macui)
 add_executable(PuttyBridgeTermPerfTest
   ${CMAKE_CURRENT_SOURCE_DIR}/../bridge/PuttyBridgeTermPerfTest.swift)
 
-target_compile_options(PuttyBridgeTermPerfTest PRIVATE
-  "$<$<COMPILE_LANGUAGE:Swift>:-parse-as-library>")
-
+# Executable with @main — do not pass -parse-as-library.
 target_link_libraries(PuttyBridgeTermPerfTest PRIVATE
   "-framework AppKit"
   putty-macui

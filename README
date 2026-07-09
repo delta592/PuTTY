@@ -94,7 +94,21 @@ reconfigure the same build tree between the two modes.
 Typical GUI build commands
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Release build (produces PuTTY.app):
+A helper script wraps the common flows (configure, build, open, verify,
+install, clean). It requires Bash 5.x (brew install bash); put Homebrew's
+bash ahead of /bin/bash on PATH. From the repository root:
+
+  ./macos/build.sh --dev              # Debug, host arch (default)
+  ./macos/build.sh --release          # Release Ninja build
+  ./macos/build.sh --universal        # Universal 2 via Xcode generator
+  ./macos/build.sh open --dev         # Launch PuTTY.app
+  ./macos/build.sh verify --release   # verify-bundle-layout
+  ./macos/build.sh --help
+
+Transcripts are appended to <build-dir>/build.log (for example
+build-macos-gui-dev/build.log). Pass --no-log to disable.
+
+Or invoke CMake directly. Release build (produces PuTTY.app):
 
   cmake -B build-macos-gui -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
