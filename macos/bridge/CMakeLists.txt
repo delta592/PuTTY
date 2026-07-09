@@ -13,6 +13,7 @@ add_library(putty-macos-bridge STATIC
   putty-bridge-phase3-exit.c
   putty-bridge-platform.c
   putty-bridge-app.c
+  putty-bridge-termwin.c
   ${CMAKE_SOURCE_DIR}/stubs/no-console.c
   ${CMAKE_SOURCE_DIR}/stubs/no-print.c
   ${CMAKE_CURRENT_SOURCE_DIR}/../platform/no-gtk.c
@@ -23,11 +24,13 @@ target_include_directories(putty-macos-bridge PUBLIC
 
 target_include_directories(putty-macos-bridge PRIVATE
   ${CMAKE_SOURCE_DIR}
-  ${CMAKE_SOURCE_DIR}/macos)
+  ${CMAKE_SOURCE_DIR}/macos
+  ${CMAKE_SOURCE_DIR}/macos/platform)
 
 be_list(putty-macos-bridge PuTTY SSH SERIAL OTHERBACKENDS)
 
 target_link_libraries(putty-macos-bridge PRIVATE
+  macguifrontend
   guiterminal
   eventloop
   sshclient

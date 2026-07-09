@@ -472,10 +472,16 @@ env -u LDFLAGS -u CPPFLAGS cmake --build build-macos-gui --target putty-mac-term
 
 ### 4.2 Swift `TerminalView` (`NSView` subclass)
 
-- [ ] Create `TerminalView.swift` hosted in the main window content view.
-- [ ] Enable layer-backed rendering (`wantsLayer = true`).
-- [ ] Implement `draw(_:)` or `CALayer` delegate drawing calling into C `TermWin` draw callbacks.
-- [ ] Handle `viewDidChangeBackingProperties` for Retina scale changes → `term_size()`.
+- [x] Create `TerminalView.swift` hosted in the main window content view.
+- [x] Enable layer-backed rendering (`wantsLayer = true`).
+- [x] Implement `draw(_:)` or `CALayer` delegate drawing calling into C `TermWin` draw callbacks.
+- [x] Handle `viewDidChangeBackingProperties` for Retina scale changes → `term_size()`.
+
+`TerminalView` owns a `PuttyBridgeTermWin` handle, registers C draw callbacks, and
+calls `putty_bridge_termwin_paint()` from `draw(_:)`. `putty-bridge-termwin.h`
+exposes the Swift-stable bridge; a demo terminal (default Conf, banner text) is
+used until Phase 5 wires `MacGuiSeat`. Font metrics and grid size sync on resize
+and backing-scale changes.
 
 ### 4.3 Text rendering strategy
 
