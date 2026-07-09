@@ -35,6 +35,12 @@ static bool putty_bridge_cmdline_extra(
             *action = PUTTY_BRIDGE_CMDLINE_EXIT_OK;
             return true;
         }
+        if (has_ca_config_box &&
+            (!strcmp(p, "-host-ca") || !strcmp(p, "-host_ca") ||
+             !strcmp(p, "--host-ca") || !strcmp(p, "--host_ca"))) {
+            *action = PUTTY_BRIDGE_CMDLINE_HOST_CA;
+            return true;
+        }
     } else {
         if (!strcmp(p, "-help") || !strcmp(p, "--help")) {
             *action = PUTTY_BRIDGE_CMDLINE_EXIT_HELP;
@@ -47,6 +53,12 @@ static bool putty_bridge_cmdline_extra(
         if (!strcmp(p, "-pgpfp")) {
             pgp_fingerprints();
             *action = PUTTY_BRIDGE_CMDLINE_EXIT_OK;
+            return true;
+        }
+        if (has_ca_config_box &&
+            (!strcmp(p, "-host-ca") || !strcmp(p, "-host_ca") ||
+             !strcmp(p, "--host-ca") || !strcmp(p, "--host_ca"))) {
+            *action = PUTTY_BRIDGE_CMDLINE_HOST_CA;
             return true;
         }
         if (p[0] != '-' && (cmdline_tooltype & TOOLTYPE_HOST_ARG)) {
@@ -161,6 +173,7 @@ void putty_bridge_print_help(FILE *fp)
                 "  --help            Display this text\n"
                 "  --version         Show version and build info\n"
                 "  -pgpfp            Display PGP key fingerprints\n"
+                "  -host-ca          Configure trusted SSH host CAs\n"
                 "\n"
                 "If no host or -load is given, the configuration dialog opens.\n"
                 ) < 0 || fflush(fp) < 0) {

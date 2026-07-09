@@ -15,6 +15,7 @@
 #include "putty-bridge-thread.h"
 
 #include "config-appkit.h"
+#include "platform.h"
 #include "storage.h"
 
 static PuttyBridgeOpenSessionFn open_session_fn;
@@ -171,6 +172,12 @@ void window_setup_error(const char *errmsg)
 void putty_bridge_launch_new_session(void)
 {
     launch_new_session();
+}
+
+void putty_bridge_show_host_ca_config(void)
+{
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
+    show_ca_config_box_synchronously();
 }
 
 void putty_bridge_start_app(PuttyConf *conf, bool connect_immediately)

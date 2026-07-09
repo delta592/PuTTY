@@ -9,8 +9,10 @@ enum PuTTYMain {
         var conf: PuttyConfHandle?
         var connect = false
 
-        switch putty_bridge_process_command_line(
-            CommandLine.argc, CommandLine.unsafeArgv, &conf, &connect) {
+        let cmdline = putty_bridge_process_command_line(
+            CommandLine.argc, CommandLine.unsafeArgv, &conf, &connect)
+
+        switch cmdline {
         case PUTTY_BRIDGE_CMDLINE_EXIT_HELP:
             putty_bridge_print_help(stdout)
             exit(EXIT_SUCCESS)
@@ -19,11 +21,17 @@ enum PuTTYMain {
             exit(EXIT_SUCCESS)
         case PUTTY_BRIDGE_CMDLINE_EXIT_OK:
             exit(EXIT_SUCCESS)
+        case PUTTY_BRIDGE_CMDLINE_HOST_CA:
+            break
         default:
             break
         }
 
-        let delegate = AppDelegate(initialConf: conf, initialConnect: connect)
+        let delegate = AppDelegate(
+            initialConf: conf,
+            initialConnect: connect,
+            hostCaOnly: cmdline == PUTTY_BRIDGE_CMDLINE_HOST_CA
+        )
         let app = NSApplication.shared
         app.delegate = delegate
         withExtendedLifetime(delegate) {
@@ -36,12 +44,14 @@ enum PuTTYMain {
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var pendingConf: PuttyConfHandle?
     private let pendingConnect: Bool
+    private let hostCaOnly: Bool
     /// Retained for the C open-session callback lifetime.
     private var openSessionBox: OpenSessionBox?
 
-    init(initialConf: PuttyConfHandle?, initialConnect: Bool) {
+    init(initialConf: PuttyConfHandle?, initialConnect: Bool, hostCaOnly: Bool = false) {
         self.pendingConf = initialConf
         self.pendingConnect = initialConnect
+        self.hostCaOnly = hostCaOnly
         super.init()
     }
 
@@ -49,6 +59,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         _ = notification
         PuttyEventLoop.start()
         installMenus()
+
+        if hostCaOnly {
+            if let conf = pendingConf {
+                pendingConf = nil
+                putty_conf_free(conf)
+            }
+            putty_bridge_show_host_ca_config()
+            NSApp.terminate(nil)
+            return
+        }
 
         let box = OpenSessionBox(owner: self)
         openSessionBox = box

@@ -181,4 +181,4 @@ add_custom_target(putty-mac-config-gate
     putty-mac-config-smoke-c
     putty-bridge-launch-smoke-c
     putty-bridge-termwin-eventlog-smoke-c
-  COMMENT "Build config / launch / event-log gate binaries (Phase 6.1–6.4)")
+  COMMENT "Build config / launch / event-log / CA gate binaries (Phase 6.1–6.5)")

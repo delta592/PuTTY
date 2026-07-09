@@ -70,6 +70,12 @@ int mac_config_controlbox_smoke(void);
 /** Phase 6.2 smoke: midsession box, restore-defaults, Conf cancel backup. */
 int mac_config_settings_ux_smoke(void);
 
+/**
+ * Phase 6.5 smoke: Host CA controlbox layout + storage save/load/delete.
+ * Returns 0 on OK.
+ */
+int mac_config_ca_smoke(void);
+
 #ifdef __cplusplus
 }
 #endif

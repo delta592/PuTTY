@@ -82,5 +82,11 @@ int main(void)
         return EXIT_FAILURE;
     }
 
+    rc = mac_config_ca_smoke();
+    if (rc != 0) {
+        fprintf(stderr, "mac_config_ca_smoke failed (%d)\n", rc);
+        return EXIT_FAILURE;
+    }
+
     return EXIT_SUCCESS;
 }

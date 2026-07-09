@@ -163,6 +163,9 @@ void macos_setup_config_box(
 void nonfatal_message_box(void *parent, const char *msg);
 void about_box(void *parent);
 
+/** Host CA config UI (Phase 6.5); also used by `-host_ca` / `--host-ca`. */
+void show_ca_config_box_synchronously(void);
+
 /* ---------------------------------------------------------------------- */
 /* Backends and networking */
 

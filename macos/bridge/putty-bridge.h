@@ -180,6 +180,8 @@ typedef enum PuttyBridgeCmdlineAction {
     PUTTY_BRIDGE_CMDLINE_EXIT_HELP,
     PUTTY_BRIDGE_CMDLINE_EXIT_VERSION,
     PUTTY_BRIDGE_CMDLINE_EXIT_OK,
+    /** Show Host CA config (modal) then exit — `-host_ca` / `--host-ca`. */
+    PUTTY_BRIDGE_CMDLINE_HOST_CA,
 } PuttyBridgeCmdlineAction;
 
 /**
@@ -224,6 +226,12 @@ void putty_bridge_start_app(PuttyConf *conf, bool connect_immediately);
 
 /** Session → New Session: show initial config box with defaults. */
 void putty_bridge_launch_new_session(void);
+
+/**
+ * Show the Host CA configuration dialog modally (Phase 6.5).
+ * Used by `-host-ca` / `--host_ca` and returns when the user closes it.
+ */
+void putty_bridge_show_host_ca_config(void);
 
 /** Headless smoke for launch / need-config decisions. Returns 0 on OK. */
 int putty_bridge_launch_smoke(void);

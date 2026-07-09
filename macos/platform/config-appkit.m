@@ -1296,6 +1296,9 @@ void dlg_error_msg(dlgparam *dp, const char *msg)
         [alert runModal];
 }
 
+/* Forward decls for Host CA box lifetime (defined below). */
+static void mac_ca_config_dlg_ended(dlgparam *dp);
+
 void dlg_end(dlgparam *dp, int value)
 {
     if (dp->ended)
@@ -1310,6 +1313,7 @@ void dlg_end(dlgparam *dp, int value)
     /*
      * On Cancel, restore Conf from the backup taken at open (Windows
      * do_reconfig / GTK change-settings parity). On Apply/Open, keep edits.
+     * Host CA boxes have no Conf backup.
      */
     if (value <= 0 && dp->backup_conf && dp->data)
         conf_copy_into((Conf *)dp->data, dp->backup_conf);
@@ -1322,6 +1326,8 @@ void dlg_end(dlgparam *dp, int value)
 
     if (owner)
         mac_config_box_free(owner);
+    else
+        mac_ca_config_dlg_ended(dp);
 }
 
 void dlg_refresh(dlgcontrol *ctrl, dlgparam *dp)
@@ -1830,13 +1836,178 @@ void mac_config_change_settings(
     sfree(title);
 }
 
-/*
- * Host CA configuration UI is Phase 6.5. Until then, provide a stub so
- * config.c's "Configure host CAs" button links.
- */
+/* ---------------------------------------------------------------------- */
+/* Host CA configuration (Phase 6.5) — mirrors unix/dialog.c make_ca_config_box */
+
+struct ca_config_box {
+    struct dlgparam dp;
+    bool run_modal;
+};
+
+static struct ca_config_box *mac_cacfg; /* one instance, cross-window */
+
+static void mac_ca_config_box_free(struct ca_config_box *box)
+{
+    if (!box)
+        return;
+    if (box->dp.window) {
+        [box->dp.window setDelegate:nil];
+        [box->dp.window close];
+    }
+    mac_dlg_cleanup(&box->dp);
+    if (mac_cacfg == box)
+        mac_cacfg = NULL;
+    sfree(box);
+}
+
+static void mac_ca_config_dlg_ended(dlgparam *dp)
+{
+    if (!mac_cacfg || &mac_cacfg->dp != dp)
+        return;
+    /*
+     * Non-modal: free immediately (Done / window close). Modal: leave the
+     * box alive until show_ca_config_box_synchronously finishes its loop.
+     */
+    if (!mac_cacfg->run_modal)
+        mac_ca_config_box_free(mac_cacfg);
+}
+
+static void make_ca_config_box(NSWindow *spawning_window, bool run_modal)
+{
+    struct ca_config_box *box;
+    NSWindow *window;
+    MacConfigBoxController *controller;
+    MacConfigActions *actions;
+    NSStackView *root;
+    NSView *actionArea = nil;
+    NSStackView *content = nil;
+    char *path = NULL;
+
+    mac_gui_dialogs_ensure_app();
+
+    if (mac_cacfg && mac_cacfg->dp.window && !mac_cacfg->dp.ended) {
+        [mac_cacfg->dp.window makeKeyAndOrderFront:nil];
+        return;
+    }
+    if (mac_cacfg) {
+        mac_ca_config_box_free(mac_cacfg);
+        mac_cacfg = NULL;
+    }
+
+    box = snew(struct ca_config_box);
+    memset(box, 0, sizeof(*box));
+    mac_dlg_init(&box->dp);
+    box->run_modal = run_modal;
+    box->dp.data = box;
+    box->dp.ctrlbox = ctrl_new_box();
+    setup_ca_config_box(box->dp.ctrlbox);
+
+    window =
+        [[NSWindow alloc]
+            initWithContentRect:NSMakeRect(0, 0, 720, 520)
+                      styleMask:(NSWindowStyleMaskTitled |
+                                 NSWindowStyleMaskClosable |
+                                 NSWindowStyleMaskMiniaturizable |
+                                 NSWindowStyleMaskResizable)
+                        backing:NSBackingStoreBuffered
+                          defer:NO];
+    window.title = @"PuTTY trusted host certification authorities";
+    window.minSize = NSMakeSize(560, 400);
+    box->dp.window = window;
+
+    controller = [[MacConfigBoxController alloc] init];
+    controller.dp = &box->dp;
+    window.delegate = controller;
+    objc_setAssociatedObject(window, &mac_config_controller_key, controller,
+                             OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+
+    actions = mac_actions_for(&box->dp);
+    root = mac_make_vstack();
+    root.translatesAutoresizingMaskIntoConstraints = NO;
+    content = mac_make_vstack();
+
+    for (size_t index = 0; index < box->dp.ctrlbox->nctrlsets; index++) {
+        struct controlset *s = box->dp.ctrlbox->ctrlsets[index];
+        if (!*s->pathname) {
+            actionArea = mac_config_layout_controlset_impl(
+                &box->dp, s, nil, actions);
+            continue;
+        }
+        if (!path || ctrl_path_compare(s->pathname, path) != INT_MAX) {
+            path = s->pathname;
+        }
+        NSView *w = mac_config_layout_controlset_impl(
+            &box->dp, s, content, actions);
+        if (w)
+            [content addArrangedSubview:w];
+    }
+
+    NSScrollView *scroll = [[NSScrollView alloc] initWithFrame:NSZeroRect];
+    scroll.hasVerticalScroller = YES;
+    scroll.documentView = content;
+    scroll.borderType = NSNoBorder;
+    [content.widthAnchor constraintEqualToAnchor:scroll.widthAnchor].active =
+        YES;
+
+    [root addArrangedSubview:scroll];
+    if (actionArea)
+        [root addArrangedSubview:actionArea];
+
+    window.contentView = [[NSView alloc] initWithFrame:window.frame];
+    [window.contentView addSubview:root];
+    [root.topAnchor constraintEqualToAnchor:window.contentView.topAnchor
+                                   constant:8]
+        .active = YES;
+    [root.bottomAnchor constraintEqualToAnchor:window.contentView.bottomAnchor
+                                      constant:-8]
+        .active = YES;
+    [root.leadingAnchor constraintEqualToAnchor:window.contentView.leadingAnchor
+                                       constant:8]
+        .active = YES;
+    [root.trailingAnchor
+        constraintEqualToAnchor:window.contentView.trailingAnchor
+                       constant:-8]
+        .active = YES;
+    [scroll.heightAnchor constraintGreaterThanOrEqualToConstant:360].active =
+        YES;
+
+    dlg_refresh(NULL, &box->dp);
+
+    if (spawning_window) {
+        NSRect parent = spawning_window.frame;
+        NSRect frame = window.frame;
+        frame.origin.x = NSMidX(parent) - NSWidth(frame) / 2;
+        frame.origin.y = NSMidY(parent) - NSHeight(frame) / 2;
+        [window setFrame:frame display:NO];
+    } else {
+        [window center];
+    }
+
+    mac_cacfg = box;
+    [window makeKeyAndOrderFront:nil];
+    [NSApp activateIgnoringOtherApps:YES];
+
+    if (run_modal) {
+        NSModalSession session = [NSApp beginModalSessionForWindow:window];
+        while (mac_cacfg == box && !box->dp.ended) {
+            if ([NSApp runModalSession:session] != NSModalResponseContinue)
+                break;
+        }
+        [NSApp endModalSession:session];
+        if (mac_cacfg == box)
+            mac_ca_config_box_free(box);
+    }
+}
+
 void show_ca_config_box(dlgparam *dp)
 {
-    dlg_error_msg(dp, "Host CA configuration is not implemented yet.");
+    NSWindow *parent = (dp && dp->window) ? dp->window : nil;
+    make_ca_config_box(parent, false);
+}
+
+void show_ca_config_box_synchronously(void)
+{
+    make_ca_config_box(nil, true);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -2358,5 +2529,144 @@ int mac_config_settings_ux_smoke(void)
     conf_free(conf);
 
     puts("mac_config_settings_ux_smoke: ok");
+    return 0;
+}
+
+int mac_config_ca_smoke(void)
+{
+    struct dlgparam dp;
+    MacConfigActions *actions;
+    NSWindow *window;
+    struct MacUCtrl *uc;
+    int i;
+    bool found_done = false;
+    bool found_load = false, found_save = false, found_delete = false;
+    bool found_name = false, found_pubkey = false, found_hosts = false;
+    const char *smoke_name = "__PuttyMacCaSmoke__";
+    host_ca *hca;
+    char *err;
+    strbuf *keyblob;
+
+    if (!has_ca_config_box) {
+        fprintf(stderr, "mac_config_ca_smoke: has_ca_config_box is false\n");
+        return 1;
+    }
+
+    mac_gui_dialogs_ensure_app();
+
+    /* --- Layout: setup_ca_config_box + AppKit widgets --- */
+    mac_dlg_init(&dp);
+    dp.data = NULL;
+    dp.ctrlbox = ctrl_new_box();
+    setup_ca_config_box(dp.ctrlbox);
+
+    window =
+        [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 720, 520)
+                                    styleMask:NSWindowStyleMaskTitled
+                                      backing:NSBackingStoreBuffered
+                                        defer:YES];
+    dp.window = window;
+    actions = mac_ensure_actions(&dp, window.contentView);
+
+    MacConfigBoxController *controller = [[MacConfigBoxController alloc] init];
+    controller.dp = &dp;
+    objc_setAssociatedObject(window, &mac_config_controller_key, controller,
+                             OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+
+    NSStackView *host = mac_make_vstack();
+    window.contentView = host;
+
+    for (size_t index = 0; index < dp.ctrlbox->nctrlsets; index++) {
+        struct controlset *s = dp.ctrlbox->ctrlsets[index];
+        NSView *w = mac_config_layout_controlset_impl(&dp, s, host, actions);
+        if (w)
+            [host addArrangedSubview:w];
+    }
+
+    dlg_refresh(NULL, &dp);
+
+    for (i = 0; (uc = index234(dp.byctrl, i)) != NULL; i++) {
+        if (!uc->ctrl || !uc->ctrl->label)
+            continue;
+        if (!strcmp(uc->ctrl->label, "Done"))
+            found_done = true;
+        if (!strcmp(uc->ctrl->label, "Load"))
+            found_load = true;
+        if (!strcmp(uc->ctrl->label, "Save"))
+            found_save = true;
+        if (!strcmp(uc->ctrl->label, "Delete"))
+            found_delete = true;
+        if (strstr(uc->ctrl->label, "Name for this CA"))
+            found_name = true;
+        if (strstr(uc->ctrl->label, "Public key of certification"))
+            found_pubkey = true;
+        if (strstr(uc->ctrl->label, "Valid hosts"))
+            found_hosts = true;
+    }
+
+    if (!found_done || !found_load || !found_save || !found_delete ||
+        !found_name || !found_pubkey || !found_hosts) {
+        fprintf(stderr,
+                "mac_config_ca_smoke: missing controls "
+                "(done=%d load=%d save=%d del=%d name=%d pubkey=%d hosts=%d)\n",
+                found_done, found_load, found_save, found_delete,
+                found_name, found_pubkey, found_hosts);
+        mac_dlg_cleanup(&dp);
+        return 2;
+    }
+
+    mac_dlg_cleanup(&dp);
+
+    /* --- Storage round-trip (platform host_ca_*) --- */
+    (void)host_ca_delete(smoke_name);
+
+    hca = host_ca_new();
+    hca->name = dupstr(smoke_name);
+    keyblob = strbuf_new();
+    put_data(keyblob, "smoke-ca-pubkey", 15);
+    hca->ca_public_key = keyblob;
+    hca->validity_expression = dupstr("*");
+    hca->opts.permit_rsa_sha1 = false;
+    hca->opts.permit_rsa_sha256 = true;
+    hca->opts.permit_rsa_sha512 = true;
+
+    err = host_ca_save(hca);
+    host_ca_free(hca);
+    if (err) {
+        fprintf(stderr, "mac_config_ca_smoke: save failed: %s\n", err);
+        sfree(err);
+        return 3;
+    }
+
+    hca = host_ca_load(smoke_name);
+    if (!hca) {
+        fprintf(stderr, "mac_config_ca_smoke: load failed\n");
+        return 4;
+    }
+    if (!hca->name || strcmp(hca->name, smoke_name) != 0 ||
+        !hca->validity_expression ||
+        strcmp(hca->validity_expression, "*") != 0 ||
+        !hca->opts.permit_rsa_sha256 || hca->opts.permit_rsa_sha1) {
+        fprintf(stderr, "mac_config_ca_smoke: loaded record mismatch\n");
+        host_ca_free(hca);
+        (void)host_ca_delete(smoke_name);
+        return 5;
+    }
+    host_ca_free(hca);
+
+    err = host_ca_delete(smoke_name);
+    if (err) {
+        fprintf(stderr, "mac_config_ca_smoke: delete failed: %s\n", err);
+        sfree(err);
+        return 6;
+    }
+    if (host_ca_load(smoke_name) != NULL) {
+        fprintf(stderr, "mac_config_ca_smoke: delete did not remove record\n");
+        (void)host_ca_delete(smoke_name);
+        return 7;
+    }
+
+    /* show_ca_config_box must be linked (non-stub). */
+    puts("mac_config_ca_smoke: ok");
     return 0;
 }

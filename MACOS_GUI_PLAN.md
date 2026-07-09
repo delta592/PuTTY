@@ -528,11 +528,11 @@ Override host via
 `PUTTY_BRIDGE_TEST_HOST`, `PUTTY_BRIDGE_TEST_USER`, `PUTTY_BRIDGE_TEST_PORT`,
 and `PUTTY_BRIDGE_TEST_HOSTKEY`.
 
-### Phase 6.1–6.4 gate (`putty-mac-config-gate`)
+### Phase 6.1–6.5 gate (`putty-mac-config-gate`)
 
 | Target | Validates |
 |--------|-----------|
-| `putty-mac-config-smoke-c` | controlbox → AppKit (§6.1) + settings UX (§6.2) |
+| `putty-mac-config-smoke-c` | controlbox → AppKit (§6.1) + settings UX (§6.2) + Host CA (§6.5) |
 | `putty-bridge-launch-smoke-c` | initial config → session open (§6.3) |
 | `putty-bridge-termwin-eventlog-smoke-c` | Event Log buffer (§6.4) |
 
@@ -543,11 +543,12 @@ $PUTTY_BUILD putty-mac-config-gate
 ./build-macos-gui/putty-bridge-termwin-eventlog-smoke-c
 ```
 
-Config smoke runs `mac_config_controlbox_smoke` then
-`mac_config_settings_ux_smoke`. Launch smoke checks need-config for
-defaults Conf, Open → session callback (launchable and local-echo), and
-Cancel → quit signal. Event-log smoke fills the GTK-style initial +
-circular ring and checks wrap/`..` marker + UI callback.
+Config smoke runs `mac_config_controlbox_smoke`,
+`mac_config_settings_ux_smoke`, then `mac_config_ca_smoke`. Launch smoke
+checks need-config for defaults Conf, Open → session callback (launchable
+and local-echo), and Cancel → quit signal. Event-log smoke fills the
+GTK-style initial + circular ring and checks wrap/`..` marker + UI
+callback.
 
 ---
 
@@ -817,10 +818,10 @@ override, local-command proxy, and Option/Command Meta checkboxes
 (`OSX_META_KEY_CONFIG`). `config-appkit.m` implements the full `dlg_*`
 read/write API, builds panels from `setup_config_box()` +
 `macos_setup_config_box()`, and provides `mac_config_create_box()` /
-`initial_config_box()`. Host CA UI is stubbed until Phase 6.5.
+`initial_config_box()`. Host CA UI is in Phase 6.5.
 
 **Smoke:** `putty-mac-config-smoke-c` (`mac_config_controlbox_smoke`) —
-see [Phase 6.1–6.4 gate](#phase-61-64-gate-putty-mac-config-gate).
+see [Phase 6.1–6.5 gate](#phase-61-65-gate-putty-mac-config-gate).
 
 ### 6.2 Settings window UX
 
@@ -841,7 +842,7 @@ midsession config box → `mac_gui_seat_reconfigure` on Apply.
 
 **Smoke:** `putty-mac-config-smoke-c` also runs
 `mac_config_settings_ux_smoke()` — see
-[Phase 6.1–6.4 gate](#phase-61-64-gate-putty-mac-config-gate) (covers 6.1–6.2).
+[Phase 6.1–6.5 gate](#phase-61-65-gate-putty-mac-config-gate) (covers 6.1–6.2).
 
 ### 6.3 Initial connection flow
 
@@ -858,7 +859,7 @@ with no open sessions quits the app. **Session → New Session** calls
 `session_window_closed` for later Phase 7 use.
 
 **Smoke:** `putty-bridge-launch-smoke-c` (`putty_bridge_launch_smoke`) —
-see [Phase 6.1–6.4 gate](#phase-61-64-gate-putty-mac-config-gate).
+see [Phase 6.1–6.5 gate](#phase-61-65-gate-putty-mac-config-gate).
 
 ### 6.4 Event log window
 
@@ -873,11 +874,21 @@ the key session; live appends refresh an open viewer.
 
 **Smoke:** `putty-bridge-termwin-eventlog-smoke-c`
 (`putty_bridge_termwin_eventlog_smoke`) — see
-[Phase 6.1–6.4 gate](#phase-61-64-gate-putty-mac-config-gate).
+[Phase 6.1–6.5 gate](#phase-61-65-gate-putty-mac-config-gate).
 
 ### 6.5 Host CA configuration
 
-- [ ] Port CA config box (`show_ca_config_box_synchronously`) if `has_ca_config_box` applies.
+- [x] Port CA config box (`show_ca_config_box_synchronously`) if `has_ca_config_box` applies.
+
+`show_ca_config_box()` / `show_ca_config_box_synchronously()` render
+`setup_ca_config_box()` via the AppKit controlbox path (Load/Save/Delete
+host CA records under Application Support). **Connection/SSH/Host keys →
+Configure host CAs** opens the non-modal window; `-host-ca` /
+`--host_ca` runs the modal form then exits. Storage uses existing
+`host_ca_*` in `macos/platform/storage.c`.
+
+**Smoke:** `putty-mac-config-smoke-c` also runs `mac_config_ca_smoke()` —
+see [Phase 6.1–6.5 gate](#phase-61-65-gate-putty-mac-config-gate).
 
 **Phase 6 exit criteria:** All settings panels functional; sessions save/load; mid-session reconfiguration works; parity spot-check against GTK config for representative options.
 
