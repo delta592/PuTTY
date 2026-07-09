@@ -502,10 +502,12 @@ True-colour and palette colours are resolved in the renderer; cursor style follo
 
 ### 4.4 Performance requirements (gate for Phase 5)
 
-- [ ] Full-screen repaint (120×80) at 60 fps on Apple Silicon Mac during `cat large_file.txt`.
-- [ ] Incremental dirty-region redraw for incremental output.
-- [ ] Profile with Instruments (Time Profiler, Core Animation) — document baseline.
-- [ ] Avoid allocating Objective-C objects per cell in hot paths.
+- [x] Full-screen repaint (120×80) at 60 fps on Apple Silicon Mac during `cat large_file.txt`.
+- [x] Incremental dirty-region redraw for incremental output.
+- [x] Profile with Instruments (Time Profiler, Core Animation) — document baseline.
+- [x] Avoid allocating Objective-C objects per cell in hot paths.
+
+See `macos/PuTTY/TERMINAL_PERFORMANCE.md` for benchmark commands and Instruments notes.
 
 ### 4.5 Input handling
 

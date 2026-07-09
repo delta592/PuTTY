@@ -121,6 +121,21 @@ int32_t putty_bridge_termwin_rows(const PuttyBridgeTermWin *btw);
 int32_t putty_bridge_termwin_cursor_type(const PuttyBridgeTermWin *btw);
 int32_t putty_bridge_termwin_bold_style(const PuttyBridgeTermWin *btw);
 
+bool putty_bridge_termwin_resize_grid(
+    PuttyBridgeTermWin *btw, int32_t cols, int32_t rows);
+size_t putty_bridge_termwin_feed(
+    PuttyBridgeTermWin *btw, const void *data, size_t len);
+bool putty_bridge_termwin_compute_dirty_rect(
+    PuttyBridgeTermWin *btw, PuttyBridgeTermWinRect *out);
+
+/**
+ * Phase 4.4 perf gate: full-screen term_paint benchmark at 120×80.
+ * Returns 0 when mean frame time is below budget_ms (60 fps ⇒ 16.67).
+ * Set PUTTY_BRIDGE_PERF_SKIP=1 to skip (returns 0).
+ */
+int putty_bridge_termwin_perf_paint_benchmark(
+    PuttyBridgeTermWin *btw, int frames, double budget_ms);
+
 #ifdef __cplusplus
 }
 #endif

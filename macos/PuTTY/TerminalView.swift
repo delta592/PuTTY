@@ -62,6 +62,8 @@ final class TerminalView: NSView {
     nonisolated(unsafe) private var termWin: OpaquePointer?
     private var isPainting = false
     private let renderer = TerminalTextRenderer()
+    private var pendingDirty: NSRect?
+    private var dirtyFlushScheduled = false
 
     override var isFlipped: Bool { true }
 
@@ -191,7 +193,22 @@ final class TerminalView: NSView {
         } else {
             rect = NSRect(x: dirty.x, y: dirty.y, width: dirty.width, height: dirty.height)
         }
-        setNeedsDisplay(rect)
+
+        if let pending = pendingDirty {
+            pendingDirty = pending.union(rect)
+        } else {
+            pendingDirty = rect
+        }
+
+        guard !dirtyFlushScheduled else { return }
+        dirtyFlushScheduled = true
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.dirtyFlushScheduled = false
+            guard let rect = self.pendingDirty else { return }
+            self.pendingDirty = nil
+            self.setNeedsDisplay(rect)
+        }
     }
 
     // MARK: - C draw callbacks

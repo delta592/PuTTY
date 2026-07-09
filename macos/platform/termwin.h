@@ -117,6 +117,8 @@ void mac_termwin_set_font_metrics(
 
 const rgb *mac_termwin_get_colours(const MacTermWin *mtw);
 
+bool mac_termwin_compute_dirty_rect(const MacTermWin *mtw, MacTermWinRect *out);
+
 /** Phase 4.1 smoke test: term_init + term_update through MacTermWin. */
 int mac_termwin_smoke(void);
 

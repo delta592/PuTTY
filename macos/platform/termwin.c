@@ -28,6 +28,46 @@ static MacTermWinRect mtw_full_view_dirty(const MacTermWin *mtw)
     return dirty;
 }
 
+static MacTermWinRect mtw_dirty_rect_from_terminal(const MacTermWin *mtw)
+{
+    Terminal *term = mtw->term;
+    MacTermWinRect dirty = {0, 0, 0, 0};
+    int minx, miny, maxx, maxy;
+    int x, y;
+
+    if (!term)
+        return mtw_full_view_dirty(mtw);
+
+    minx = term->cols;
+    miny = term->rows;
+    maxx = -1;
+    maxy = -1;
+
+    for (y = 0; y < term->rows; y++) {
+        for (x = 0; x < term->cols; x++) {
+            if (term->disptext[y]->chars[x].attr & ATTR_INVALID) {
+                if (x < minx)
+                    minx = x;
+                if (x > maxx)
+                    maxx = x;
+                if (y < miny)
+                    miny = y;
+                if (y > maxy)
+                    maxy = y;
+            }
+        }
+    }
+
+    if (maxx < 0)
+        return mtw_full_view_dirty(mtw);
+
+    dirty.x = minx * mtw->cell_width_pt;
+    dirty.y = miny * mtw->cell_height_pt;
+    dirty.width = (maxx - minx + 1) * mtw->cell_width_pt;
+    dirty.height = (maxy - miny + 1) * mtw->cell_height_pt;
+    return dirty;
+}
+
 static void mtw_request_redraw(MacTermWin *mtw, MacTermWinRect dirty)
 {
     if (mtw->callbacks.request_redraw)
@@ -200,8 +240,7 @@ static void mac_tw_refresh(TermWin *tw)
     MacTermWin *mtw = mtw_from_termwin(tw);
 
     if (mtw->term)
-        term_invalidate(mtw->term);
-    mtw_request_redraw(mtw, mtw_full_view_dirty(mtw));
+        mtw_request_redraw(mtw, mtw_dirty_rect_from_terminal(mtw));
 }
 
 static void mac_tw_request_resize(TermWin *tw, int w, int h)
@@ -424,6 +463,18 @@ void mac_termwin_set_font_metrics(
 const rgb *mac_termwin_get_colours(const MacTermWin *mtw)
 {
     return mtw->colours;
+}
+
+bool mac_termwin_compute_dirty_rect(const MacTermWin *mtw, MacTermWinRect *out)
+{
+    MacTermWinRect dirty;
+
+    if (!out)
+        return false;
+
+    dirty = mtw_dirty_rect_from_terminal(mtw);
+    *out = dirty;
+    return dirty.width > 0 && dirty.height > 0;
 }
 
 int mac_termwin_smoke(void)

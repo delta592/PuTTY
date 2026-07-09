@@ -74,3 +74,26 @@ add_executable(putty-bridge-conf-smoke-c
 
 target_link_libraries(putty-bridge-conf-smoke-c PRIVATE
   putty-macos-bridge)
+
+# Phase 4.4 terminal paint performance gate (C noop-callback driver).
+add_executable(putty-bridge-termwin-perf-c
+  putty-bridge-termwin-perf-main.c)
+
+target_link_libraries(putty-bridge-termwin-perf-c PRIVATE
+  putty-macos-bridge)
+
+# Phase 4.4 full Swift Core Text paint benchmark.
+add_executable(PuttyBridgeTermPerfTest
+  PuttyBridgeTermPerfTest.swift
+  ${CMAKE_CURRENT_SOURCE_DIR}/../PuTTY/TerminalTextRenderer.swift
+  ${CMAKE_CURRENT_SOURCE_DIR}/../PuTTY/TerminalFontCache.swift
+  ${CMAKE_CURRENT_SOURCE_DIR}/../PuTTY/TerminalPaletteCache.swift)
+
+target_compile_options(PuttyBridgeTermPerfTest PRIVATE
+  "$<$<COMPILE_LANGUAGE:Swift>:-parse-as-library>")
+
+target_link_libraries(PuttyBridgeTermPerfTest PRIVATE
+  "-framework AppKit"
+  putty-macos-bridge)
+
+putty_macos_configure_swift_target(PuttyBridgeTermPerfTest)
