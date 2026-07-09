@@ -503,6 +503,42 @@ elapsed_since() {
   awk -v s="${start}" -v n="${EPOCHREALTIME}" 'BEGIN { printf "%.1fs", n - s }'
 }
 
+# Bump mtime on each built .app directory (not contents). Rebuilds often
+# update files inside the bundle without refreshing the bundle itself, so
+# Finder / Launch Services can keep a stale date.
+touch_app_bundles() {
+  [[ ${GUI} == ON ]] || return 0
+
+  local name path
+  local -a candidates=()
+  local -i touched=0
+
+  for name in "${APP_BUNDLE[@]}"; do
+    candidates=()
+    if [[ -n ${XCODE_CONFIG} ]]; then
+      candidates=(
+        "${BUILD_DIR}/${XCODE_CONFIG}/${name}"
+        "${BUILD_DIR}/${name}"
+      )
+    else
+      candidates=(
+        "${BUILD_DIR}/${name}"
+        "${BUILD_DIR}/Debug/${name}"
+        "${BUILD_DIR}/Release/${name}"
+      )
+    fi
+    for path in "${candidates[@]}"; do
+      [[ -d ${path} ]] || continue
+      touch -- "${path}"
+      log_detail "touched ${path}"
+      touched=1
+      break
+    done
+  done
+
+  ((touched)) || log_detail 'no .app bundles found to touch'
+}
+
 run_build() {
   require_darwin
   resolve_profile
@@ -515,6 +551,7 @@ run_build() {
   local start=${EPOCHREALTIME}
   log "Building ${PROFILE} (${BUILD_DIR})"
   run_cmake_build
+  touch_app_bundles
   log "Build finished in $(elapsed_since "${start}")"
   log_detail "log: ${BUILD_LOG:-"(disabled)"}"
 
