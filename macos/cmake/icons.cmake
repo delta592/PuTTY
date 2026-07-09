@@ -131,6 +131,27 @@ add_custom_command(
 
 add_custom_target(putty-macos-assets DEPENDS ${PUTTY_MACOS_ASSETS_CAR})
 
+# Architecture-neutral localization stub (Phase 8.1). Stage a copy whose
+# path does *not* contain "en.lproj" — Xcode's CpResource nests
+# Resources/en.lproj/en.lproj when the source path already ends in en.lproj.
+set(PUTTY_MACOS_EN_LPROJ_STRINGS_SRC
+  ${CMAKE_CURRENT_SOURCE_DIR}/Resources/en.lproj/InfoPlist.strings)
+set(PUTTY_MACOS_EN_LPROJ_STRINGS
+  ${CMAKE_BINARY_DIR}/macos-bundle-resources/InfoPlist.strings)
+
+add_custom_command(
+  OUTPUT ${PUTTY_MACOS_EN_LPROJ_STRINGS}
+  COMMAND ${CMAKE_COMMAND} -E make_directory
+    ${CMAKE_BINARY_DIR}/macos-bundle-resources
+  COMMAND ${CMAKE_COMMAND} -E copy
+    ${PUTTY_MACOS_EN_LPROJ_STRINGS_SRC}
+    ${PUTTY_MACOS_EN_LPROJ_STRINGS}
+  DEPENDS ${PUTTY_MACOS_EN_LPROJ_STRINGS_SRC}
+  COMMENT "Staging en.lproj InfoPlist.strings for app bundles"
+  VERBATIM)
+
+add_custom_target(putty-macos-lproj DEPENDS ${PUTTY_MACOS_EN_LPROJ_STRINGS})
+
 function(putty_macos_add_app_resources app_target icns_filename)
   if(icns_filename STREQUAL "PuTTY.icns")
     set(icns_path ${PUTTY_MACOS_PUTTY_ICNS})
@@ -144,7 +165,8 @@ function(putty_macos_add_app_resources app_target icns_filename)
 
   target_sources(${app_target} PRIVATE
     ${icns_path}
-    ${PUTTY_MACOS_ASSETS_CAR})
+    ${PUTTY_MACOS_ASSETS_CAR}
+    ${PUTTY_MACOS_EN_LPROJ_STRINGS})
 
   set_source_files_properties(${icns_path} PROPERTIES
     MACOSX_PACKAGE_LOCATION Resources
@@ -154,5 +176,10 @@ function(putty_macos_add_app_resources app_target icns_filename)
     MACOSX_PACKAGE_LOCATION Resources
     GENERATED TRUE)
 
-  add_dependencies(${app_target} putty-macos-icons putty-macos-assets)
+  set_source_files_properties(${PUTTY_MACOS_EN_LPROJ_STRINGS} PROPERTIES
+    MACOSX_PACKAGE_LOCATION Resources/en.lproj
+    GENERATED TRUE)
+
+  add_dependencies(${app_target}
+    putty-macos-icons putty-macos-assets putty-macos-lproj)
 endfunction()

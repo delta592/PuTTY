@@ -22,7 +22,7 @@
     <string>${MACOSX_BUNDLE_BUNDLE_VERSION}</string>
     <key>LSMinimumSystemVersion</key>
     <string>15.0</string>
-    <key>NSApplicationCategoryType</key>
+    <key>LSApplicationCategoryType</key>
     <string>public.app-category.developer-tools</string>
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>

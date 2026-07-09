@@ -220,7 +220,8 @@ if(STRICT AND (CMAKE_C_COMPILER_ID MATCHES "GNU" OR
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Werror -Wpointer-arith -Wvla")
 endif()
 
-# Install helper for CLI tools and .app bundles.
+# Install helper for CLI tools and .app bundles (Phase 8.1).
+# GUI targets use MACOSX_BUNDLE_INFO_PLIST and install as BUNDLE.
 function(installed_program target)
   if(NOT TARGET ${target})
     message(FATAL_ERROR "installed_program: no target named '${target}'")
@@ -229,6 +230,29 @@ function(installed_program target)
   get_target_property(_is_bundle ${target} MACOSX_BUNDLE)
   if(_is_bundle)
     install(TARGETS ${target} BUNDLE DESTINATION .)
+    get_target_property(_bundle_output_name ${target} OUTPUT_NAME)
+    if(NOT _bundle_output_name)
+      set(_bundle_output_name ${target})
+    endif()
+    if(PUTTY_MACOS_UNIVERSAL AND PUTTY_MACOS_UNIVERSAL_ACTIVE)
+      set(_require_universal ON)
+    else()
+      set(_require_universal OFF)
+    endif()
+    # Post-install Contents/ layout check (lipo when Universal 2 is active).
+    install(CODE "
+      set(_installed_app \"\${CMAKE_INSTALL_PREFIX}/${_bundle_output_name}.app\")
+      execute_process(
+        COMMAND \"${CMAKE_COMMAND}\"
+          \"-DAPP=\${_installed_app}\"
+          \"-DREQUIRE_UNIVERSAL=${_require_universal}\"
+          \"-P\" \"${CMAKE_SOURCE_DIR}/macos/cmake/verify_bundle_layout.cmake\"
+        RESULT_VARIABLE _layout_status)
+      if(NOT _layout_status EQUAL 0)
+        message(FATAL_ERROR
+          \"Post-install bundle layout check failed for \${_installed_app}\")
+      endif()
+      ")
     return()
   endif()
 

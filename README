@@ -103,10 +103,21 @@ Release build (produces PuTTY.app):
 
   cmake --build build-macos-gui
 
-The application bundle is written to build-macos-gui/PuTTY.app. Run it
-directly:
+The application bundles are written under the build directory
+(PuTTY.app, pterm.app, puttygen.app). Run one directly:
 
   open build-macos-gui/PuTTY.app
+
+Info.plist version fields are stamped at configure time from version.h /
+LATEST.VER / git describe (see macos/cmake/bundle_version.cmake). After
+building, verify Contents layout (and Universal 2 slices when active):
+
+  cmake --build build-macos-gui --target verify-bundle-layout
+
+Install the .app bundles to a prefix (default /usr/local; use
+CMAKE_INSTALL_PREFIX=/Applications for a typical macOS install):
+
+  cmake --install build-macos-gui --prefix /Applications
 
 Fast local development build (native architecture only, shorter compile
 times):

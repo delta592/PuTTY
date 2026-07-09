@@ -3,13 +3,11 @@
 # Links putty-macui (shared TerminalView / session Swift) and
 # pterm-macos-bridge (pty_backend + non-network app constants).
 
-set(_pterm_app_version "0.0.0")
-
 set(MACOSX_BUNDLE_EXECUTABLE_NAME pterm)
 set(MACOSX_BUNDLE_BUNDLE_NAME pterm)
 set(MACOSX_BUNDLE_GUI_IDENTIFIER org.tartarus.projects.putty.pterm)
-set(MACOSX_BUNDLE_SHORT_VERSION_STRING ${_pterm_app_version})
-set(MACOSX_BUNDLE_BUNDLE_VERSION ${_pterm_app_version})
+set(MACOSX_BUNDLE_SHORT_VERSION_STRING ${PUTTY_MACOS_BUNDLE_SHORT_VERSION})
+set(MACOSX_BUNDLE_BUNDLE_VERSION ${PUTTY_MACOS_BUNDLE_VERSION})
 
 configure_file(
   ${CMAKE_CURRENT_SOURCE_DIR}/Info.plist.in
@@ -73,8 +71,8 @@ set_target_properties(pterm PROPERTIES
   MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_BINARY_DIR}/Info.plist
   MACOSX_BUNDLE_GUI_IDENTIFIER org.tartarus.projects.putty.pterm
   MACOSX_BUNDLE_BUNDLE_NAME pterm
-  MACOSX_BUNDLE_BUNDLE_VERSION ${_pterm_app_version}
-  MACOSX_BUNDLE_SHORT_VERSION_STRING ${_pterm_app_version}
+  MACOSX_BUNDLE_BUNDLE_VERSION ${PUTTY_MACOS_BUNDLE_VERSION}
+  MACOSX_BUNDLE_SHORT_VERSION_STRING ${PUTTY_MACOS_BUNDLE_SHORT_VERSION}
   OUTPUT_NAME pterm)
 
 target_compile_options(pterm PRIVATE

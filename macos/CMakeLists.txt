@@ -5,6 +5,7 @@
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/icons.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/bundle_version.cmake)
 
 # Swift / Objective-C toolchain (Phase 1.3; languages enabled at project()).
 set(CMAKE_Swift_LANGUAGE_VERSION 6)
@@ -296,9 +297,29 @@ add_subdirectory(PuTTY)
 add_subdirectory(pterm)
 add_subdirectory(puttygen)
 
-if(PUTTY_MACOS_UNIVERSAL AND PUTTY_MACOS_UNIVERSAL_ACTIVE)
-  get_property(_putty_macos_gui_apps GLOBAL PROPERTY PUTTY_MACOS_GUI_APP_TARGETS)
-  if(_putty_macos_gui_apps)
+get_property(_putty_macos_gui_apps GLOBAL PROPERTY PUTTY_MACOS_GUI_APP_TARGETS)
+if(_putty_macos_gui_apps)
+  # Phase 8.1: Contents/ layout, Info.plist keys, architecture-neutral Resources.
+  set(_putty_macos_layout_commands)
+  foreach(_putty_macos_gui_app ${_putty_macos_gui_apps})
+    if(PUTTY_MACOS_UNIVERSAL AND PUTTY_MACOS_UNIVERSAL_ACTIVE)
+      set(_putty_macos_layout_universal ON)
+    else()
+      set(_putty_macos_layout_universal OFF)
+    endif()
+    list(APPEND _putty_macos_layout_commands
+      COMMAND ${CMAKE_COMMAND}
+        -DAPP=$<TARGET_BUNDLE_DIR:${_putty_macos_gui_app}>
+        -DREQUIRE_UNIVERSAL=${_putty_macos_layout_universal}
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/verify_bundle_layout.cmake)
+  endforeach()
+  add_custom_target(verify-bundle-layout
+    ${_putty_macos_layout_commands}
+    DEPENDS ${_putty_macos_gui_apps}
+    COMMENT "Verifying macOS GUI .app bundle layout"
+    VERBATIM)
+
+  if(PUTTY_MACOS_UNIVERSAL AND PUTTY_MACOS_UNIVERSAL_ACTIVE)
     set(_putty_macos_verify_commands)
     foreach(_putty_macos_gui_app ${_putty_macos_gui_apps})
       list(APPEND _putty_macos_verify_commands

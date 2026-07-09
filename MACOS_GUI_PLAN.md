@@ -1018,11 +1018,31 @@ PuTTY.app/
     Frameworks/          # if dynamically linking Swift runtime (usually not for recent macOS)
 ```
 
-- [ ] CMake `install(TARGETS putty-app BUNDLE …)` with `MACOSX_BUNDLE_INFO_PLIST`.
-- [ ] Set `CFBundleShortVersionString` from PuTTY version macros / git describe.
-- [ ] Add `NSPrincipalClass = NSApplication`.
-- [ ] Post-build / install verification: `lipo -info` on each `.app` executable confirms Universal 2 (`x86_64` and `arm64` present).
-- [ ] Bundle `Resources/` assets (`.icns`, `Assets.car`, localizations) are architecture-neutral; no per-arch resource forks required.
+- [x] CMake `install(TARGETS … BUNDLE …)` with `MACOSX_BUNDLE_INFO_PLIST`.
+- [x] Set `CFBundleShortVersionString` from PuTTY version macros / git describe.
+- [x] Add `NSPrincipalClass = NSApplication`.
+- [x] Post-build / install verification: `lipo -info` on each `.app` executable confirms Universal 2 (`x86_64` and `arm64` present).
+- [x] Bundle `Resources/` assets (`.icns`, `Assets.car`, localizations) are architecture-neutral; no per-arch resource forks required.
+
+**Implementation:** `installed_program()` installs each `MACOSX_BUNDLE`
+target with `BUNDLE DESTINATION .` (PuTTY, pterm, puttygen-app). Info
+plists are generated from `Info.plist.in` via `configure_file` +
+`MACOSX_BUNDLE_INFO_PLIST`; all three include `NSPrincipalClass =
+NSApplication`. Version strings come from
+`macos/cmake/bundle_version.cmake`: marketing version
+(`CFBundleShortVersionString`) prefers `RELEASE`/`PRERELEASE` /
+`BINARY_VERSION` in `version.h`, then `LATEST.VER`, then the leading
+`X.Y` of `git describe`; `CFBundleVersion` uses full `git describe`
+when available. Shared Resources (`.icns`, `Assets.car`,
+`en.lproj/InfoPlist.strings`) are attached by
+`putty_macos_add_app_resources`. Localization strings are staged under
+`macos-bundle-resources/` (not a source `en.lproj/` path) so Xcode’s
+`CpResource` does not nest `Resources/en.lproj/en.lproj`.
+`verify-bundle-layout` checks Contents layout, required plist keys,
+architecture-neutral Resources (and rejects nested `en.lproj`), and
+(when `PUTTY_MACOS_UNIVERSAL_ACTIVE`) both lipo slices; the same script
+runs as an `install(CODE)` post-check. `verify-universal` remains for
+explicit Universal 2-only checks.
 
 ### 8.2 Code signing
 

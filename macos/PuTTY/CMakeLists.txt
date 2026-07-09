@@ -1,13 +1,12 @@
-set(_putty_app_version "0.0.0")
-
 # Generate Info.plist at configure time. Ninja does not expand Xcode-style
 # $(EXECUTABLE_NAME) placeholders; CMake configure_file uses ${VAR} syntax
-# (see Modules/MacOSXBundleInfo.plist.in).
+# (see Modules/MacOSXBundleInfo.plist.in). Version strings come from
+# macos/cmake/bundle_version.cmake (version.h / LATEST.VER / git describe).
 set(MACOSX_BUNDLE_EXECUTABLE_NAME PuTTY)
 set(MACOSX_BUNDLE_BUNDLE_NAME PuTTY)
 set(MACOSX_BUNDLE_GUI_IDENTIFIER org.tartarus.projects.putty.macputty)
-set(MACOSX_BUNDLE_SHORT_VERSION_STRING ${_putty_app_version})
-set(MACOSX_BUNDLE_BUNDLE_VERSION ${_putty_app_version})
+set(MACOSX_BUNDLE_SHORT_VERSION_STRING ${PUTTY_MACOS_BUNDLE_SHORT_VERSION})
+set(MACOSX_BUNDLE_BUNDLE_VERSION ${PUTTY_MACOS_BUNDLE_VERSION})
 
 configure_file(
   ${CMAKE_CURRENT_SOURCE_DIR}/Info.plist.in
@@ -22,8 +21,8 @@ set_target_properties(PuTTY PROPERTIES
   MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_BINARY_DIR}/Info.plist
   MACOSX_BUNDLE_GUI_IDENTIFIER org.tartarus.projects.putty.macputty
   MACOSX_BUNDLE_BUNDLE_NAME PuTTY
-  MACOSX_BUNDLE_BUNDLE_VERSION ${_putty_app_version}
-  MACOSX_BUNDLE_SHORT_VERSION_STRING ${_putty_app_version})
+  MACOSX_BUNDLE_BUNDLE_VERSION ${PUTTY_MACOS_BUNDLE_VERSION}
+  MACOSX_BUNDLE_SHORT_VERSION_STRING ${PUTTY_MACOS_BUNDLE_SHORT_VERSION})
 
 target_compile_options(PuTTY PRIVATE
   "$<$<COMPILE_LANGUAGE:Swift>:-parse-as-library>")
