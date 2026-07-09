@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "putty-bridge.h"
 #include "putty-bridge-termwin.h"
 
 int main(void)

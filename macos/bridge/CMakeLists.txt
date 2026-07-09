@@ -9,6 +9,7 @@ add_library(putty-macos-bridge STATIC
   putty-session.c
   putty-conf.c
   putty-bridge-cmdline.c
+  putty-bridge-phase5-exit.c
   putty-eventloop.c
   putty-bridge-thread.c
   putty-bridge-phase3-exit.c
@@ -157,4 +158,10 @@ add_executable(putty-bridge-termwin-phase56-exit-c
   putty-bridge-termwin-phase56-exit-main.c)
 
 target_link_libraries(putty-bridge-termwin-phase56-exit-c PRIVATE
+  putty-macos-bridge)
+
+add_executable(putty-bridge-phase5-exit-c
+  putty-bridge-phase5-exit-main.c)
+
+target_link_libraries(putty-bridge-phase5-exit-c PRIVATE
   putty-macos-bridge)

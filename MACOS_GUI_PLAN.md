@@ -708,7 +708,45 @@ env -u LDFLAGS -u CPPFLAGS cmake --build build-macos-gui --target \
 ./build-macos-gui/putty-bridge-termwin-phase56-exit-c
 ```
 
-**Phase 5 exit criteria:** Full SSH login to remote host using endpoint 192.168.0.19 interactive shell, file transfer not required yet; host key prompt works; window closes cleanly.
+**Phase 5 exit criteria:** Full SSH login to remote host using endpoint
+192.168.0.19 interactive shell, file transfer not required yet; host key prompt
+works; window closes cleanly.
+
+Automated gate (`putty-bridge-phase5-exit-c`):
+
+- `mac_gui_seat_dialogs_smoke()` — host-key accept + weak-crypto reject + password dialog.
+- MacGuiSeat SSH via `putty_bridge_termwin_open(connect=true)` to
+  `PUTTY_BRIDGE_TEST_HOST` (default `192.168.0.19`).
+- CFRunLoop pump until the terminal buffer shows shell output.
+- Verifies SSH specials menu, warn-on-close, and clean `putty_bridge_termwin_free()`.
+
+Run the full Phase 5 gate (all subsection smokes + exit test):
+
+```bash
+env -u LDFLAGS -u CPPFLAGS cmake --build build-macos-gui --target \
+  putty-mac-seat-smoke-c putty-mac-seat-output-smoke-c \
+  putty-mac-seat-dialogs-smoke-c putty-bridge-termwin-phase52-exit-c \
+  putty-bridge-termwin-phase53-exit-c putty-bridge-termwin-phase54-exit-c \
+  putty-bridge-termwin-phase55-exit-c putty-bridge-termwin-phase56-exit-c \
+  putty-bridge-phase5-exit-c
+
+for t in putty-mac-seat-smoke-c putty-mac-seat-output-smoke-c \
+  putty-mac-seat-dialogs-smoke-c putty-bridge-termwin-phase52-exit-c \
+  putty-bridge-termwin-phase53-exit-c putty-bridge-termwin-phase54-exit-c \
+  putty-bridge-termwin-phase55-exit-c putty-bridge-termwin-phase56-exit-c \
+  putty-bridge-phase5-exit-c; do
+  ./build-macos-gui/$t || exit 1
+done
+```
+
+Set `PUTTY_BRIDGE_PHASE5_SKIP=1` to skip the live SSH integration test.
+Set `PUTTY_BRIDGE_TEST_HOST`, `PUTTY_BRIDGE_TEST_USER`, `PUTTY_BRIDGE_TEST_PORT`,
+and `PUTTY_BRIDGE_TEST_HOSTKEY` to override defaults.
+
+**Validated (2026-07-09):** all nine gate binaries pass against `192.168.0.19:22`
+(`dax@192.168.0.19` via agent auth). Live SSH integration reports shell output in
+the terminal buffer, host-key dialog smoke OK, warn-on-close enabled, clean
+`putty_bridge_termwin_free()` teardown.
 
 ---
 

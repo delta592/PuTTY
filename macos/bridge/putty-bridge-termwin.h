@@ -334,6 +334,16 @@ int putty_bridge_termwin_phase55_exit_smoke(void);
 /** Phase 5.6 exit gate: specials menu bridge wiring. Returns 0 on success. */
 int putty_bridge_termwin_phase56_exit_smoke(void);
 
+/**
+ * Phase 5 exit gate: SSH login to test host (default 192.168.0.19), host-key
+ * dialog smoke, interactive shell output, clean session teardown.
+ * Set PUTTY_BRIDGE_PHASE5_SKIP=1 to skip. Uses PUTTY_BRIDGE_TEST_HOST etc.
+ */
+int putty_bridge_phase5_exit_test(void);
+
+/** True when the session terminal buffer contains non-blank cells. */
+bool putty_bridge_termwin_terminal_has_visible_text(const PuttyBridgeTermWin *btw);
+
 /** Attach terminal window for sheet-modal security prompts (NSWindow *). */
 void putty_bridge_set_parent_window(void *nswindow);
 

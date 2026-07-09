@@ -570,6 +570,29 @@ int32_t putty_bridge_special_code_exitmenu(void)
     return (int32_t)SS_EXITMENU;
 }
 
+bool putty_bridge_termwin_terminal_has_visible_text(const PuttyBridgeTermWin *btw)
+{
+    int y, x;
+
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
+    if (!btw || !btw->term)
+        return false;
+
+    for (y = 0; y < btw->term->rows; y++) {
+        termline *tl = term_get_line(btw->term, y);
+        if (!tl)
+            continue;
+        for (x = 0; x < tl->cols; x++) {
+            if (tl->chars[x].chr != ' ' && tl->chars[x].chr != 0) {
+                term_release_line(tl);
+                return true;
+            }
+        }
+        term_release_line(tl);
+    }
+    return false;
+}
+
 bool putty_bridge_termwin_init_demo(PuttyBridgeTermWin *btw)
 {
     static const char banner[] =
