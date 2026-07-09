@@ -6,6 +6,8 @@
 
 #include "putty-bridge-internal.h"
 
+#include "putty-bridge-thread.h"
+
 struct PuttyPollWrapper {
     pollwrapper *pw;
     int *fdlist;
@@ -26,6 +28,7 @@ static void bridge_notify_toplevel_callback(void *ctx)
 
 void putty_bridge_eventloop_init(void)
 {
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     if (bridge_eventloop_ready)
         return;
     uxsel_init();
@@ -35,6 +38,7 @@ void putty_bridge_eventloop_init(void)
 
 uint64_t putty_bridge_now_ms(void)
 {
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     return (uint64_t)GETTICKCOUNT();
 }
 
@@ -42,18 +46,21 @@ void putty_run_timers(uint64_t now_ms)
 {
     unsigned long next;
 
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     putty_bridge_eventloop_init();
     run_timers((unsigned long)now_ms, &next);
 }
 
 bool putty_toplevel_callback_pending(void)
 {
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     putty_bridge_eventloop_init();
     return toplevel_callback_pending();
 }
 
 void putty_run_toplevel_callbacks(void)
 {
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     putty_bridge_eventloop_init();
     run_toplevel_callbacks();
 }
@@ -62,6 +69,7 @@ size_t putty_session_output(PuttySession *session, const void *data, size_t len)
 {
     int sendlen;
 
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     if (!session || !session->ldisc || !data || len == 0)
         return 0;
 
@@ -72,7 +80,10 @@ size_t putty_session_output(PuttySession *session, const void *data, size_t len)
 
 PuttyPollWrapper *putty_pollwrapper_new(void)
 {
-    PuttyPollWrapper *wrapper = snew(PuttyPollWrapper);
+    PuttyPollWrapper *wrapper;
+
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
+    wrapper = snew(PuttyPollWrapper);
 
     putty_bridge_eventloop_init();
     wrapper->pw = pollwrap_new();
@@ -84,6 +95,7 @@ PuttyPollWrapper *putty_pollwrapper_new(void)
 
 void putty_pollwrapper_free(PuttyPollWrapper *wrapper)
 {
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     if (!wrapper)
         return;
     if (wrapper->pw)
@@ -94,6 +106,7 @@ void putty_pollwrapper_free(PuttyPollWrapper *wrapper)
 
 void putty_pollwrapper_clear(PuttyPollWrapper *wrapper)
 {
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     if (!wrapper || !wrapper->pw)
         return;
     pollwrap_clear(wrapper->pw);
@@ -104,6 +117,7 @@ void putty_uxsel_fill_pollfds(PuttyPollWrapper *wrapper)
 {
     int fd, fdstate, rwx;
 
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     if (!wrapper || !wrapper->pw)
         return;
 
@@ -121,6 +135,7 @@ size_t putty_uxsel_list_fds(PuttyBridgePollFd *out, size_t max_out)
     int fd, fdstate, rwx;
     size_t count = 0;
 
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     putty_bridge_eventloop_init();
 
     for (fd = first_fd(&fdstate, &rwx); fd >= 0; fd = next_fd(&fdstate, &rwx)) {
@@ -136,6 +151,7 @@ size_t putty_uxsel_list_fds(PuttyBridgePollFd *out, size_t max_out)
 
 void putty_uxsel_select_result(int fd, unsigned int rwx_event)
 {
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     putty_bridge_eventloop_init();
     if (rwx_event & PUTTY_BRIDGE_POLL_X)
         select_result(fd, SELECT_X);
@@ -147,6 +163,7 @@ void putty_uxsel_select_result(int fd, unsigned int rwx_event)
 
 int putty_pollwrapper_poll_instant(PuttyPollWrapper *wrapper)
 {
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     if (!wrapper || !wrapper->pw)
         return -1;
     return pollwrap_poll_instant(wrapper->pw);
@@ -154,6 +171,7 @@ int putty_pollwrapper_poll_instant(PuttyPollWrapper *wrapper)
 
 int putty_pollwrapper_poll_timeout(PuttyPollWrapper *wrapper, int timeout_ms)
 {
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     if (!wrapper || !wrapper->pw)
         return -1;
     if (timeout_ms < 0)
@@ -163,6 +181,7 @@ int putty_pollwrapper_poll_timeout(PuttyPollWrapper *wrapper, int timeout_ms)
 
 void putty_pollwrapper_process_events(PuttyPollWrapper *wrapper)
 {
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     size_t i;
 
     if (!wrapper || !wrapper->pw)
@@ -193,6 +212,7 @@ void timer_change_notify(unsigned long next)
 
 int putty_bridge_eventloop_smoke(void)
 {
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     PuttyPollWrapper *wrapper;
     PuttySession *session;
     uint64_t now;

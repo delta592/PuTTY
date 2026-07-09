@@ -413,9 +413,14 @@ callbacks, poll, and no-op session output before connect.
 
 ### 3.5 Memory and threading rules
 
-- [ ] Document: **all PuTTY C calls on main thread** (matching AppKit).
-- [ ] Document: Swift owns `PuttySession` lifetime; bridge does not retain Swift objects.
-- [ ] Add debug-build assertions for thread correctness.
+- [x] Document: **all PuTTY C calls on main thread** (matching AppKit).
+- [x] Document: Swift owns `PuttySession` lifetime; bridge does not retain Swift objects.
+- [x] Add debug-build assertions for thread correctness.
+
+`putty-bridge.h` documents main-thread and ownership rules. `putty-bridge-thread.c`
+implements `putty_bridge_is_main_thread()` and debug-only
+`PUTTY_BRIDGE_ASSERT_MAIN_THREAD()` checks (`pthread_main_np()`) at every
+public bridge entry point. Release builds (`NDEBUG`) omit the checks.
 
 **Phase 3 exit criteria:** Swift test harness can create a `PuttySession`, start an SSH connection to a test server, and receive output bytes via callback — with no AppKit terminal view yet (output may go to `stdout` or a simple `NSTextView`).
 

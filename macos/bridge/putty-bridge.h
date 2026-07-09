@@ -5,18 +5,26 @@
  * (macos/bridge/module.modulemap). Do not include putty.h or other
  * internal PuTTY headers from Swift.
  *
- * Design rules (Phase 3.1):
+ * Design rules:
  *  - Prefer stable C wrapper functions over exposing PuTTY vtables or
  *    struct layouts to Swift.
  *  - Use @_cdecl / SWIFT_NAME in Swift only for test hooks; production
  *    code calls the C functions declared here.
- *  - All PuTTY C entry points invoked through this bridge run on the
- *    main thread (AppKit main queue). Phase 3.5 adds debug assertions.
- *  - Swift owns objects returned by putty_*_new() functions; the bridge
- *    never retains Swift callbacks or contexts (Phase 3.2+).
  *
- * Session and configuration wrappers: Phase 3.2 (session object),
- * 3.3 (configuration access), 3.4 (event loop hooks).
+ * Memory and threading (Phase 3.5):
+ *  - Call every PuttyBridge function on the AppKit main thread (main
+ *    queue). PuTTY's seat, terminal, backend, and event-loop state are
+ *    not synchronised for background use. Debug builds assert via
+ *    pthread_main_np(); release builds rely on caller discipline.
+ *  - Swift owns objects returned by putty_session_new() and
+ *    putty_conf_new(); call the matching putty_*_free() when done.
+ *  - putty_session_set_callbacks() stores callback function pointers and
+ *    a context pointer only for the duration of the call; the bridge
+ *    never retains Swift objects or blocks. Re-register callbacks before
+ *    each use if Swift needs fresh context, or keep ctx stable for the
+ *    session lifetime.
+ *  - PuttySessionCallbacks fire synchronously from PuTTY C code on the
+ *    main thread during putty_run_toplevel_callbacks() or I/O processing.
  */
 
 #ifndef PUTTY_MACOS_PUTTY_BRIDGE_H
@@ -204,11 +212,18 @@ int putty_pollwrapper_poll_timeout(PuttyPollWrapper *wrapper, int timeout_ms);
 void putty_pollwrapper_process_events(PuttyPollWrapper *wrapper);
 
 /* ---------------------------------------------------------------------- */
+/* Threading (Phase 3.5) */
+
+/** True when called on the process main thread (AppKit main queue). */
+bool putty_bridge_is_main_thread(void);
+
+/* ---------------------------------------------------------------------- */
 /* Smoke tests (not for production use) */
 
 int putty_bridge_session_smoke(void);
 int putty_bridge_conf_smoke(void);
 int putty_bridge_eventloop_smoke(void);
+int putty_bridge_thread_smoke(void);
 
 #ifdef __cplusplus
 }

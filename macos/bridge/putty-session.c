@@ -7,6 +7,8 @@
 
 #include "putty-bridge-internal.h"
 
+#include "putty-bridge-thread.h"
+
 static const TermWinVtable bridge_termwin_vt;
 static const SeatVtable bridge_seat_vt;
 static const LogPolicyVtable bridge_logpolicy_vt;
@@ -415,6 +417,7 @@ void putty_session_set_callbacks(
     const PuttySessionCallbacks *callbacks,
     void *ctx)
 {
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     if (!session)
         return;
     if (callbacks)
@@ -426,6 +429,7 @@ void putty_session_set_callbacks(
 
 PuttySession *putty_session_new(const PuttyConf *conf)
 {
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     PuttySession *session = snew(PuttySession);
 
     memset(session, 0, sizeof(*session));
@@ -450,6 +454,7 @@ PuttySession *putty_session_new(const PuttyConf *conf)
 
 void putty_session_free(PuttySession *session)
 {
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     if (!session)
         return;
 
@@ -474,6 +479,7 @@ void putty_session_free(PuttySession *session)
 
 void putty_session_start(PuttySession *session)
 {
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     const struct BackendVtable *vt;
     char *error, *realhost;
 
@@ -516,6 +522,7 @@ void putty_session_start(PuttySession *session)
 
 void putty_session_reconfigure(PuttySession *session, const PuttyConf *conf)
 {
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     Conf *newconf, *oldconf;
 
     if (!session || !conf)
@@ -544,6 +551,7 @@ void putty_session_reconfigure(PuttySession *session, const PuttyConf *conf)
 
 struct Backend *putty_session_get_backend(PuttySession *session)
 {
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     if (!session)
         return NULL;
     return session->backend;
@@ -551,6 +559,7 @@ struct Backend *putty_session_get_backend(PuttySession *session)
 
 int putty_bridge_session_smoke(void)
 {
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     PuttySession *session;
 
     session = putty_session_new(NULL);

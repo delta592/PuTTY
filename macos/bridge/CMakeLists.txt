@@ -9,6 +9,7 @@ add_library(putty-macos-bridge STATIC
   putty-session.c
   putty-conf.c
   putty-eventloop.c
+  putty-bridge-thread.c
   putty-bridge-app.c
   ${CMAKE_CURRENT_SOURCE_DIR}/../platform/no-gtk.c)
 

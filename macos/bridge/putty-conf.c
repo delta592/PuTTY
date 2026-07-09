@@ -6,10 +6,13 @@
 
 #include "putty-bridge-internal.h"
 
+#include "putty-bridge-thread.h"
+
 #include "storage.h"
 
 PuttyConf *putty_conf_new(void)
 {
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     PuttyConf *pc = snew(PuttyConf);
 
     pc->conf = conf_new();
@@ -19,6 +22,7 @@ PuttyConf *putty_conf_new(void)
 
 PuttyConf *putty_conf_copy(const PuttyConf *conf)
 {
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     PuttyConf *copy;
 
     if (!conf || !conf->conf)
@@ -31,6 +35,7 @@ PuttyConf *putty_conf_copy(const PuttyConf *conf)
 
 void putty_conf_free(PuttyConf *conf)
 {
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     if (!conf)
         return;
     if (conf->conf)
@@ -40,6 +45,7 @@ void putty_conf_free(PuttyConf *conf)
 
 bool putty_conf_load_session(PuttyConf *conf, const char *session_name)
 {
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     if (!conf || !conf->conf)
         return false;
     if (!session_name)
@@ -49,6 +55,7 @@ bool putty_conf_load_session(PuttyConf *conf, const char *session_name)
 
 bool putty_conf_save_session(PuttyConf *conf, const char *session_name)
 {
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     char *errmsg;
 
     if (!conf || !conf->conf || !session_name)
@@ -71,6 +78,7 @@ Conf *putty_bridge_conf_copy(const PuttyConf *conf)
 
 const char *putty_conf_get_host(const PuttyConf *conf)
 {
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     if (!conf || !conf->conf)
         return "";
     return conf_get_str(conf->conf, CONF_host);
@@ -78,6 +86,7 @@ const char *putty_conf_get_host(const PuttyConf *conf)
 
 void putty_conf_set_host(PuttyConf *conf, const char *host)
 {
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     if (!conf || !conf->conf)
         return;
     conf_set_str(conf->conf, CONF_host, host ? host : "");
@@ -85,6 +94,7 @@ void putty_conf_set_host(PuttyConf *conf, const char *host)
 
 const char *putty_conf_get_username(const PuttyConf *conf)
 {
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     if (!conf || !conf->conf)
         return "";
     return conf_get_str(conf->conf, CONF_username);
@@ -92,6 +102,7 @@ const char *putty_conf_get_username(const PuttyConf *conf)
 
 void putty_conf_set_username(PuttyConf *conf, const char *username)
 {
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     if (!conf || !conf->conf)
         return;
     conf_set_str(conf->conf, CONF_username, username ? username : "");
@@ -99,6 +110,7 @@ void putty_conf_set_username(PuttyConf *conf, const char *username)
 
 int putty_conf_get_port(const PuttyConf *conf)
 {
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     if (!conf || !conf->conf)
         return 0;
     return conf_get_int(conf->conf, CONF_port);
@@ -106,6 +118,7 @@ int putty_conf_get_port(const PuttyConf *conf)
 
 void putty_conf_set_port(PuttyConf *conf, int port)
 {
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     if (!conf || !conf->conf)
         return;
     conf_set_int(conf->conf, CONF_port, port);
@@ -113,6 +126,7 @@ void putty_conf_set_port(PuttyConf *conf, int port)
 
 int putty_conf_get_protocol(const PuttyConf *conf)
 {
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     if (!conf || !conf->conf)
         return PUTTY_CONF_PROT_SSH;
     return conf_get_int(conf->conf, CONF_protocol);
@@ -120,6 +134,7 @@ int putty_conf_get_protocol(const PuttyConf *conf)
 
 int putty_conf_default_port_for_protocol(int protocol)
 {
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     switch (protocol) {
       case PUTTY_CONF_PROT_TELNET:
         return 23;
@@ -139,6 +154,7 @@ int putty_conf_default_port_for_protocol(int protocol)
 
 void putty_conf_set_protocol(PuttyConf *conf, int protocol)
 {
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     if (!conf || !conf->conf)
         return;
     conf_set_int(conf->conf, CONF_protocol, protocol);
@@ -146,6 +162,7 @@ void putty_conf_set_protocol(PuttyConf *conf, int protocol)
 
 bool putty_conf_get_bool(const PuttyConf *conf, PuttyConfBoolKey key)
 {
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     if (!conf || !conf->conf)
         return false;
 
@@ -161,6 +178,7 @@ bool putty_conf_get_bool(const PuttyConf *conf, PuttyConfBoolKey key)
 
 void putty_conf_set_bool(PuttyConf *conf, PuttyConfBoolKey key, bool value)
 {
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     if (!conf || !conf->conf)
         return;
 
@@ -180,6 +198,7 @@ static const char *const putty_conf_smoke_session = "__PuttyBridgeConfSmoke__";
 
 int putty_bridge_conf_smoke(void)
 {
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     PuttyConf *conf, *loaded;
     const char *host;
 
