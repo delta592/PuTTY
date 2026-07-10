@@ -155,14 +155,28 @@ the `macos/` platform when `PUTTY_MACOS_GUI=ON`.
 
 ## Smoke / unit tests (Phase 9.1)
 
-From a configured GUI build tree:
+From the repository root (after a GUI configure/build):
 
 ```sh
-./macos/build.sh test --dev          # build putty-mac-test-gate + ctest -L macos
-./macos/build.sh test --release
-# or manually:
-cmake --build build-macos-gui-dev --target putty-mac-test-gate
-ctest --test-dir build-macos-gui-dev --output-on-failure -L macos
+make test              # full CTest suite (label macos)
+make test-all          # CTest + portable utils self-tests
+make test-unit         # label unit
+make test-crypt        # cryptsuite / testcrypt
+make test-perf         # Phase 4 paint budget
+make test-ui           # PuttyMacUITests (XCTest)
+make test-utils        # root utils binaries not in CTest
+make help              # list targets
+```
+
+Defaults to `PROFILE=dev` → `build-macos-gui-dev`. Override with
+`make test PROFILE=release` or `make test BUILD_DIR=…`.
+
+Or via the helper / CMake:
+
+```sh
+./macos/build.sh test --dev
+cmake --build build-macos-gui-dev --target putty-test-macos
+cmake --build build-macos-gui-dev --target putty-test-all
 ```
 
 CTest covers portable C tests (`test_terminal`, `test_lineedit`, `test_conf`,

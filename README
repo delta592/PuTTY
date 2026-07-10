@@ -78,6 +78,9 @@ Other common invocations:
   ./macos/build.sh open --dev --app puttygen
   ./macos/build.sh verify --universal
   ./macos/build.sh install --release --prefix /Applications
+  ./macos/build.sh test --dev                # CTest suite (Phase 9.1)
+  make test                                  # same via root Makefile
+  make test-all                              # CTest + utils self-tests
   ./macos/build.sh --help
 
 Transcripts go to `<build-dir>/build.log` (pass `--no-log` to disable).

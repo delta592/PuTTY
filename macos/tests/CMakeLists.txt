@@ -216,3 +216,86 @@ endif()
 add_custom_target(putty-mac-test-gate
   DEPENDS ${_putty_macos_test_gate_deps}
   COMMENT "Build Phase 9.1 macOS test binaries (CTest + XCTest)")
+
+# Run-targets (cmake --build <dir> --target putty-test-…). Prefer the root
+# Makefile (`make test`, `make test-unit`, …) for day-to-day use.
+# Multi-config generators get `-C <CONFIG>` / `--config <CONFIG>` via genex
+# (`;` → separate argv).
+set(_putty_macos_ctest_config_args
+  "$<$<BOOL:${CMAKE_CONFIGURATION_TYPES}>:-C;$<CONFIG>>")
+set(_putty_macos_build_config_args
+  "$<$<BOOL:${CMAKE_CONFIGURATION_TYPES}>:--config;$<CONFIG>>")
+
+function(putty_macos_add_ctest_run_target name)
+  cmake_parse_arguments(ARG "" "LABEL;COMMENT" "" ${ARGN})
+  if(NOT ARG_LABEL)
+    message(FATAL_ERROR "putty_macos_add_ctest_run_target(${name}) needs LABEL")
+  endif()
+  add_custom_target(${name}
+    COMMAND ${CMAKE_CTEST_COMMAND}
+      --test-dir ${CMAKE_BINARY_DIR}
+      --output-on-failure
+      -L ${ARG_LABEL}
+      ${_putty_macos_ctest_config_args}
+    DEPENDS putty-mac-test-gate
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    COMMENT "${ARG_COMMENT}"
+    USES_TERMINAL
+    VERBATIM)
+endfunction()
+
+putty_macos_add_ctest_run_target(putty-test-macos
+  LABEL macos
+  COMMENT "Run all CTest cases labelled macos")
+putty_macos_add_ctest_run_target(putty-test-unit
+  LABEL unit
+  COMMENT "Run CTest cases labelled unit")
+putty_macos_add_ctest_run_target(putty-test-crypt
+  LABEL crypt
+  COMMENT "Run CTest cases labelled crypt (cryptsuite)")
+putty_macos_add_ctest_run_target(putty-test-perf
+  LABEL perf
+  COMMENT "Run CTest cases labelled perf (Phase 4 paint gate)")
+putty_macos_add_ctest_run_target(putty-test-ui
+  LABEL xctest
+  COMMENT "Run CTest cases labelled xctest (PuttyMacUITests)")
+
+# Portable utils self-tests (root CMakeLists) — not registered with add_test.
+# Omit test_unicode_norm / bidi_test (need external UCD NormalizationTest /
+# BidiTest fixtures that are not shipped in-tree).
+set(_putty_macos_utils_tests
+  test_host_strfoo
+  test_decode_utf8
+  test_tree234
+  test_wildcard
+  test_cert_expr)
+set(_putty_macos_utils_commands)
+set(_putty_macos_utils_deps)
+foreach(_putty_macos_utils ${_putty_macos_utils_tests})
+  if(TARGET ${_putty_macos_utils})
+    list(APPEND _putty_macos_utils_deps ${_putty_macos_utils})
+    list(APPEND _putty_macos_utils_commands
+      COMMAND ${CMAKE_COMMAND} -E echo "==> ${_putty_macos_utils}"
+      COMMAND $<TARGET_FILE:${_putty_macos_utils}>)
+  endif()
+endforeach()
+if(_putty_macos_utils_deps)
+  add_custom_target(putty-test-utils
+    ${_putty_macos_utils_commands}
+    COMMAND ${CMAKE_COMMAND} -E echo "putty-test-utils: ok"
+    DEPENDS ${_putty_macos_utils_deps}
+    COMMENT "Run portable utils self-tests (not in CTest)"
+    USES_TERMINAL
+    VERBATIM)
+  # Sequential: full macos CTest, then utils (DEPENDS alone may race).
+  add_custom_target(putty-test-all
+    COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR}
+            --target putty-test-macos
+            ${_putty_macos_build_config_args}
+    COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR}
+            --target putty-test-utils
+            ${_putty_macos_build_config_args}
+    COMMENT "Run macos CTest suite then utils self-tests"
+    USES_TERMINAL
+    VERBATIM)
+endif()

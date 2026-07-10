@@ -1,7 +1,32 @@
 # Manual QA matrix (Phase 9.1)
 
-Automated coverage lives in CTest (`./macos/build.sh test`). This checklist
-covers host / display combinations that CI cannot fully exercise.
+Automated coverage lives in CTest (`./macos/build.sh test` or `make test`).
+This checklist covers host / display combinations that CI cannot fully
+exercise.
+
+## Make / CMake test targets
+
+From the repository root:
+
+| Target | What it runs |
+|--------|----------------|
+| `make test` | CTest `-L macos` (unit + crypt + perf + ui) |
+| `make test-unit` | CTest `-L unit` |
+| `make test-crypt` | CTest `-L crypt` |
+| `make test-perf` | CTest `-L perf` |
+| `make test-ui` | CTest `-L xctest` |
+| `make test-utils` | Portable utils binaries not in CTest |
+| `make test-all` | `test` then `test-utils` |
+| `make help` | List targets |
+
+CMake equivalents: `putty-test-macos`, `putty-test-unit`, `putty-test-crypt`,
+`putty-test-perf`, `putty-test-ui`, `putty-test-utils`, `putty-test-all`
+(`cmake --build <build-dir> --target …`).
+
+`test-utils` runs self-contained root binaries (`test_host_strfoo`,
+`test_decode_utf8`, `test_tree234`, `test_wildcard`, `test_cert_expr`).
+`test_unicode_norm` and `bidi_test` need external UCD fixtures and are
+not included.
 
 ## Architectures
 
