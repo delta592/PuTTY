@@ -198,6 +198,12 @@ int platform_make_x11_server(Plug *plug, const char *progname, int mindisp,
     }
 
     authfp = fdopen(authfd, "wb");
+    if (!authfp) {
+        close(authfd);
+        while (nsockets-- > 0)
+            sk_close(sockets[nsockets]);
+        goto out;
+    }
     fwrite(authfiledata->u, 1, authfiledata->len, authfp);
     fclose(authfp);
 

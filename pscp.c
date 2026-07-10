@@ -776,7 +776,7 @@ int scp_send_filetimes(unsigned long mtime, unsigned long atime)
         return 0;
     } else {
         char buf[80];
-        sprintf(buf, "T%lu 0 %lu 0\n", mtime, atime);
+        snprintf(buf, sizeof(buf), "T%lu 0 %lu 0\n", mtime, atime);
         backend_send(backend, buf, strlen(buf));
         return response();
     }
@@ -995,7 +995,7 @@ int scp_send_dirname(const char *name, int modes)
         return 0;
     } else {
         char buf[40];
-        sprintf(buf, "D%04o 0 ", modes);
+        snprintf(buf, sizeof(buf), "D%04o 0 ", modes);
         backend_send(backend, buf, strlen(buf));
         backend_send(backend, name, strlen(name));
         backend_send(backend, "\n", 1);

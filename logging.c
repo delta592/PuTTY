@@ -338,7 +338,7 @@ void log_packet(LogContext *ctx, int direction, int type,
         /* (Re-)initialise dumpdata as necessary
          * (start of row, or if we've just stopped omitting) */
         if (!output_pos && !omitted)
-            sprintf(dumpdata, "  %08"SIZEx"%*s\r\n",
+            snprintf(dumpdata, sizeof(dumpdata), "  %08"SIZEx"%*s\r\n",
                     p-(p%16), 1+3*16+2+16, "");
 
         /* Deal with the current byte. */
@@ -348,10 +348,10 @@ void log_packet(LogContext *ctx, int direction, int type,
             int c;
             if (blktype == PKTLOG_BLANK) {
                 c = 'X';
-                sprintf(smalldata, "XX");
+                snprintf(smalldata, sizeof(smalldata), "XX");
             } else {  /* PKTLOG_EMIT */
                 c = ((const unsigned char *)data)[p];
-                sprintf(smalldata, "%02x", c);
+                snprintf(smalldata, sizeof(smalldata), "%02x", c);
             }
             dumpdata[10+2+3*(p%16)] = smalldata[0];
             dumpdata[10+2+3*(p%16)+1] = smalldata[1];
@@ -472,7 +472,7 @@ static Filename *xlatlognam(const Filename *src,
                 size = strlen(bufp);
                 break;
               case 'p':
-                size = sprintf(buf, "%d", port);
+                size = snprintf(buf, sizeof(buf), "%d", port);
                 break;
               default:
                 buf[0] = '&';

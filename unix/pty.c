@@ -271,7 +271,7 @@ static void pty_open_master(Pty *pty)
 
     for (p1 = chars1; *p1; p1++)
         for (p2 = chars2; *p2; p2++) {
-            sprintf(master_name, "/dev/pty%c%c", *p1, *p2);
+            snprintf(master_name, sizeof(master_name), "/dev/pty%c%c", *p1, *p2);
             pty->master_fd = open(master_name, O_RDWR);
             if (pty->master_fd >= 0) {
                 if (geteuid() == 0 ||

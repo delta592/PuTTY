@@ -661,8 +661,8 @@ void save_open_settings(settings_w *sesskey, Conf *conf)
 
     for (i = 0; i < 22; i++) {
         char buf[20], buf2[30];
-        sprintf(buf, "Colour%d", i);
-        sprintf(buf2, "%d,%d,%d",
+        snprintf(buf, sizeof(buf), "Colour%d", i);
+        snprintf(buf2, sizeof(buf2), "%d,%d,%d",
                 conf_get_int_int(conf, CONF_colours, i*3+0),
                 conf_get_int_int(conf, CONF_colours, i*3+1),
                 conf_get_int_int(conf, CONF_colours, i*3+2));
@@ -671,10 +671,10 @@ void save_open_settings(settings_w *sesskey, Conf *conf)
     for (i = 0; i < 256; i += 32) {
         char buf[20], buf2[256];
         int j;
-        sprintf(buf, "Wordness%d", i);
+        snprintf(buf, sizeof(buf), "Wordness%d", i);
         *buf2 = '\0';
         for (j = i; j < i + 32; j++) {
-            sprintf(buf2 + strlen(buf2), "%s%d",
+            snprintf(buf2 + strlen(buf2), sizeof(buf2) - strlen(buf2), "%s%d",
                     (*buf2 ? "," : ""),
                     conf_get_int_int(conf, CONF_wordness, j));
         }
@@ -992,7 +992,7 @@ void load_open_settings(settings_r *sesskey, Conf *conf)
         };
         char buf[20], *buf2;
         int c0, c1, c2;
-        sprintf(buf, "Colour%d", i);
+        snprintf(buf, sizeof(buf), "Colour%d", i);
         buf2 = gpps_raw(sesskey, buf, defaults[i]);
         if (sscanf(buf2, "%d,%d,%d", &c0, &c1, &c2) == 3) {
             conf_set_int_int(conf, CONF_colours, i*3+0, c0);
@@ -1014,7 +1014,7 @@ void load_open_settings(settings_r *sesskey, Conf *conf)
         };
         char buf[20], *buf2, *p;
         int j;
-        sprintf(buf, "Wordness%d", i);
+        snprintf(buf, sizeof(buf), "Wordness%d", i);
         buf2 = gpps_raw(sesskey, buf, defaults[i / 32]);
         p = buf2;
         for (j = i; j < i + 32; j++) {

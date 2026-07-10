@@ -742,7 +742,7 @@ int check_stored_host_key(const char *hostname, int port,
             goto done;
         p++;
 
-        sprintf(porttext, "%d", port);
+        snprintf(porttext, sizeof(porttext), "%d", port);
         i = strlen(porttext);
         if (strncmp(p, porttext, i))
             goto done;

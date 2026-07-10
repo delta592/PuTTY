@@ -224,7 +224,7 @@ static char *make_dirname(const char *pi_name, char **logtext)
              * And make it printable.
              */
             for (i = 0; i < 32; i++) {
-                sprintf(retbuf + 2*i, "%02x", digest[i]);
+                snprintf(retbuf + 2*i, 3, "%02x", digest[i]);
                 /* the last of those will also write the trailing NUL */
             }
 

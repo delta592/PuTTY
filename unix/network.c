@@ -890,7 +890,7 @@ Socket *sk_newlistener(const char *srcaddr, int port, Plug *plug,
         hints.ai_canonname = NULL;
         hints.ai_next = NULL;
         assert(port >= 0 && port <= 99999);
-        sprintf(portstr, "%d", port);
+        snprintf(portstr, sizeof(portstr), "%d", port);
         {
             char *trimmed_addr = host_strduptrim(srcaddr);
             retcode = getaddrinfo(trimmed_addr, portstr, &hints, &ai);
@@ -1546,8 +1546,8 @@ static SocketEndpointInfo *sk_net_endpoint_info(Socket *sock, bool peer)
         int pid, uid, gid;
         if (so_peercred(s->s, &pid, &uid, &gid)) {
             char uidbuf[64], gidbuf[64];
-            sprintf(uidbuf, "%d", uid);
-            sprintf(gidbuf, "%d", gid);
+            snprintf(uidbuf, sizeof(uidbuf), "%d", uid);
+            snprintf(gidbuf, sizeof(gidbuf), "%d", gid);
             struct passwd *pw = getpwuid(uid);
             struct group *gr = getgrgid(gid);
             pi->log_text = dupprintf("pid %d (%s:%s)", pid,
@@ -1659,8 +1659,7 @@ SockAddr *unix_sock_addr(const char *path)
 
     if (n < 0)
         addr->error = "snprintf failed";
-    else if (n >= sizeof addr->hostname ||
-             n >= sizeof(((struct sockaddr_un *)0)->sun_path))
+    else if ((size_t)n >= sizeof(((struct sockaddr_un *)0)->sun_path))
         addr->error = "socket pathname too long";
 
 #ifndef NO_IPV6

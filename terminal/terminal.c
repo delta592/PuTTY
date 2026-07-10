@@ -4517,7 +4517,7 @@ static void term_out(Terminal *term, bool called_from_term_data)
                         if (term->ldisc) {
                             if (term->esc_args[0] == 6) {
                                 char buf[32];
-                                sprintf(buf, "\033[%d;%dR", term->curs.y + 1,
+                                snprintf(buf, sizeof(buf), "\033[%d;%dR", term->curs.y + 1,
                                         term->curs.x + 1);
                                 ldisc_send(term->ldisc, buf, strlen(buf),
                                            false);
@@ -4923,7 +4923,7 @@ static void term_out(Terminal *term, bool called_from_term_data)
                                 break;
                               case 13:
                                 if (term->ldisc) {
-                                    len = sprintf(buf, "\033[3;%u;%ut",
+                                    len = snprintf(buf, sizeof(buf), "\033[3;%u;%ut",
                                                   term->winpos_x,
                                                   term->winpos_y);
                                     ldisc_send(term->ldisc, buf, len, false);
@@ -4931,7 +4931,7 @@ static void term_out(Terminal *term, bool called_from_term_data)
                                 break;
                               case 14:
                                 if (term->ldisc) {
-                                    len = sprintf(buf, "\033[4;%u;%ut",
+                                    len = snprintf(buf, sizeof(buf), "\033[4;%u;%ut",
                                                   term->winpixsize_y,
                                                   term->winpixsize_x);
                                     ldisc_send(term->ldisc, buf, len, false);
@@ -4939,7 +4939,7 @@ static void term_out(Terminal *term, bool called_from_term_data)
                                 break;
                               case 18:
                                 if (term->ldisc) {
-                                    len = sprintf(buf, "\033[8;%d;%dt",
+                                    len = snprintf(buf, sizeof(buf), "\033[8;%d;%dt",
                                                   term->rows, term->cols);
                                     ldisc_send(term->ldisc, buf, len, false);
                                 }
@@ -5232,7 +5232,7 @@ static void term_out(Terminal *term, bool called_from_term_data)
                             for (i = 1; i < term->esc_nargs; i++) {
                                 if (i != 1)
                                     strcat(term->id_string, ";");
-                                sprintf(lbuf, "%u", term->esc_args[i]);
+                                snprintf(lbuf, sizeof(lbuf), "%u", term->esc_args[i]);
                                 strcat(term->id_string, lbuf);
                             }
                             strcat(term->id_string, "c");
@@ -7556,7 +7556,7 @@ int format_arrow_key(char *buf, Terminal *term, int xkey,
     char *p = buf;
 
     if (term->vt52_mode)
-        p += sprintf(p, "\x1B%c", xkey);
+        p += snprintf(p, 64, "\x1B%c", xkey);
     else {
         bool app_flg = (term->app_cursor_keys && !term->no_applic_c);
 #if 0
@@ -7589,11 +7589,11 @@ int format_arrow_key(char *buf, Terminal *term, int xkey,
         }
 
         if (app_flg)
-            p += sprintf(p, "\x1BO%c", xkey);
+            p += snprintf(p, 64, "\x1BO%c", xkey);
         else if (bitmap)
-            p += sprintf(p, "\x1B[1;%d%c", bitmap, xkey);
+            p += snprintf(p, 64, "\x1B[1;%d%c", bitmap, xkey);
         else
-            p += sprintf(p, "\x1B[%c", xkey);
+            p += snprintf(p, 64, "\x1B[%c", xkey);
     }
 
     return p - buf;
@@ -7630,7 +7630,7 @@ int format_function_key(char *buf, Terminal *term, int key_number,
         index = (key_number >= 1 && key_number <= 12) ? key_number - 1 : 0;
         if (shift) index += 12;
         if (ctrl) index += 24;
-        p += sprintf(p, "\x1B[%c", sco_codes[index]);
+        p += snprintf(p, 64, "\x1B[%c", sco_codes[index]);
     } else if ((term->vt52_mode || term->funky_type == FUNKY_VT100P) &&
                code >= 11 && code <= 24) {
         int offt = 0;
@@ -7639,33 +7639,33 @@ int format_function_key(char *buf, Terminal *term, int key_number,
         if (code > 21)
             offt++;
         if (term->vt52_mode)
-            p += sprintf(p, "\x1B%c", code + 'P' - 11 - offt);
+            p += snprintf(p, 64, "\x1B%c", code + 'P' - 11 - offt);
         else
-            p += sprintf(p, "\x1BO%c", code + 'P' - 11 - offt);
+            p += snprintf(p, 64, "\x1BO%c", code + 'P' - 11 - offt);
     } else if (term->funky_type == FUNKY_LINUX && code >= 11 && code <= 15) {
-        p += sprintf(p, "\x1B[[%c", code + 'A' - 11);
+        p += snprintf(p, 64, "\x1B[[%c", code + 'A' - 11);
     } else if ((term->funky_type == FUNKY_XTERM ||
                 term->funky_type == FUNKY_XTERM_216) &&
                code >= 11 && code <= 14) {
         if (term->vt52_mode)
-            p += sprintf(p, "\x1B%c", code + 'P' - 11);
+            p += snprintf(p, 64, "\x1B%c", code + 'P' - 11);
         else {
             int bitmap = 0;
             if (term->funky_type == FUNKY_XTERM_216)
                 bitmap = shift_bitmap(shift, ctrl, alt, consumed_alt);
             if (bitmap)
-                p += sprintf(p, "\x1B[1;%d%c", bitmap, code + 'P' - 11);
+                p += snprintf(p, 64, "\x1B[1;%d%c", bitmap, code + 'P' - 11);
             else
-                p += sprintf(p, "\x1BO%c", code + 'P' - 11);
+                p += snprintf(p, 64, "\x1BO%c", code + 'P' - 11);
         }
     } else {
         int bitmap = 0;
         if (term->funky_type == FUNKY_XTERM_216)
             bitmap = shift_bitmap(shift, ctrl, alt, consumed_alt);
         if (bitmap)
-            p += sprintf(p, "\x1B[%d;%d~", code, bitmap);
+            p += snprintf(p, 64, "\x1B[%d;%d~", code, bitmap);
         else
-            p += sprintf(p, "\x1B[%d~", code);
+            p += snprintf(p, 64, "\x1B[%d~", code);
     }
 
     return p - buf;
@@ -7693,27 +7693,27 @@ int format_small_keypad_key(char *buf, Terminal *term, SmallKeypadKey key,
         code = "\0\2\1\4\5\3\6"[code];
 
     if (term->vt52_mode && code > 0 && code <= 6) {
-        p += sprintf(p, "\x1B%c", " HLMEIG"[code]);
+        p += snprintf(p, 64, "\x1B%c", " HLMEIG"[code]);
     } else if (term->funky_type == FUNKY_SCO) {
         static const char codes[] = "HL.FIG";
         if (code == 3) {
             *p++ = '\x7F';
         } else {
-            p += sprintf(p, "\x1B[%c", codes[code-1]);
+            p += snprintf(p, 64, "\x1B[%c", codes[code-1]);
         }
     } else if ((code == 1 || code == 4) && term->rxvt_homeend) {
-        p += sprintf(p, code == 1 ? "\x1B[H" : "\x1BOw");
+        p += snprintf(p, 64, code == 1 ? "\x1B[H" : "\x1BOw");
     } else {
         if (term->vt52_mode) {
-	    p += sprintf(p, "\x1B[%d~", code);
+	    p += snprintf(p, 64, "\x1B[%d~", code);
         } else {
             int bitmap = 0;
             if (term->funky_type == FUNKY_XTERM_216)
                 bitmap = shift_bitmap(shift, ctrl, alt, consumed_alt);
             if (bitmap)
-                p += sprintf(p, "\x1B[%d;%d~", code, bitmap);
+                p += snprintf(p, 64, "\x1B[%d;%d~", code, bitmap);
             else
-                p += sprintf(p, "\x1B[%d~", code);
+                p += snprintf(p, 64, "\x1B[%d~", code);
         }
     }
 
@@ -7793,11 +7793,11 @@ int format_numeric_keypad_key(char *buf, Terminal *term, char key,
         if (xkey) {
             if (term->vt52_mode) {
                 if (xkey >= 'P' && xkey <= 'S')
-                    p += sprintf(p, "\x1B%c", xkey);
+                    p += snprintf(p, 64, "\x1B%c", xkey);
                 else
-                    p += sprintf(p, "\x1B?%c", xkey);
+                    p += snprintf(p, 64, "\x1B?%c", xkey);
             } else
-                p += sprintf(p, "\x1BO%c", xkey);
+                p += snprintf(p, 64, "\x1BO%c", xkey);
         }
     }
 

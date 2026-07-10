@@ -227,6 +227,7 @@ int putty_bridge_cmdline_smoke(void)
         "-ssh", NULL
     };
     FILE *nullout;
+    int rc = 0;
 
     PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
 
@@ -236,47 +237,71 @@ int putty_bridge_cmdline_smoke(void)
 
     action = putty_bridge_process_command_line(
         2, argv_help, &conf, &connect);
-    if (action != PUTTY_BRIDGE_CMDLINE_EXIT_HELP || conf)
-        return -1;
+    if (action != PUTTY_BRIDGE_CMDLINE_EXIT_HELP || conf) {
+        rc = -1;
+        goto out;
+    }
     putty_bridge_print_help(nullout);
 
     action = putty_bridge_process_command_line(
         2, argv_version, &conf, &connect);
-    if (action != PUTTY_BRIDGE_CMDLINE_EXIT_VERSION || conf)
-        return -2;
+    if (action != PUTTY_BRIDGE_CMDLINE_EXIT_VERSION || conf) {
+        rc = -2;
+        goto out;
+    }
     putty_bridge_print_version(nullout);
 
     action = putty_bridge_process_command_line(
         2, argv_pgpfp, &conf, &connect);
-    if (action != PUTTY_BRIDGE_CMDLINE_EXIT_OK || conf)
-        return -3;
+    if (action != PUTTY_BRIDGE_CMDLINE_EXIT_OK || conf) {
+        rc = -3;
+        goto out;
+    }
 
     action = putty_bridge_process_command_line(
         2, argv_hostca, &conf, &connect);
-    if (action != PUTTY_BRIDGE_CMDLINE_HOST_CA || conf)
-        return -4;
+    if (action != PUTTY_BRIDGE_CMDLINE_HOST_CA || conf) {
+        rc = -4;
+        goto out;
+    }
 
     action = putty_bridge_process_command_line(
         2, argv_cleanup, &conf, &connect);
-    if (action != PUTTY_BRIDGE_CMDLINE_CLEANUP || conf)
-        return -5;
+    if (action != PUTTY_BRIDGE_CMDLINE_CLEANUP || conf) {
+        rc = -5;
+        goto out;
+    }
 
     action = putty_bridge_process_command_line(
         7, argv_host, &conf, &connect);
-    if (action != PUTTY_BRIDGE_CMDLINE_LAUNCH || !conf)
-        return -6;
-    if (!connect)
-        return -7;
-    if (strcmp(putty_conf_get_host(conf), "bridge-cmdline.example") != 0)
-        return -8;
-    if (putty_conf_get_port(conf) != 2222)
-        return -9;
-    if (strcmp(putty_conf_get_username(conf), "smoke") != 0)
-        return -10;
-    if (putty_conf_get_protocol(conf) != PUTTY_CONF_PROT_SSH)
-        return -11;
-    if (!putty_conf_launchable(conf))
-        return -12;
+    if (action != PUTTY_BRIDGE_CMDLINE_LAUNCH || !conf) {
+        rc = -6;
+        goto out;
+    }
+    if (!connect) {
+        rc = -7;
+        goto out;
+    }
+    if (strcmp(putty_conf_get_host(conf), "bridge-cmdline.example") != 0) {
+        rc = -8;
+        goto out;
+    }
+    if (putty_conf_get_port(conf) != 2222) {
+        rc = -9;
+        goto out;
+    }
+    if (strcmp(putty_conf_get_username(conf), "smoke") != 0) {
+        rc = -10;
+        goto out;
+    }
+    if (putty_conf_get_protocol(conf) != PUTTY_CONF_PROT_SSH) {
+        rc = -11;
+        goto out;
+    }
+    if (!putty_conf_launchable(conf)) {
+        rc = -12;
+        goto out;
+    }
     putty_conf_free(conf);
     conf = NULL;
 
@@ -287,10 +312,14 @@ int putty_bridge_cmdline_smoke(void)
         };
         action = putty_bridge_process_command_line(
             7, argv_more, &conf, &connect);
-        if (action != PUTTY_BRIDGE_CMDLINE_LAUNCH || !conf)
-            return -13;
-        if (putty_conf_get_protocol(conf) != PUTTY_CONF_PROT_TELNET)
-            return -14;
+        if (action != PUTTY_BRIDGE_CMDLINE_LAUNCH || !conf) {
+            rc = -13;
+            goto out;
+        }
+        if (putty_conf_get_protocol(conf) != PUTTY_CONF_PROT_TELNET) {
+            rc = -14;
+            goto out;
+        }
         putty_conf_free(conf);
         conf = NULL;
     }
@@ -299,10 +328,14 @@ int putty_bridge_cmdline_smoke(void)
         char *argv_raw[] = { "putty", "-raw", "raw.example", NULL };
         action = putty_bridge_process_command_line(
             3, argv_raw, &conf, &connect);
-        if (action != PUTTY_BRIDGE_CMDLINE_LAUNCH || !conf)
-            return -15;
-        if (putty_conf_get_protocol(conf) != PUTTY_CONF_PROT_RAW)
-            return -16;
+        if (action != PUTTY_BRIDGE_CMDLINE_LAUNCH || !conf) {
+            rc = -15;
+            goto out;
+        }
+        if (putty_conf_get_protocol(conf) != PUTTY_CONF_PROT_RAW) {
+            rc = -16;
+            goto out;
+        }
         putty_conf_free(conf);
         conf = NULL;
     }
@@ -315,10 +348,14 @@ int putty_bridge_cmdline_smoke(void)
         };
         action = putty_bridge_process_command_line(
             15, argv_ssh2, &conf, &connect);
-        if (action != PUTTY_BRIDGE_CMDLINE_LAUNCH || !conf)
-            return -17;
-        if (putty_conf_get_protocol(conf) != PUTTY_CONF_PROT_SSH)
-            return -18;
+        if (action != PUTTY_BRIDGE_CMDLINE_LAUNCH || !conf) {
+            rc = -17;
+            goto out;
+        }
+        if (putty_conf_get_protocol(conf) != PUTTY_CONF_PROT_SSH) {
+            rc = -18;
+            goto out;
+        }
         putty_conf_free(conf);
         conf = NULL;
     }
@@ -329,17 +366,24 @@ int putty_bridge_cmdline_smoke(void)
         };
         action = putty_bridge_process_command_line(
             3, argv_rlogin, &conf, &connect);
-        if (action != PUTTY_BRIDGE_CMDLINE_LAUNCH || !conf)
-            return -19;
-        if (putty_conf_get_protocol(conf) != PUTTY_CONF_PROT_RLOGIN)
-            return -20;
+        if (action != PUTTY_BRIDGE_CMDLINE_LAUNCH || !conf) {
+            rc = -19;
+            goto out;
+        }
+        if (putty_conf_get_protocol(conf) != PUTTY_CONF_PROT_RLOGIN) {
+            rc = -20;
+            goto out;
+        }
         putty_conf_free(conf);
         conf = NULL;
     }
 
+  out:
+    if (conf)
+        putty_conf_free(conf);
     if (nullout != stderr)
         fclose(nullout);
-    return 0;
+    return rc;
 }
 
 bool putty_conf_warn_on_close(const PuttyConf *conf)

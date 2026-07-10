@@ -945,7 +945,7 @@ ssh2_userkey *ppk_load_s(BinarySource *src, const char *passphrase,
             strbuf_free(macdata);
 
         for (i = 0; i < mac_alg->len; i++)
-            sprintf(realmac + 2 * i, "%02x", binary[i]);
+            snprintf(realmac + 2 * i, 3, "%02x", binary[i]);
 
         if (strcmp(mac, realmac)) {
             /* An incorrect MAC is an unconditional Error if the key is
@@ -1629,10 +1629,11 @@ static char *ssh2_pubkey_openssh_str_internal(const char *comment,
         }
     }
 
-    buffer = snewn(alg.len +
+    size_t buflen = alg.len +
                    4 * ((pub_len+2) / 3) +
-                   (comment ? strlen(comment) : 0) + 3, char);
-    p = buffer + sprintf(buffer, "%.*s ", PTRLEN_PRINTF(alg));
+                   (comment ? strlen(comment) : 0) + 3;
+    buffer = snewn(buflen, char);
+    p = buffer + snprintf(buffer, buflen, "%.*s ", PTRLEN_PRINTF(alg));
     i = 0;
     while (i < pub_len) {
         int n = (pub_len - i < 3 ? pub_len - i : 3);

@@ -307,7 +307,7 @@ static char *serial_init(const BackendVtable *vt, Seat *seat,
     line = conf_get_str(conf, CONF_serline);
     logeventf(serial->logctx, "Opening serial device %s", line);
 
-    serial->fd = open(line, O_RDWR | O_NOCTTY | O_NDELAY | O_NONBLOCK);
+    serial->fd = open(line, O_RDWR | O_NOCTTY | O_NONBLOCK);
     if (serial->fd < 0)
         return dupprintf("Opening serial port '%s': %s",
                          line, strerror(errno));

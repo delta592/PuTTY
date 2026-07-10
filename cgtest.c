@@ -373,12 +373,12 @@ int main(int argc, char **argv)
         char pubfilename[128], tmpfilename1[128], tmpfilename2[128];
         char *fps[SSH_N_FPTYPES];
 
-        sprintf(filename, "test-%s.ppk", keytype->name);
-        sprintf(pubfilename, "test-%s.pub", keytype->name);
-        sprintf(osfilename, "test-%s.os", keytype->name);
-        sprintf(scfilename, "test-%s.sc", keytype->name);
-        sprintf(tmpfilename1, "test-%s.tmp1", keytype->name);
-        sprintf(tmpfilename2, "test-%s.tmp2", keytype->name);
+        snprintf(filename, sizeof(filename), "test-%s.ppk", keytype->name);
+        snprintf(pubfilename, sizeof(pubfilename), "test-%s.pub", keytype->name);
+        snprintf(osfilename, sizeof(osfilename), "test-%s.os", keytype->name);
+        snprintf(scfilename, sizeof(scfilename), "test-%s.sc", keytype->name);
+        snprintf(tmpfilename1, sizeof(tmpfilename1), "test-%s.tmp1", keytype->name);
+        snprintf(tmpfilename2, sizeof(tmpfilename2), "test-%s.tmp2", keytype->name);
 
         /*
          * Create an encrypted key.

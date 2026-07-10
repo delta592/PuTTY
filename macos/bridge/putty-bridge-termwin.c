@@ -2195,7 +2195,7 @@ int putty_bridge_termwin_eventlog_smoke(void)
 
     for (i = 0; i < LOGEVENT_INITIAL_MAX + LOGEVENT_CIRCULAR_MAX + 3; i++) {
         char msg[64];
-        sprintf(msg, "event-%zu", i);
+        snprintf(msg, sizeof(msg), "event-%zu", i);
         putty_bridge_termwin_eventlog_append_test(btw, msg);
     }
 

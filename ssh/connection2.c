@@ -110,7 +110,7 @@ static char *ssh2_channel_open_failure_error_text(PktIn *pktin)
         reason_code_string = reasons[reason_code];
     } else {
         reason_code_string = reason_code_buf;
-        sprintf(reason_code_buf, "unknown reason code %#x", reason_code);
+        snprintf(reason_code_buf, sizeof(reason_code_buf), "unknown reason code %#x", reason_code);
     }
 
     reason = get_string(pktin);

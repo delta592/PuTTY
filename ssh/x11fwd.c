@@ -115,7 +115,7 @@ struct X11FakeAuth *x11_invent_fake_auth(tree234 *authtree, int authtype)
     auth->protoname = dupstr(x11_authnames[auth->proto]);
     auth->datastring = snewn(auth->datalen * 2 + 1, char);
     for (i = 0; i < auth->datalen; i++)
-        sprintf(auth->datastring + i*2, "%02x",
+        snprintf(auth->datastring + i*2, 3, "%02x",
                 auth->data[i]);
 
     auth->disp = NULL;
@@ -594,7 +594,7 @@ static size_t x11_send(
         socketdatalen = 0;             /* placate compiler warning */
         socketdata = sk_getxdmdata(xconn->s, &socketdatalen);
         if (socketdata && socketdatalen==6) {
-            sprintf(new_peer_addr, "%d.%d.%d.%d", socketdata[0],
+            snprintf(new_peer_addr, sizeof(new_peer_addr), "%d.%d.%d.%d", socketdata[0],
                     socketdata[1], socketdata[2], socketdata[3]);
             new_peer_port = GET_16BIT_MSB_FIRST(socketdata + 4);
         } else {

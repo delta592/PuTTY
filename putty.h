@@ -872,7 +872,9 @@ static inline SeatPromptResult make_spr_simple(SeatPromptResultKind kind)
 {
     SeatPromptResult spr;
     spr.kind = kind;
+    spr.errfn = NULL;
     spr.errdata_lit = NULL;
+    spr.errdata_u = 0;
     return spr;
 }
 
