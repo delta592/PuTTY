@@ -38,7 +38,7 @@ static void restore_defaults_handler(dlgcontrol *ctrl, dlgparam *dlg,
     dlg_refresh(NULL, dlg);
 }
 
-static dlgcontrol *mac_find_saved_sessions_ctrl(
+dlgcontrol *mac_find_saved_sessions_ctrl(
     struct controlbox *b, int type)
 {
     size_t i, j;

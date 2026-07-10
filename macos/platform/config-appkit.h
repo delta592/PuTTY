@@ -34,6 +34,13 @@ struct controlbox *mac_config_build_controlbox(
 struct controlbox *mac_config_dlg_ctrlbox(struct dlgparam *dp);
 
 /**
+ * Find Saved Sessions editbox or listbox in a controlbox (Duplicate / preselect).
+ * type is CTRL_EDITBOX or CTRL_LISTBOX.
+ */
+struct dlgcontrol *mac_find_saved_sessions_ctrl(
+    struct controlbox *b, int type);
+
+/**
  * Create an AppKit configuration window that renders ctrlbox panels.
  * Returns an opaque MacConfigBox *. On Cancel, Conf is restored from a
  * backup taken at open (Windows do_reconfig parity). On Apply/Open

@@ -844,6 +844,7 @@ static void sessionsaver_handler(dlgcontrol *ctrl, dlgparam *dlg,
     } else if (event == EVENT_VALCHANGE) {
         int top, bottom, halfway, i;
         if (ctrl == ssd->editbox) {
+            int cur;
             sfree(ssd->savedsession);
             ssd->savedsession = dlg_editbox_get(ctrl, dlg);
             top = ssd->sesslist.nsessions;
@@ -860,25 +861,68 @@ static void sessionsaver_handler(dlgcontrol *ctrl, dlgparam *dlg,
             if (top == ssd->sesslist.nsessions) {
                 top -= 1;
             }
-            dlg_listbox_select(ssd->listbox, dlg, top);
+            cur = dlg_listbox_index(ssd->listbox, dlg);
+            if (top >= 0 && top != cur)
+                dlg_listbox_select(ssd->listbox, dlg, top);
+        }
+    } else if (event == EVENT_SELCHANGE) {
+        /*
+         * Selecting a session puts its name in the edit box. The list is
+         * not editable: rename = edit the name field, then Enter / Save.
+         * Do not call dlg_listbox_select here — re-selecting can re-enter
+         * SELCHANGE after AppKit delivers a deferred notification and
+         * beachball the UI.
+         */
+        if (ctrl == ssd->listbox) {
+            int i = dlg_listbox_index(ssd->listbox, dlg);
+            if (i < 0)
+                return;
+            bool isdef = !strcmp(ssd->sesslist.sessions[i], "Default Settings");
+            sfree(ssd->savedsession);
+            ssd->savedsession = dupstr(isdef ? "" : ssd->sesslist.sessions[i]);
+            dlg_refresh(ssd->editbox, dlg);
         }
     } else if (event == EVENT_ACTION) {
         bool mbl = false;
-        if (!ssd->midsession &&
-            (ctrl == ssd->listbox ||
-             (ssd->loadbutton && ctrl == ssd->loadbutton))) {
-            /*
-             * The user has double-clicked a session, or hit Load.
-             * We must load the selected session, and then
-             * terminate the configuration dialog _if_ there was a
-             * double-click on the list box _and_ that session
-             * contains a hostname.
-             */
-            if (load_selected_session(ssd, dlg, conf, &mbl) &&
-                (mbl && ctrl == ssd->listbox && conf_launchable(conf))) {
-                dlg_end(dlg, 1);       /* it's all over, and succeeded */
+        if (ctrl == ssd->listbox) {
+            if (!ssd->midsession) {
+                /*
+                 * Double-click: load selected session; open if it has a host.
+                 */
+                if (load_selected_session(ssd, dlg, conf, &mbl) &&
+                    (mbl && conf_launchable(conf))) {
+                    dlg_end(dlg, 1);
+                }
+            } else {
+                /*
+                 * Mid-session double-click: put name in the edit box and
+                 * select it for easy Save-as / rename workflow.
+                 */
+                int i = dlg_listbox_index(ssd->listbox, dlg);
+                if (i < 0) {
+                    dlg_beep(dlg);
+                    return;
+                }
+                bool isdef =
+                    !strcmp(ssd->sesslist.sessions[i], "Default Settings");
+                sfree(ssd->savedsession);
+                ssd->savedsession =
+                    dupstr(isdef ? "" : ssd->sesslist.sessions[i]);
+                dlg_refresh(ssd->editbox, dlg);
+                dlg_listbox_select(ssd->listbox, dlg, i);
+                dlg_set_focus(ssd->editbox, dlg);
+                dlg_editbox_select_range(
+                    ssd->editbox, dlg, 0,
+                    ssd->savedsession ? strlen(ssd->savedsession) : 0);
             }
-        } else if (ctrl == ssd->savebutton) {
+        } else if (!ssd->midsession &&
+                   ssd->loadbutton && ctrl == ssd->loadbutton) {
+            load_selected_session(ssd, dlg, conf, &mbl);
+        } else if (ctrl == ssd->savebutton || ctrl == ssd->editbox) {
+            /*
+             * Save button, or Enter in the Saved Sessions name field
+             * (macOS AppKit sends EVENT_ACTION for that).
+             */
             bool isdef = !strcmp(ssd->savedsession, "Default Settings");
             if (!ssd->savedsession[0]) {
                 int i = dlg_listbox_index(ssd->listbox, dlg);

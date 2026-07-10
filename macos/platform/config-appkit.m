@@ -38,15 +38,23 @@
 
 struct MacUCtrl {
     dlgcontrol *ctrl;
-    NSView *toplevel;          /* outermost view for this control */
-    NSTextField *label;
-    NSView *widget;            /* primary interactive widget */
-    NSMutableArray<NSButton *> *radioButtons;
-    NSMutableArray<MacConfigListItem *> *listItems;
+    /*
+     * ObjC object pointers in a C struct are __unsafe_unretained under ARC
+     * unless marked __strong. Without that (or without compiling with ARC
+     * at all — cmake/platforms/macos.cmake enables -fobjc-arc), arrays
+     * created via [NSMutableArray array] are freed immediately and
+     * table/outline data sources crash on first paint
+     * (see macos/app_crash.txt / app_crash_002.txt).
+     */
+    __strong NSView *toplevel;          /* outermost view for this control */
+    __strong NSTextField *label;
+    __strong NSView *widget;            /* primary interactive widget */
+    __strong NSMutableArray<NSButton *> *radioButtons;
+    __strong NSMutableArray<MacConfigListItem *> *listItems;
     NSInteger selectedIndex;
-    NSMutableIndexSet *selectedIndexes;
+    __strong NSMutableIndexSet *selectedIndexes;
     char *textvalue;           /* button-only file selector */
-    NSView *panel;             /* owning panel, or nil for global actions */
+    __strong NSView *panel;             /* owning panel, or nil for global actions */
 };
 
 /* ---------------------------------------------------------------------- */
@@ -68,14 +76,14 @@ struct dlgparam {
     bool ended;
     post_dialog_fn_t after;
     void *afterctx;
-    NSWindow *window;
-    NSView *curr_panel;
-    NSMutableArray<NSView *> *panels;
-    NSMutableArray<NSString *> *panelPaths;
-    NSOutlineView *sidebar;
-    NSMutableArray *sidebarRoots; /* MacConfigSidebarNode * */
-    NSButton *cancelbutton;
-    NSButton *defaultbutton;
+    __strong NSWindow *window;
+    __strong NSView *curr_panel;
+    __strong NSMutableArray<NSView *> *panels;
+    __strong NSMutableArray<NSString *> *panelPaths;
+    __strong NSOutlineView *sidebar;
+    __strong NSMutableArray *sidebarRoots; /* MacConfigSidebarNode * */
+    __strong NSButton *cancelbutton;
+    __strong NSButton *defaultbutton;
     MacConfigBox *owner;
     bool midsession;
     Conf *backup_conf;         /* restore on Cancel (Phase 6.2) */
@@ -112,6 +120,24 @@ struct MacConfigBox {
                                               NSComboBoxDelegate,
                                               NSToolbarDelegate>
 @property (nonatomic) struct dlgparam *dp;
+@end
+
+/*
+ * NSScrollView's clip view is bottom-left origin. Auto Layout document
+ * views shorter than the clip then sit at the bottom with empty space
+ * above (see Session Settings screenshot). Flip the clip (and document
+ * host) so content pins to the top.
+ */
+@interface MacFlippedClipView : NSClipView
+@end
+@implementation MacFlippedClipView
+- (BOOL)isFlipped { return YES; }
+@end
+
+@interface MacFlippedView : NSView
+@end
+@implementation MacFlippedView
+- (BOOL)isFlipped { return YES; }
 @end
 
 static char mac_uctrl_key;
@@ -161,7 +187,8 @@ static int mac_uctrl_find(void *av, void *bv)
 
 static void mac_dlg_init(struct dlgparam *dp)
 {
-    memset(dp, 0, sizeof(*dp));
+    /* (void*): struct has __strong ObjC fields; zero-init is intentional. */
+    memset((void *)dp, 0, sizeof(*dp));
     dp->byctrl = newtree234(mac_uctrl_cmp);
     dp->panels = [[NSMutableArray alloc] init];
     dp->panelPaths = [[NSMutableArray alloc] init];
@@ -175,6 +202,15 @@ static void mac_uctrl_free(struct MacUCtrl *uc)
     if (!uc)
         return;
     sfree(uc->textvalue);
+    uc->textvalue = NULL;
+    /* Drop __strong ObjC refs before freeing the C struct. */
+    uc->toplevel = nil;
+    uc->label = nil;
+    uc->widget = nil;
+    uc->radioButtons = nil;
+    uc->listItems = nil;
+    uc->selectedIndexes = nil;
+    uc->panel = nil;
     sfree(uc);
 }
 
@@ -241,9 +277,21 @@ static NSTextField *mac_make_label(const char *text)
 {
     NSTextField *tf = [NSTextField labelWithString:mac_ns(text)];
     tf.alignment = NSTextAlignmentLeft;
+    tf.translatesAutoresizingMaskIntoConstraints = NO;
     [tf setContentHuggingPriority:NSLayoutPriorityDefaultHigh
                    forOrientation:NSLayoutConstraintOrientationHorizontal];
+    [tf setContentCompressionResistancePriority:NSLayoutPriorityRequired
+                                 forOrientation:NSLayoutConstraintOrientationVertical];
     return tf;
+}
+
+static void mac_prepare_view(NSView *v)
+{
+    if (!v)
+        return;
+    v.translatesAutoresizingMaskIntoConstraints = NO;
+    [v setContentCompressionResistancePriority:NSLayoutPriorityDefaultHigh
+                                forOrientation:NSLayoutConstraintOrientationVertical];
 }
 
 static NSStackView *mac_make_vstack(void)
@@ -251,8 +299,10 @@ static NSStackView *mac_make_vstack(void)
     NSStackView *stack = [[NSStackView alloc] initWithFrame:NSZeroRect];
     stack.orientation = NSUserInterfaceLayoutOrientationVertical;
     stack.alignment = NSLayoutAttributeLeading;
-    stack.spacing = 6;
+    stack.distribution = NSStackViewDistributionGravityAreas;
+    stack.spacing = 8;
     stack.translatesAutoresizingMaskIntoConstraints = NO;
+    stack.detachesHiddenViews = YES;
     return stack;
 }
 
@@ -261,9 +311,60 @@ static NSStackView *mac_make_hstack(void)
     NSStackView *stack = [[NSStackView alloc] initWithFrame:NSZeroRect];
     stack.orientation = NSUserInterfaceLayoutOrientationHorizontal;
     stack.alignment = NSLayoutAttributeCenterY;
+    stack.distribution = NSStackViewDistributionGravityAreas;
     stack.spacing = 8;
     stack.translatesAutoresizingMaskIntoConstraints = NO;
+    stack.detachesHiddenViews = YES;
     return stack;
+}
+
+/* Stretch a child to the stack's full width while keeping Leading alignment
+ * (so labels/checkboxes stay left-justified inside the row). */
+static void mac_stack_fill_width(NSStackView *stack, NSView *child)
+{
+    if (!stack || !child)
+        return;
+    [child.widthAnchor constraintEqualToAnchor:stack.widthAnchor].active = YES;
+}
+
+static NSScrollView *mac_make_scroll_view(NSView *document)
+{
+    NSScrollView *scroll = [[NSScrollView alloc] initWithFrame:NSZeroRect];
+    MacFlippedClipView *clip =
+        [[MacFlippedClipView alloc] initWithFrame:NSZeroRect];
+    scroll.contentView = clip;
+    scroll.hasVerticalScroller = YES;
+    scroll.hasHorizontalScroller = NO;
+    scroll.autohidesScrollers = YES;
+    scroll.borderType = NSNoBorder;
+    scroll.drawsBackground = YES;
+    scroll.translatesAutoresizingMaskIntoConstraints = NO;
+    document.translatesAutoresizingMaskIntoConstraints = NO;
+    scroll.documentView = document;
+    return scroll;
+}
+
+/* Section: bold heading, then slightly indented body for the controls. */
+static NSStackView *mac_make_section(const char *title)
+{
+    NSStackView *section = mac_make_vstack();
+    if (title && title[0]) {
+        NSTextField *heading = mac_make_label(title);
+        heading.font = [NSFont boldSystemFontOfSize:NSFont.systemFontSize];
+        [section addArrangedSubview:heading];
+        mac_stack_fill_width(section, heading);
+    }
+    return section;
+}
+
+static NSStackView *mac_section_body(NSStackView *section)
+{
+    NSStackView *body = mac_make_vstack();
+    /* Slight indent under the section heading (options under a title). */
+    body.edgeInsets = NSEdgeInsetsMake(0, 12, 0, 0);
+    [section addArrangedSubview:body];
+    mac_stack_fill_width(section, body);
+    return body;
 }
 
 static void mac_fire_handler(struct dlgparam *dp, struct MacUCtrl *uc, int event)
@@ -275,10 +376,24 @@ static void mac_fire_handler(struct dlgparam *dp, struct MacUCtrl *uc, int event
     uc->ctrl->handler(uc->ctrl, dp, dp->data, event);
 }
 
+/*
+ * NSTextField / NSComboBox only send their action when editing ends
+ * (Return or focus change). Clicking Apply / Save / Open often leaves
+ * the field as first responder, so the Conf copy never sees the typed
+ * value. Force any in-progress editing to commit before button actions.
+ */
+static void mac_commit_pending_edits(struct dlgparam *dp)
+{
+    if (!dp || !dp->window)
+        return;
+    [dp->window endEditingFor:nil];
+    [dp->window makeFirstResponder:nil];
+}
+
 /* ---------------------------------------------------------------------- */
 /* Target actions */
 
-@interface MacConfigActions : NSObject
+@interface MacConfigActions : NSObject <NSTextFieldDelegate, NSComboBoxDelegate>
 @property (nonatomic) struct dlgparam *dp;
 @property (nonatomic) struct MacUCtrl *pendingFontUCtrl;
 @property (nonatomic) struct MacUCtrl *pendingColourUCtrl;
@@ -288,6 +403,7 @@ static void mac_fire_handler(struct dlgparam *dp, struct MacUCtrl *uc, int event
 
 - (void)buttonClicked:(id)sender
 {
+    mac_commit_pending_edits(self.dp);
     struct MacUCtrl *uc = mac_uctrl_from_sender(sender);
     if (uc)
         mac_fire_handler(self.dp, uc, EVENT_ACTION);
@@ -320,6 +436,60 @@ static void mac_fire_handler(struct dlgparam *dp, struct MacUCtrl *uc, int event
     struct MacUCtrl *uc = mac_uctrl_from_sender(sender);
     if (uc)
         mac_fire_handler(self.dp, uc, EVENT_VALCHANGE);
+}
+
+/*
+ * Keep Conf in sync while typing (not only when the field resigns focus),
+ * so Apply / Save cannot miss the last keystroke even if focus steal fails.
+ */
+- (void)controlTextDidChange:(NSNotification *)notification
+{
+    if (!self.dp || (self.dp->flags & FLAG_IGNORING_EVENTS))
+        return;
+    id obj = notification.object;
+    if (!obj)
+        return;
+    [self editChanged:obj];
+}
+
+/*
+ * Return in an edit box: commit VALCHANGE. For the Saved Sessions name
+ * field only, also fire EVENT_ACTION so Enter acts like Save (rename /
+ * save-as workflow). Other fields ignore ACTION and keep field-exit.
+ */
+- (BOOL)control:(NSControl *)control
+       textView:(NSTextView *)textView
+doCommandBySelector:(SEL)commandSelector
+{
+    (void)textView;
+    if (commandSelector != @selector(insertNewline:) &&
+        commandSelector != @selector(insertNewlineIgnoringFieldEditor:))
+        return NO;
+
+    struct MacUCtrl *uc = mac_uctrl_from_sender(control);
+    if (!uc)
+        return NO;
+
+    mac_fire_handler(self.dp, uc, EVENT_VALCHANGE);
+
+    if (uc->ctrl->type == CTRL_EDITBOX &&
+        uc->ctrl->label &&
+        !strcmp(uc->ctrl->label, "Saved Sessions")) {
+        mac_fire_handler(self.dp, uc, EVENT_ACTION);
+        [self.dp->window makeFirstResponder:nil];
+        return YES;
+    }
+    return NO;
+}
+
+- (void)listboxDoubleClicked:(id)sender
+{
+    NSTableView *table = (NSTableView *)sender;
+    NSValue *val = objc_getAssociatedObject(table, &mac_uctrl_key);
+    struct MacUCtrl *uc = val ? (struct MacUCtrl *)[val pointerValue] : NULL;
+    if (!uc || !self.dp)
+        return;
+    mac_fire_handler(self.dp, uc, EVENT_ACTION);
 }
 
 - (void)popupChanged:(id)sender
@@ -557,18 +727,21 @@ static MacConfigActions *mac_ensure_actions(struct dlgparam *dp, NSView *anchor)
 static struct MacUCtrl *mac_new_uctrl(dlgcontrol *ctrl, NSView *panel)
 {
     struct MacUCtrl *uc = snew(struct MacUCtrl);
-    memset(uc, 0, sizeof(*uc));
+    /* (void*): struct has __strong ObjC fields; zero-init is intentional. */
+    memset((void *)uc, 0, sizeof(*uc));
     uc->ctrl = ctrl;
     uc->panel = panel;
     uc->selectedIndex = -1;
-    uc->listItems = [NSMutableArray array];
-    uc->selectedIndexes = [NSMutableIndexSet indexSet];
+    /* +1 retain (not autoreleased) so listItems survives without ARC too. */
+    uc->listItems = [[NSMutableArray alloc] init];
+    uc->selectedIndexes = [[NSMutableIndexSet alloc] init];
     return uc;
 }
 
 static NSView *mac_layout_one_control(
     struct dlgparam *dp, dlgcontrol *ctrl, NSView *panel,
-    NSStackView *columnStacks[], int ncols, MacConfigActions *actions)
+    NSStackView * __strong columnStacks[], int ncols,
+    MacConfigActions *actions)
 {
     struct MacUCtrl *uc;
     NSView *row = nil;
@@ -592,7 +765,7 @@ static NSView *mac_layout_one_control(
       case CTRL_TEXT: {
         uc = mac_new_uctrl(ctrl, panel);
         NSTextField *tf = mac_make_label(ctrl->label);
-        tf.preferredMaxLayoutWidth = 420;
+        tf.preferredMaxLayoutWidth = 640;
         tf.lineBreakMode = NSLineBreakByWordWrapping;
         uc->toplevel = tf;
         uc->label = tf;
@@ -637,7 +810,7 @@ static NSView *mac_layout_one_control(
 
       case CTRL_RADIO: {
         uc = mac_new_uctrl(ctrl, panel);
-        uc->radioButtons = [NSMutableArray array];
+        uc->radioButtons = [[NSMutableArray alloc] init];
         NSStackView *outer = mac_make_vstack();
         if (ctrl->label) {
             NSTextField *lab = mac_make_label(ctrl->label);
@@ -658,6 +831,10 @@ static NSView *mac_layout_one_control(
             btn.title = mac_ns(ctrl->radio.buttons[i]);
             btn.target = actions;
             btn.action = @selector(radioToggled:);
+            mac_prepare_view(btn);
+            objc_setAssociatedObject(btn, &mac_uctrl_key,
+                                     [NSValue valueWithPointer:uc],
+                                     OBJC_ASSOCIATION_RETAIN_NONATOMIC);
             [uc->radioButtons addObject:btn];
             [line addArrangedSubview:btn];
         }
@@ -684,6 +861,11 @@ static NSView *mac_layout_one_control(
             combo.completes = NO;
             combo.target = actions;
             combo.action = @selector(comboChanged:);
+            combo.delegate = (id<NSComboBoxDelegate>)actions;
+            mac_prepare_view(combo);
+            objc_setAssociatedObject(combo, &mac_uctrl_key,
+                                     [NSValue valueWithPointer:uc],
+                                     OBJC_ASSOCIATION_RETAIN_NONATOMIC);
             [combo setContentHuggingPriority:NSLayoutPriorityDefaultLow
                               forOrientation:NSLayoutConstraintOrientationHorizontal];
             [box addArrangedSubview:combo];
@@ -698,6 +880,11 @@ static NSView *mac_layout_one_control(
             }
             field.target = actions;
             field.action = @selector(editChanged:);
+            field.delegate = (id<NSTextFieldDelegate>)actions;
+            mac_prepare_view(field);
+            objc_setAssociatedObject(field, &mac_uctrl_key,
+                                     [NSValue valueWithPointer:uc],
+                                     OBJC_ASSOCIATION_RETAIN_NONATOMIC);
             [field setContentHuggingPriority:NSLayoutPriorityDefaultLow
                               forOrientation:NSLayoutConstraintOrientationHorizontal];
             [box addArrangedSubview:field];
@@ -723,6 +910,7 @@ static NSView *mac_layout_one_control(
                 [[NSPopUpButton alloc] initWithFrame:NSZeroRect pullsDown:NO];
             popup.target = actions;
             popup.action = @selector(popupChanged:);
+            mac_prepare_view(popup);
             [box addArrangedSubview:popup];
             uc->widget = popup;
             uc->toplevel = box;
@@ -731,19 +919,23 @@ static NSView *mac_layout_one_control(
             scroll.hasVerticalScroller = YES;
             scroll.autohidesScrollers = YES;
             scroll.borderType = NSBezelBorder;
-            scroll.translatesAutoresizingMaskIntoConstraints = NO;
+            mac_prepare_view(scroll);
 
             NSTableView *table = [[NSTableView alloc] initWithFrame:NSZeroRect];
             NSTableColumn *col0 =
                 [[NSTableColumn alloc] initWithIdentifier:@"text"];
             col0.title = @"";
+            col0.editable = NO; /* list is read-only; rename via name field */
             [table addTableColumn:col0];
             table.headerView = nil;
             table.allowsMultipleSelection = ctrl->listbox.multisel != 0;
             table.allowsEmptySelection = YES;
+            table.doubleAction = @selector(listboxDoubleClicked:);
+            table.target = actions;
             scroll.documentView = table;
             [scroll.heightAnchor constraintEqualToConstant:
-                (CGFloat)(ctrl->listbox.height * 18 + 8)].active = YES;
+                (CGFloat)(ctrl->listbox.height * 22 + 8)].active = YES;
+            [scroll.widthAnchor constraintGreaterThanOrEqualToConstant:200].active = YES;
 
             MacConfigBoxController *ctl =
                 objc_getAssociatedObject(dp->window, &mac_config_controller_key);
@@ -770,6 +962,8 @@ static NSView *mac_layout_one_control(
                 NSButton *down = [NSButton buttonWithTitle:@"Down"
                                                     target:actions
                                                     action:@selector(draglistDown:)];
+                mac_prepare_view(up);
+                mac_prepare_view(down);
                 [btns addArrangedSubview:up];
                 [btns addArrangedSubview:down];
                 [rowstack addArrangedSubview:btns];
@@ -803,12 +997,18 @@ static NSView *mac_layout_one_control(
             field.editable = YES;
             field.target = actions;
             field.action = @selector(editChanged:);
+            field.delegate = (id<NSTextFieldDelegate>)actions;
+            mac_prepare_view(field);
+            objc_setAssociatedObject(field, &mac_uctrl_key,
+                                     [NSValue valueWithPointer:uc],
+                                     OBJC_ASSOCIATION_RETAIN_NONATOMIC);
             [line addArrangedSubview:field];
             uc->widget = field;
         }
         NSButton *browse = [NSButton buttonWithTitle:@"Browse…"
                                               target:actions
                                               action:@selector(fileBrowse:)];
+        mac_prepare_view(browse);
         [line addArrangedSubview:browse];
         [box addArrangedSubview:line];
         uc->toplevel = box;
@@ -830,10 +1030,12 @@ static NSView *mac_layout_one_control(
         NSStackView *line = mac_make_hstack();
         NSTextField *field = [NSTextField textFieldWithString:@""];
         field.editable = NO;
+        mac_prepare_view(field);
         [line addArrangedSubview:field];
         NSButton *change = [NSButton buttonWithTitle:@"Change…"
                                               target:actions
                                               action:@selector(fontBrowse:)];
+        mac_prepare_view(change);
         [line addArrangedSubview:change];
         [box addArrangedSubview:line];
         uc->widget = field;
@@ -853,7 +1055,16 @@ static NSView *mac_layout_one_control(
             /* Place in first column; spanning is approximate in stack layout. */
             dest = columnStacks[col];
         }
+        mac_prepare_view(row);
         [dest addArrangedSubview:row];
+        /* Expand container rows (stacks / scroll lists / wrapping text) to
+         * the column width. Leave NSButton at intrinsic size so checkboxes
+         * and radios stay left-justified. */
+        if ([row isKindOfClass:[NSStackView class]] ||
+            [row isKindOfClass:[NSScrollView class]] ||
+            ([row isKindOfClass:[NSTextField class]] &&
+             ![(NSTextField *)row isEditable]))
+            mac_stack_fill_width(dest, row);
     }
     return row;
 }
@@ -867,78 +1078,40 @@ NSView *mac_config_layout_controlset_impl(
         return mac_make_label(s->boxtitle);
     }
 
-    NSStackView *outer = mac_make_vstack();
-    if (s->boxname[0]) {
-        NSBox *box = [[NSBox alloc] initWithFrame:NSZeroRect];
-        box.title = s->boxtitle ? mac_ns(s->boxtitle) : @"";
-        box.boxType = NSBoxPrimary;
-        box.titlePosition = s->boxtitle ? NSAtTop : NSNoTitle;
-        box.contentViewMargins = NSMakeSize(8, 8);
-        box.translatesAutoresizingMaskIntoConstraints = NO;
+    bool titled = (s->boxname[0] && s->boxtitle);
+    NSStackView *outer = mac_make_section(titled ? s->boxtitle : NULL);
+    NSStackView *body = titled ? mac_section_body(outer) : outer;
 
-        NSStackView *inner = mac_make_vstack();
-        box.contentView = inner;
+    int ncols = 1;
+    NSStackView *colstacks[8];
+    NSStackView *cols_row = mac_make_hstack();
+    colstacks[0] = mac_make_vstack();
+    [cols_row addArrangedSubview:colstacks[0]];
+    [body addArrangedSubview:cols_row];
+    mac_stack_fill_width(body, cols_row);
 
-        int ncols = 1;
-        NSStackView *colstacks[8];
-        NSStackView *cols_row = mac_make_hstack();
-        colstacks[0] = mac_make_vstack();
-        [cols_row addArrangedSubview:colstacks[0]];
-        [inner addArrangedSubview:cols_row];
-
-        for (size_t i = 0; i < s->ncontrols; i++) {
-            dlgcontrol *ctrl = s->ctrls[i];
-            if (ctrl->type == CTRL_COLUMNS) {
-                ncols = ctrl->columns.ncols;
-                if (ncols < 1)
-                    ncols = 1;
-                if (ncols > 8)
-                    ncols = 8;
-                cols_row = mac_make_hstack();
-                for (int c = 0; c < ncols; c++) {
-                    colstacks[c] = mac_make_vstack();
-                    [cols_row addArrangedSubview:colstacks[c]];
-                }
-                [inner addArrangedSubview:cols_row];
-                continue;
+    for (size_t i = 0; i < s->ncontrols; i++) {
+        dlgcontrol *ctrl = s->ctrls[i];
+        if (ctrl->type == CTRL_COLUMNS) {
+            ncols = ctrl->columns.ncols;
+            if (ncols < 1)
+                ncols = 1;
+            if (ncols > 8)
+                ncols = 8;
+            cols_row = mac_make_hstack();
+            if (ncols > 1)
+                cols_row.distribution = NSStackViewDistributionFillEqually;
+            for (int c = 0; c < ncols; c++) {
+                colstacks[c] = mac_make_vstack();
+                [cols_row addArrangedSubview:colstacks[c]];
             }
-            if (ctrl->type == CTRL_TABDELAY)
-                continue;
-            mac_layout_one_control(dp, ctrl, panel, colstacks, ncols, actions);
+            [body addArrangedSubview:cols_row];
+            mac_stack_fill_width(body, cols_row);
+            continue;
         }
-        [outer addArrangedSubview:box];
-        return outer;
-    }
-
-    /* Unboxed controlset (e.g. action buttons) */
-    {
-        int ncols = 1;
-        NSStackView *colstacks[8];
-        NSStackView *cols_row = mac_make_hstack();
-        colstacks[0] = mac_make_vstack();
-        [cols_row addArrangedSubview:colstacks[0]];
-        [outer addArrangedSubview:cols_row];
-
-        for (size_t i = 0; i < s->ncontrols; i++) {
-            dlgcontrol *ctrl = s->ctrls[i];
-            if (ctrl->type == CTRL_COLUMNS) {
-                ncols = ctrl->columns.ncols;
-                if (ncols < 1)
-                    ncols = 1;
-                if (ncols > 8)
-                    ncols = 8;
-                cols_row = mac_make_hstack();
-                for (int c = 0; c < ncols; c++) {
-                    colstacks[c] = mac_make_vstack();
-                    [cols_row addArrangedSubview:colstacks[c]];
-                }
-                [outer addArrangedSubview:cols_row];
-                continue;
-            }
-            if (ctrl->type == CTRL_TABDELAY)
-                continue;
-            mac_layout_one_control(dp, ctrl, panel, colstacks, ncols, actions);
-        }
+        if (ctrl->type == CTRL_TABDELAY)
+            continue;
+        mac_layout_one_control(dp, ctrl, panel, colstacks, ncols, actions);
     }
     return outer;
 }
@@ -1318,16 +1491,29 @@ void dlg_end(dlgparam *dp, int value)
     if (value <= 0 && dp->backup_conf && dp->data)
         conf_copy_into((Conf *)dp->data, dp->backup_conf);
 
-    if (window)
+    /*
+     * Hide without AppKit window-transform animations. Opening the session
+     * window in `after` while a zoom/close animation is live crashes in
+     * -[_NSWindowTransformAnimation dealloc] (see macos/app_crash_004.txt).
+     */
+    if (window) {
+        window.animationBehavior = NSWindowAnimationBehaviorNone;
+        [window setDelegate:nil];
         [window orderOut:nil];
+        dp->window = nil;
+    }
 
     if (after)
         after(afterctx, value);
 
-    if (owner)
-        mac_config_box_free(owner);
-    else
+    if (owner) {
+        /* Tear down on the next turn so CA/AppKit finish the current flush. */
+        dispatch_async(dispatch_get_main_queue(), ^{
+            mac_config_box_free(owner);
+        });
+    } else {
         mac_ca_config_dlg_ended(dp);
+    }
 }
 
 void dlg_refresh(dlgcontrol *ctrl, dlgparam *dp)
@@ -1479,15 +1665,16 @@ bool dlg_coloursel_results(dlgcontrol *ctrl, dlgparam *dp,
     (NSToolbar *)toolbar
 {
     (void)toolbar;
-    return @[ kMacConfigToolbarCategory,
-              NSToolbarFlexibleSpaceItemIdentifier ];
+    return @[ NSToolbarFlexibleSpaceItemIdentifier,
+              kMacConfigToolbarCategory ];
 }
 
 - (NSArray<NSToolbarItemIdentifier> *)toolbarDefaultItemIdentifiers:
     (NSToolbar *)toolbar
 {
     (void)toolbar;
-    return @[ kMacConfigToolbarCategory, NSToolbarFlexibleSpaceItemIdentifier ];
+    return @[ NSToolbarFlexibleSpaceItemIdentifier,
+              kMacConfigToolbarCategory ];
 }
 
 - (NSToolbarItem *)toolbar:(NSToolbar *)toolbar
@@ -1598,7 +1785,7 @@ MacConfigBox *mac_config_create_box(
     box->dp.backup_conf = conf_copy(conf);
     box->dp.ctrlbox = mac_config_build_controlbox(conf, midsession, protcfginfo);
 
-    NSRect frame = NSMakeRect(0, 0, 780, 560);
+    NSRect frame = NSMakeRect(0, 0, 960, 640);
     NSWindow *window =
         [[NSWindow alloc] initWithContentRect:frame
                                     styleMask:(NSWindowStyleMaskTitled |
@@ -1608,6 +1795,8 @@ MacConfigBox *mac_config_create_box(
                                       backing:NSBackingStoreBuffered
                                         defer:NO];
     window.title = mac_ns(title);
+    window.minSize = NSMakeSize(720, 480);
+    window.animationBehavior = NSWindowAnimationBehaviorNone;
     box->dp.window = window;
 
     MacConfigBoxController *controller = [[MacConfigBoxController alloc] init];
@@ -1625,35 +1814,58 @@ MacConfigBox *mac_config_create_box(
 
     MacConfigActions *actions = mac_actions_for(&box->dp);
 
-    NSSplitView *split = [[NSSplitView alloc] initWithFrame:frame];
+    NSSplitView *split = [[NSSplitView alloc] initWithFrame:NSZeroRect];
     split.vertical = YES;
     split.dividerStyle = NSSplitViewDividerStyleThin;
+    split.translatesAutoresizingMaskIntoConstraints = NO;
 
-    NSScrollView *sideScroll = [[NSScrollView alloc] initWithFrame:NSZeroRect];
-    sideScroll.hasVerticalScroller = YES;
-    sideScroll.borderType = NSNoBorder;
     NSOutlineView *outline = [[NSOutlineView alloc] initWithFrame:NSZeroRect];
     NSTableColumn *col = [[NSTableColumn alloc] initWithIdentifier:@"cat"];
     col.title = @"Category";
+    col.minWidth = 100;
+    col.width = 160;
+    col.resizingMask = NSTableColumnAutoresizingMask;
     [outline addTableColumn:col];
     outline.outlineTableColumn = col;
     outline.headerView = nil;
+    outline.rowSizeStyle = NSTableViewRowSizeStyleDefault;
+    outline.columnAutoresizingStyle = NSTableViewLastColumnOnlyAutoresizingStyle;
     outline.dataSource = controller;
     outline.delegate = controller;
-    sideScroll.documentView = outline;
+    NSScrollView *sideScroll = mac_make_scroll_view(outline);
+    sideScroll.borderType = NSBezelBorder;
     box->dp.sidebar = outline;
-    [sideScroll.widthAnchor constraintGreaterThanOrEqualToConstant:160].active = YES;
+    /*
+     * Sidebar should be just wide enough for category labels (incl. nested
+     * "Credentials" / "GSSAPI"). Prefer ~180pt; allow drag 140–240. A high
+     * preferred-width priority keeps Auto Layout from expanding it to fill
+     * leftover space (that belongs to the settings pane).
+     */
+    [sideScroll.widthAnchor constraintGreaterThanOrEqualToConstant:140].active =
+        YES;
+    [sideScroll.widthAnchor constraintLessThanOrEqualToConstant:240].active =
+        YES;
+    {
+        NSLayoutConstraint *pref =
+            [sideScroll.widthAnchor constraintEqualToConstant:180];
+        pref.priority = NSLayoutPriorityDefaultHigh; /* 750: below Required */
+        pref.active = YES;
+    }
 
-    NSView *contentHost = [[NSView alloc] initWithFrame:NSZeroRect];
+    MacFlippedView *contentHost = [[MacFlippedView alloc] initWithFrame:NSZeroRect];
     contentHost.translatesAutoresizingMaskIntoConstraints = NO;
     NSStackView *contentStack = mac_make_vstack();
     [contentHost addSubview:contentStack];
-    [contentStack.topAnchor constraintEqualToAnchor:contentHost.topAnchor
-                                           constant:12].active = YES;
-    [contentStack.leadingAnchor constraintEqualToAnchor:contentHost.leadingAnchor
-                                               constant:12].active = YES;
-    [contentStack.trailingAnchor constraintEqualToAnchor:contentHost.trailingAnchor
-                                                constant:-12].active = YES;
+    [NSLayoutConstraint activateConstraints:@[
+        [contentStack.topAnchor constraintEqualToAnchor:contentHost.topAnchor
+                                               constant:12],
+        [contentStack.leadingAnchor constraintEqualToAnchor:contentHost.leadingAnchor
+                                                   constant:12],
+        [contentStack.trailingAnchor constraintEqualToAnchor:contentHost.trailingAnchor
+                                                    constant:-12],
+        [contentStack.bottomAnchor constraintEqualToAnchor:contentHost.bottomAnchor
+                                                  constant:-12],
+    ]];
 
     NSView *actionArea = nil;
     char *path = NULL;
@@ -1673,6 +1885,7 @@ MacConfigBox *mac_config_create_box(
             NSStackView *panel = mac_make_vstack();
             panel.hidden = box->dp.panels.count > 0;
             [contentStack addArrangedSubview:panel];
+            mac_stack_fill_width(contentStack, panel);
             [box->dp.panels addObject:panel];
             [box->dp.panelPaths addObject:mac_ns(s->pathname)];
             mac_sidebar_add_path(&box->dp, s->pathname,
@@ -1684,42 +1897,66 @@ MacConfigBox *mac_config_create_box(
 
             NSView *w = mac_config_layout_controlset_impl(
                 &box->dp, s, panel, actions);
-            if (w)
+            if (w) {
                 [panel addArrangedSubview:w];
+                mac_stack_fill_width(panel, w);
+            }
         } else {
             NSView *w = mac_config_layout_controlset_impl(
                 &box->dp, s, panelvbox, actions);
-            if (w && panelvbox)
+            if (w && panelvbox) {
                 [panelvbox addArrangedSubview:w];
+                mac_stack_fill_width(panelvbox, w);
+            }
         }
     }
 
-    NSScrollView *contentScroll =
-        [[NSScrollView alloc] initWithFrame:NSZeroRect];
-    contentScroll.hasVerticalScroller = YES;
-    contentScroll.documentView = contentHost;
+    NSScrollView *contentScroll = mac_make_scroll_view(contentHost);
+    contentScroll.borderType = NSBezelBorder;
+    /* Document matches clip width; height follows stacked content. */
     [contentHost.widthAnchor
-        constraintEqualToAnchor:contentScroll.widthAnchor].active = YES;
+        constraintEqualToAnchor:contentScroll.contentView.widthAnchor].active =
+        YES;
+    [contentScroll.widthAnchor constraintGreaterThanOrEqualToConstant:420]
+        .active = YES;
 
     [split addSubview:sideScroll];
     [split addSubview:contentScroll];
+    /* Keep sidebar width when the window resizes; settings pane grows. */
+    [split setHoldingPriority:260 forSubviewAtIndex:0];
+    [split setHoldingPriority:1 forSubviewAtIndex:1];
 
     NSStackView *root = mac_make_vstack();
-    root.translatesAutoresizingMaskIntoConstraints = NO;
+    root.edgeInsets = NSEdgeInsetsMake(8, 8, 8, 8);
     [root addArrangedSubview:split];
-    if (actionArea)
+    mac_stack_fill_width(root, split);
+    if (actionArea) {
         [root addArrangedSubview:actionArea];
+        mac_stack_fill_width(root, actionArea);
+    }
 
-    window.contentView = [[NSView alloc] initWithFrame:frame];
-    [window.contentView addSubview:root];
-    [root.topAnchor constraintEqualToAnchor:window.contentView.topAnchor].active = YES;
-    [root.bottomAnchor constraintEqualToAnchor:window.contentView.bottomAnchor
-                                      constant:-8].active = YES;
-    [root.leadingAnchor constraintEqualToAnchor:window.contentView.leadingAnchor
-                                       constant:8].active = YES;
-    [root.trailingAnchor constraintEqualToAnchor:window.contentView.trailingAnchor
-                                        constant:-8].active = YES;
-    [split.heightAnchor constraintGreaterThanOrEqualToConstant:400].active = YES;
+    NSView *contentView = [[NSView alloc] initWithFrame:frame];
+    window.contentView = contentView;
+    [contentView addSubview:root];
+    [NSLayoutConstraint activateConstraints:@[
+        [root.topAnchor constraintEqualToAnchor:contentView.topAnchor],
+        [root.bottomAnchor constraintEqualToAnchor:contentView.bottomAnchor],
+        [root.leadingAnchor constraintEqualToAnchor:contentView.leadingAnchor],
+        [root.trailingAnchor constraintEqualToAnchor:contentView.trailingAnchor],
+        [split.heightAnchor constraintGreaterThanOrEqualToConstant:400],
+    ]];
+
+    /* Sidebar hugs its preferred width; settings pane expands into leftover. */
+    [sideScroll setContentHuggingPriority:NSLayoutPriorityDefaultHigh
+                           forOrientation:NSLayoutConstraintOrientationHorizontal];
+    [contentScroll setContentHuggingPriority:NSLayoutPriorityFittingSizeCompression
+                              forOrientation:NSLayoutConstraintOrientationHorizontal];
+    [sideScroll setContentCompressionResistancePriority:NSLayoutPriorityDefaultLow
+                                         forOrientation:NSLayoutConstraintOrientationHorizontal];
+    [contentScroll setContentCompressionResistancePriority:
+                       NSLayoutPriorityDefaultHigh
+                                            forOrientation:
+                                                NSLayoutConstraintOrientationHorizontal];
 
     [outline reloadData];
     [outline expandItem:nil expandChildren:YES];
@@ -1728,6 +1965,22 @@ MacConfigBox *mac_config_create_box(
              byExtendingSelection:NO];
 
     dlg_refresh(NULL, &box->dp);
+
+    /*
+     * Pre-select "Default Settings" so Save with an empty name field
+     * updates that session instead of beeping (screenshot case: mid-session
+     * Change Settings with empty Saved Sessions edit + no list selection).
+     */
+    {
+        dlgcontrol *list =
+            mac_find_saved_sessions_ctrl(box->dp.ctrlbox, CTRL_LISTBOX);
+        if (list)
+            dlg_listbox_select(list, &box->dp, 0);
+    }
+
+    /* Initial divider: compact sidebar, rest for settings. */
+    [window layoutIfNeeded];
+    [split setPosition:180 ofDividerAtIndex:0];
 
     [window center];
     [window makeKeyAndOrderFront:nil];
@@ -1740,8 +1993,10 @@ void mac_config_box_free(MacConfigBox *box)
     if (!box)
         return;
     if (box->dp.window) {
+        box->dp.window.animationBehavior = NSWindowAnimationBehaviorNone;
         [box->dp.window setDelegate:nil];
-        [box->dp.window close];
+        [box->dp.window orderOut:nil];
+        box->dp.window = nil;
     }
     mac_dlg_cleanup(&box->dp);
     sfree(box);
@@ -1888,7 +2143,8 @@ static void make_ca_config_box(NSWindow *spawning_window, bool run_modal)
     }
 
     box = snew(struct ca_config_box);
-    memset(box, 0, sizeof(*box));
+    /* (void*): embedded dlgparam has __strong ObjC fields. */
+    memset((void *)box, 0, sizeof(*box));
     mac_dlg_init(&box->dp);
     box->run_modal = run_modal;
     box->dp.data = box;
@@ -1935,12 +2191,9 @@ static void make_ca_config_box(NSWindow *spawning_window, bool run_modal)
             [content addArrangedSubview:w];
     }
 
-    NSScrollView *scroll = [[NSScrollView alloc] initWithFrame:NSZeroRect];
-    scroll.hasVerticalScroller = YES;
-    scroll.documentView = content;
-    scroll.borderType = NSNoBorder;
-    [content.widthAnchor constraintEqualToAnchor:scroll.widthAnchor].active =
-        YES;
+    NSScrollView *scroll = mac_make_scroll_view(content);
+    [content.widthAnchor
+        constraintEqualToAnchor:scroll.contentView.widthAnchor].active = YES;
 
     [root addArrangedSubview:scroll];
     if (actionArea)
