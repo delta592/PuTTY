@@ -4,8 +4,15 @@
 # project / Package.swift at the root). Swift uses build-mode: manual so
 # CodeQL can trace a real compile.
 #
+# Timing note: a native local macOS GUI build is a few minutes; the same
+# tree under CodeQL's DYLD tracer + mandatory x86_64 cross-compile is
+# ~20–25 minutes on GitHub-hosted runners. We cannot remove that tracer
+# overhead. Instead we (1) keep C/Python cheap, (2) skip Swift on PRs that
+# do not touch macOS/Swift sources, (3) ccache the C objects across runs.
+#
 # Docs:
 #   https://docs.github.com/en/code-security/code-scanning/creating-an-advanced-setup-for-code-scanning/codeql-code-scanning-for-compiled-languages
+#   https://docs.github.com/en/code-security/reference/code-scanning/troubleshoot-analysis-errors/analysis-takes-too-long
 
 name: CodeQL
 
@@ -15,7 +22,7 @@ on:
   pull_request:
     branches: [main]
   schedule:
-    # Weekly, same cadence as the former default setup.
+    # Weekly full coverage (including Swift).
     - cron: '17 6 * * 1'
 
 concurrency:
@@ -23,63 +30,48 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  analyze:
+  # Fast path filter so PRs that only touch C/docs/etc. skip the ~20 min
+  # Swift job. Push to main + schedule always analyze Swift.
+  changes:
+    name: Detect macOS / Swift paths
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      macos: ${{ steps.filter.outputs.macos }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            macos:
+              - 'macos/**'
+              - 'cmake/macos_early.cmake'
+              - 'cmake/platforms/macos.cmake'
+              - '.github/workflows/codeql.yml'
+              - '.github/codeql/**'
+
+  analyze-light:
     name: Analyze (${{ matrix.language }})
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 120
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
       security-events: write
       actions: read
-
     strategy:
       fail-fast: false
       matrix:
         include:
           - language: c-cpp
             build-mode: none
-            os: ubuntu-latest
           - language: python
             build-mode: none
-            os: ubuntu-latest
-          - language: swift
-            build-mode: manual
-            os: macos-15
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-
-      # Configure *before* CodeQL init so try_compile / compiler-id probes are
-      # not wrapped by the tracer (otherwise configure alone is ~13 minutes).
-      - name: Configure macOS GUI (untraced)
-        if: matrix.build-mode == 'manual'
-        run: |
-          set -euo pipefail
-          # CodeQL's Swift tracer wraps the build as an x86_64 process, so
-          # swiftc/ld require x86_64. Building arm64 C objects then fails at
-          # link with "found architecture 'arm64', required 'x86_64'". Match
-          # the tracer: configure and compile the whole tree for x86_64
-          # (cross-compile on arm64 runners). That also keeps NEON feature
-          # tests off, avoiding -march=armv8… on an Intel target.
-          brew install ninja
-          cmake -S . -B build-codeql -G Ninja \
-            -DPUTTY_MACOS_GUI=ON \
-            -DPUTTY_MACOS_UNIVERSAL=OFF \
-            -DCMAKE_OSX_ARCHITECTURES=x86_64 \
-            -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0 \
-            -DCMAKE_BUILD_TYPE=Debug
-          grep -E '^CMAKE_OSX_ARCHITECTURES:STRING=x86_64$' \
-            build-codeql/CMakeCache.txt
-          # Feature tests must match the Intel target (no NEON object libs).
-          if grep -E '^HAVE_NEON_CRYPTO:(INTERNAL|BOOL)=1$' \
-               build-codeql/CMakeCache.txt; then
-            echo "error: NEON enabled under x86_64 CodeQL configure" >&2
-            exit 1
-          fi
-          echo "NEON feature flags (expect unset/0):"
-          grep -E '^HAVE_(ARM_NEON|NEON_|WMMINTRIN)' build-codeql/CMakeCache.txt \
-            || true
+      - uses: actions/checkout@v7
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
@@ -88,14 +80,82 @@ jobs:
           build-mode: ${{ matrix.build-mode }}
           config-file: ./.github/codeql/codeql-config.yml
 
-      - name: Build macOS GUI (Swift)
-        if: matrix.build-mode == 'manual'
-        run: |
-          set -euo pipefail
-          # PuTTY.app links PuttyMacUI (~90% of production Swift).
-          cmake --build build-codeql --parallel --target PuTTY
-
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
         with:
           category: "/language:${{ matrix.language }}"
+
+  analyze-swift:
+    name: Analyze (swift)
+    needs: changes
+    # Always on push/schedule; on PRs only when macOS/Swift (or this workflow) changed.
+    # needs.changes.result is 'skipped' when changes job's if: is false (non-PR).
+    if: |
+      always() &&
+      (github.event_name != 'pull_request' || needs.changes.outputs.macos == 'true') &&
+      (needs.changes.result == 'success' || needs.changes.result == 'skipped')
+    runs-on: macos-15
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: ccache-codeql-swift-x86_64-${{ hashFiles('CMakeLists.txt', 'cmake/**/*.cmake', 'crypto/**', 'ssh/**', 'macos/**/*.c', 'macos/**/*.m') }}
+          restore-keys: |
+            ccache-codeql-swift-x86_64-
+
+      # Configure *before* CodeQL init so try_compile probes are not traced
+      # (otherwise configure alone is ~13 minutes).
+      - name: Configure macOS GUI (untraced)
+        run: |
+          set -euo pipefail
+          brew install ninja ccache
+          ccache --set-config=max_size=2G
+          ccache --set-config=compression=true
+          ccache -z
+          # CodeQL's Swift tracer wraps the build as an x86_64 process, so
+          # swiftc/ld require x86_64. Cross-compile the tree for x86_64 so C
+          # and Swift agree (and NEON feature tests stay off).
+          cmake -S . -B build-codeql -G Ninja \
+            -DPUTTY_MACOS_GUI=ON \
+            -DPUTTY_MACOS_UNIVERSAL=OFF \
+            -DCMAKE_OSX_ARCHITECTURES=x86_64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0 \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_OBJC_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_OBJCXX_COMPILER_LAUNCHER=ccache
+          grep -E '^CMAKE_OSX_ARCHITECTURES:STRING=x86_64$' \
+            build-codeql/CMakeCache.txt
+          if grep -E '^HAVE_NEON_CRYPTO:(INTERNAL|BOOL)=1$' \
+               build-codeql/CMakeCache.txt; then
+            echo "error: NEON enabled under x86_64 CodeQL configure" >&2
+            exit 1
+          fi
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: swift
+          build-mode: manual
+          config-file: ./.github/codeql/codeql-config.yml
+
+      - name: Build macOS GUI (Swift)
+        run: |
+          set -euo pipefail
+          # PuTTY.app links PuttyMacUI (~90% of production Swift).
+          # Tracer overhead dominates; ccache only helps repeated C compiles.
+          cmake --build build-codeql --parallel --target PuTTY
+          ccache -s
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:swift"
