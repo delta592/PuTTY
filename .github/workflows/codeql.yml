@@ -55,6 +55,7 @@ jobs:
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
+          config-file: ./.github/codeql/codeql-config.yml
 
       # Prefer the Xcode generator: CodeQL's Swift extractor traces
       # xcodebuild reliably. Single-arch only (host); Universal 2 is
