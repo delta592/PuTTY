@@ -12,6 +12,9 @@ macOS Settings pattern is applied as:
 |----------|------|----------|
 | Application menu | **Settings…** | ⌘, |
 | Application menu | **About …** | — |
+| Application menu | **Hide …** | ⌘H |
+| Application menu | Hide Others | ⌥⌘H |
+| Application menu | Show All | — |
 | Session menu | Change Settings… | (alias, no shortcut) |
 
 Mid-session config windows are titled `«App» Settings` with a toolbar
@@ -51,6 +54,7 @@ target so AppKit sends actions down the responder chain to `TerminalView`
 ## Manual checklist
 
 - [ ] App menu **Settings…** (⌘,) opens mid-session settings for the key window
+- [ ] App menu **Hide** (⌘H) hides the app; click Dock icon to restore
 - [ ] System Settings → Appearance → Accent Colour changes config chrome tint
 - [ ] Trackpad flick scrolls scrollback with inertia; mouse wheel still ticks
 - [ ] Edit → Copy / Paste with a selection and clipboard text

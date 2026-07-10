@@ -46,6 +46,29 @@ final class PuttygenAppDelegate: NSObject, NSApplicationDelegate {
             action: #selector(NSApplication.terminate(_:)),
             keyEquivalent: "q")
 
+        let hide = NSMenuItem(
+            title: "Hide PuTTYgen",
+            action: #selector(NSApplication.hide(_:)),
+            keyEquivalent: "h")
+        hide.target = NSApp
+        appMenu.insertItem(hide, at: 0)
+
+        let hideOthers = NSMenuItem(
+            title: "Hide Others",
+            action: #selector(NSApplication.hideOtherApplications(_:)),
+            keyEquivalent: "h")
+        hideOthers.keyEquivalentModifierMask = [.command, .option]
+        hideOthers.target = NSApp
+        appMenu.insertItem(hideOthers, at: 1)
+
+        let showAll = NSMenuItem(
+            title: "Show All",
+            action: #selector(NSApplication.unhideAllApplications(_:)),
+            keyEquivalent: "")
+        showAll.target = NSApp
+        appMenu.insertItem(showAll, at: 2)
+        appMenu.insertItem(NSMenuItem.separator(), at: 3)
+
         let fileItem = NSMenuItem(title: "File", action: nil, keyEquivalent: "")
         let fileMenu = NSMenu(title: "File")
         fileItem.submenu = fileMenu

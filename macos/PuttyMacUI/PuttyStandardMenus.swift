@@ -3,7 +3,7 @@ import AppKit
 /// Shared AppKit menu construction for PuTTY / pterm (Phase 9.3).
 @MainActor
 public enum PuttyStandardMenus {
-    /// About + Settings… (⌘,) in the application menu — macOS Settings placement.
+    /// About + Settings… (⌘,) + Hide (⌘H) in the application menu.
     public static func installAppMenuChrome(
         into appMenu: NSMenu,
         appName: String,
@@ -26,6 +26,50 @@ public enum PuttyStandardMenus {
         settings.target = target
         appMenu.insertItem(settings, at: 2)
         appMenu.insertItem(NSMenuItem.separator(), at: 3)
+
+        installHideItems(into: appMenu, appName: appName, beforeQuit: true)
+    }
+
+    /// Standard Hide / Hide Others / Show All (⌘H / ⌥⌘H).
+    public static func installHideItems(
+        into appMenu: NSMenu,
+        appName: String,
+        beforeQuit: Bool = true
+    ) {
+        let hide = NSMenuItem(
+            title: "Hide \(appName)",
+            action: #selector(NSApplication.hide(_:)),
+            keyEquivalent: "h")
+        hide.target = NSApp
+
+        let hideOthers = NSMenuItem(
+            title: "Hide Others",
+            action: #selector(NSApplication.hideOtherApplications(_:)),
+            keyEquivalent: "h")
+        hideOthers.keyEquivalentModifierMask = [.command, .option]
+        hideOthers.target = NSApp
+
+        let showAll = NSMenuItem(
+            title: "Show All",
+            action: #selector(NSApplication.unhideAllApplications(_:)),
+            keyEquivalent: "")
+        showAll.target = NSApp
+
+        var insertAt = appMenu.numberOfItems
+        if beforeQuit {
+            for i in 0..<appMenu.numberOfItems {
+                let title = appMenu.item(at: i)?.title ?? ""
+                if title.hasPrefix("Quit") {
+                    insertAt = i
+                    break
+                }
+            }
+        }
+
+        appMenu.insertItem(hide, at: insertAt)
+        appMenu.insertItem(hideOthers, at: insertAt + 1)
+        appMenu.insertItem(showAll, at: insertAt + 2)
+        appMenu.insertItem(NSMenuItem.separator(), at: insertAt + 3)
     }
 
     /// Edit menu with Copy / Paste / Paste Special / Select All (nil target → responder chain).

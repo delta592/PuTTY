@@ -101,6 +101,17 @@ final class IntegrationTests: XCTestCase {
         XCTAssertEqual(appMenu.item(at: 0)?.title, "About Test")
         XCTAssertEqual(appMenu.item(at: 2)?.title, "Settings…")
         XCTAssertEqual(appMenu.item(at: 2)?.keyEquivalent, ",")
+        let hide = appMenu.item(withTitle: "Hide Test")
+        XCTAssertNotNil(hide)
+        XCTAssertEqual(hide?.keyEquivalent, "h")
+        XCTAssertEqual(hide?.action, #selector(NSApplication.hide(_:)))
+        XCTAssertNotNil(appMenu.item(withTitle: "Hide Others"))
+        XCTAssertEqual(
+            appMenu.item(withTitle: "Hide Others")?.keyEquivalentModifierMask,
+            [.command, .option]
+        )
+        XCTAssertNotNil(appMenu.item(withTitle: "Show All"))
+        XCTAssertEqual(appMenu.item(withTitle: "Quit")?.keyEquivalent, "q")
 
         main.addItem(NSMenuItem(title: "Window", action: nil, keyEquivalent: ""))
         PuttyStandardMenus.installEditMenu(into: main)
