@@ -1206,6 +1206,18 @@ int32_t putty_bridge_termwin_format_small_keypad(
         consumed_alt_out);
 }
 
+int32_t putty_bridge_termwin_format_backspace(
+    PuttyBridgeTermWin *btw, bool shift, char *buf, int32_t buflen,
+    bool *special_out)
+{
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
+    if (!btw->term || !buf || buflen <= 0 || !special_out)
+        return 0;
+
+    return (int32_t)osxkeys_format_backspace(
+        btw->term, shift, buf, (size_t)buflen, special_out);
+}
+
 uint8_t putty_bridge_termwin_apply_ctrl(uint8_t c)
 {
     return osxkeys_apply_ctrl(c);

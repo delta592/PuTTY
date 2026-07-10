@@ -356,9 +356,18 @@ final class TerminalView: NSView {
                 ) {
                     _ = OsxKeys.handleKeyDown(event, termWin: termWin)
                 }
-            } else {
-                super.doCommand(by: selector)
+                return
             }
+            /*
+             * Control bindings (Ctrl-D → deleteForward:, Ctrl-A →
+             * moveToBeginningOfLine:, …) must not fall through as no-ops.
+             * keyDown should already have sent the C0 byte; if AppKit still
+             * delivers the selector, swallow it.
+             */
+            if OsxKeys.isControlEditingCommand(selector) {
+                return
+            }
+            super.doCommand(by: selector)
         }
     }
 

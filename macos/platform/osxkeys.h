@@ -31,6 +31,14 @@ int osxkeys_format_small_keypad(
     Terminal *term, SmallKeypadKey key, bool shift, bool ctrl, bool alt,
     char *buf, size_t buflen, bool *consumed_alt_out);
 
+/**
+ * Backspace / Delete (macOS keycode 0x33). Honours CONF_bksp_is_delete;
+ * Shift inverts the configured byte (same as GTK/Windows).
+ * Writes one byte into buf; returns length (1) or 0.
+ */
+int osxkeys_format_backspace(
+    Terminal *term, bool shift, char *buf, size_t buflen, bool *special_out);
+
 /** Apply PuTTY-style Ctrl masking to a 7-bit character. */
 unsigned char osxkeys_apply_ctrl(unsigned char c);
 

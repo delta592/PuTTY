@@ -67,6 +67,24 @@ int osxkeys_format_small_keypad(
         buf, term, key, shift, ctrl, alt, consumed_alt_out);
 }
 
+int osxkeys_format_backspace(
+    Terminal *term, bool shift, char *buf, size_t buflen, bool *special_out)
+{
+    bool delete_is_default;
+
+    if (!term || !buf || buflen < 2)
+        return 0;
+
+    delete_is_default = term->bksp_is_delete;
+    if (shift)
+        delete_is_default = !delete_is_default;
+
+    buf[0] = delete_is_default ? '\x7F' : '\x08';
+    if (special_out)
+        *special_out = true;
+    return 1;
+}
+
 unsigned char osxkeys_apply_ctrl(unsigned char c)
 {
     if (c >= '3' && c <= '7')

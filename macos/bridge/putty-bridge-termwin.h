@@ -291,6 +291,9 @@ int32_t putty_bridge_termwin_format_function(
 int32_t putty_bridge_termwin_format_small_keypad(
     PuttyBridgeTermWin *btw, int32_t key, bool shift, bool ctrl, bool alt,
     char *buf, int32_t buflen, bool *consumed_alt_out);
+int32_t putty_bridge_termwin_format_backspace(
+    PuttyBridgeTermWin *btw, bool shift, char *buf, int32_t buflen,
+    bool *special_out);
 uint8_t putty_bridge_termwin_apply_ctrl(uint8_t c);
 
 void putty_bridge_termwin_mouse(
