@@ -1,5 +1,7 @@
 # macOS SSH agent strategy (Phase 7.4)
 
+For local GUI build/run instructions, see [`README.md`](README.md).
+
 ## Decision: OpenSSH agent is the default
 
 PuTTY for macOS uses the **system OpenSSH agent** via `$SSH_AUTH_SOCK` as

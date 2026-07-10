@@ -4,6 +4,8 @@ This document describes a phased plan to add a **fully native macOS GUI** to PuT
 
 The plan treats macOS as a **third front-end platform** alongside the existing **Win32** (`windows/`) and **GTK/Unix** (`unix/`) implementations, reusing the portable C core and the `Seat` / `TermWin` / `LogPolicy` vtable boundaries defined in `putty.h`.
 
+**Day-to-day local builds:** see [`macos/README.md`](macos/README.md) and the “Building on macOS (native GUI)” section of [`README`](README). Prefer `./macos/build.sh --dev` for iteration. This plan remains the architecture / phase checklist.
+
 ---
 
 ## Background and design rationale
@@ -96,30 +98,47 @@ When `PUTTY_MACOS_UNIVERSAL=ON`, CMake sets `CMAKE_OSX_ARCHITECTURES` to `arm64;
 
 ### Typical build commands
 
+Prefer the helper script (Bash 5.x; see `macos/README.md`):
+
 ```bash
-# Configure GUI build — Universal 2 (default: arm64 + x86_64 in one .app)
-cmake -B build-macos-gui -G Ninja \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DPUTTY_MACOS_GUI=ON \
-  -DPUTTY_MACOS_UNIVERSAL=ON \
-  -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0
+./macos/build.sh check
+./macos/build.sh --dev                 # Debug, host arch
+./macos/build.sh open --dev
+./macos/build.sh --universal           # Universal 2 via Xcode generator
+./macos/build.sh verify --universal
+```
 
-cmake --build build-macos-gui
+Or CMake directly. **Universal 2 requires the Xcode generator** (Ninja cannot
+emit fat Swift binaries; `PUTTY_MACOS_UNIVERSAL=ON` with Ninja builds host arch
+only and warns):
 
-# Verify the app executable is Universal 2
-lipo -info build-macos-gui/PuTTY.app/Contents/MacOS/PuTTY
-# Expected: Architectures in the fat file: x86_64 arm64
-
-# Fast local dev build — native architecture only
+```bash
+# Fast local dev — native architecture only
 cmake -B build-macos-gui-dev -G Ninja \
   -DCMAKE_BUILD_TYPE=Debug \
   -DPUTTY_MACOS_GUI=ON \
-  -DPUTTY_MACOS_UNIVERSAL=OFF
-
+  -DPUTTY_MACOS_UNIVERSAL=OFF \
+  -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0
 cmake --build build-macos-gui-dev
 
-# Install .app bundles to CMAKE_INSTALL_PREFIX (default /usr/local)
-cmake --build build-macos-gui --target install
+# Universal 2 release (arm64 + x86_64)
+cmake -B build-macos-gui-universal -G Xcode \
+  -DPUTTY_MACOS_GUI=ON \
+  -DPUTTY_MACOS_UNIVERSAL=ON \
+  -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0
+cmake --build build-macos-gui-universal --config Release
+lipo -info \
+  build-macos-gui-universal/Release/PuTTY.app/Contents/MacOS/PuTTY
+# Expected: Architectures in the fat file: x86_64 arm64
+
+# Install host-arch Release bundles
+cmake -B build-macos-gui -G Ninja \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DPUTTY_MACOS_GUI=ON \
+  -DPUTTY_MACOS_UNIVERSAL=OFF \
+  -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0
+cmake --build build-macos-gui
+cmake --install build-macos-gui --prefix /Applications
 
 # CLI-only build (unchanged)
 cmake -B build-macos-cli -G Ninja
