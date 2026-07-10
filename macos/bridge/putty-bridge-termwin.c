@@ -1582,7 +1582,17 @@ int putty_bridge_termwin_clipboard_smoke(void)
         return 1;
     }
 
-    /* HIG default: no implicit copy-on-select to system clipboard. */
+    /*
+     * Platform HIG default must be off. Pin Conf explicitly: do_defaults()
+     * loads the user's "Default Settings", which may have MouseAutocopy=1.
+     */
+    if (CLIPUI_DEFAULT_AUTOCOPY) {
+        putty_bridge_termwin_free(btw);
+        return 8;
+    }
+    conf_set_bool(btw->conf, CONF_mouseautocopy, false);
+    putty_bridge_termwin_setup_clipboards(btw);
+
     if (putty_bridge_termwin_mouse_autocopy_enabled(btw)) {
         putty_bridge_termwin_free(btw);
         return 2;
@@ -2049,6 +2059,13 @@ int putty_bridge_termwin_window_exit_smoke(void)
     /* Non-default Columns×Rows must survive putty_bridge_termwin_open. */
     conf_set_int(conf->conf, CONF_width, 218);
     conf_set_int(conf->conf, CONF_height, 32);
+    /*
+     * Pin Default Foreground so the palette check is independent of the
+     * user's saved "Default Settings" Colour0 (do_defaults loads that file).
+     */
+    conf_set_int_int(conf->conf, CONF_colours, CONF_COLOUR_fg * 3 + 0, 187);
+    conf_set_int_int(conf->conf, CONF_colours, CONF_COLOUR_fg * 3 + 1, 187);
+    conf_set_int_int(conf->conf, CONF_colours, CONF_COLOUR_fg * 3 + 2, 187);
     if (!putty_conf_warn_on_close(conf)) {
         putty_conf_free(conf);
         return 2;
