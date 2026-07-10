@@ -152,6 +152,13 @@ private enum TerminalViewBridge {
             view.windowChromeHost?.setIconTitle(string)
         }
     }
+
+    static let settingsChanged: @convention(c) (UnsafeMutableRawPointer?) -> Void =
+        { ctx in
+            guard let ctx else { return }
+            let view = Unmanaged<TerminalView>.fromOpaque(ctx).takeUnretainedValue()
+            MainActor.assumeIsolated { view.applySettingsFromConf() }
+        }
 }
 
 /// AppKit terminal surface wired to MacTermWin (Phase 4.2–4.8).
@@ -237,7 +244,8 @@ final class TerminalView: NSView {
             request_resize: TerminalViewBridge.requestResize,
             bell: TerminalViewBridge.bell,
             set_title: TerminalViewBridge.setTitle,
-            set_icon_title: TerminalViewBridge.setIconTitle
+            set_icon_title: TerminalViewBridge.setIconTitle,
+            settings_changed: TerminalViewBridge.settingsChanged
         )
         let ctx = Unmanaged.passUnretained(self).toOpaque()
         putty_bridge_termwin_set_callbacks(handle, &callbacks, ctx)
@@ -255,6 +263,21 @@ final class TerminalView: NSView {
         clipboard = TerminalClipboard(termWin: termWin)
 
         updateBackingScale()
+        /*
+         * Prefer the PuttyConf handle's font (source of truth at Open), then
+         * fall back to the seat Conf via the bridge. Covers any lag between
+         * seat copy and btw->conf.
+         */
+        if let conf {
+            let fromConf = String(cString: putty_conf_get_font(conf))
+            if !fromConf.isEmpty {
+                applyFontSpecString(fromConf)
+            } else {
+                applyFontSpecFromConf()
+            }
+        } else {
+            applyFontSpecFromConf()
+        }
         updateFontMetrics()
         /*
          * Seat already applied Conf Columns×Rows. Size the NSWindow to that
@@ -562,11 +585,46 @@ final class TerminalView: NSView {
         layer?.contentsScale = scale
     }
 
+    private func applyFontSpecString(_ spec: String) {
+        let parts = spec.split(separator: ":", omittingEmptySubsequences: false)
+        if parts.count >= 3, parts[0] == "mac",
+           let size = Double(parts[parts.count - 1]), size > 0 {
+            fontPointSize = CGFloat(size)
+        }
+        renderer.refreshMetrics(fontSpec: spec, pointSize: fontPointSize)
+    }
+
+    /// Load face + configured point size from the live termwin Conf.
+    private func applyFontSpecFromConf() {
+        guard let termWin else { return }
+        let cSpec = putty_bridge_termwin_font_spec(termWin)
+        let spec = cSpec != nil ? String(cString: cSpec!) : "mac:SFMono-Regular:12"
+        applyFontSpecString(spec)
+    }
+
+    /// Reload font after Change Settings Apply.
+    fileprivate func applySettingsFromConf() {
+        applyFontSpecFromConf()
+        updateFontMetrics()
+        if let resizeScrollHost {
+            resizeScrollHost.sizeWindowToConfiguredGrid()
+        } else {
+            syncTerminalGridSize()
+        }
+        setNeedsDisplay(bounds)
+        window?.displayIfNeeded()
+    }
+
     private func updateFontMetrics() {
         guard let termWin else { return }
 
-        let font = NSFont(name: "SFMono-Regular", size: fontPointSize)
-            ?? NSFont.monospacedSystemFont(ofSize: fontPointSize, weight: .regular)
+        /*
+         * Face is already in the renderer cache (openSession / settings
+         * changed / prior apply). Only sync the live point size here so
+         * RESIZE_FONT can scale without re-reading Conf.
+         */
+        renderer.refreshMetrics(pointSize: fontPointSize)
+        let font = renderer.measureCellFont()
         let probe = "M" as NSString
         let charWidth = probe.size(withAttributes: [.font: font]).width
         let cellHeight = ceil(font.ascender - font.descender + font.leading)

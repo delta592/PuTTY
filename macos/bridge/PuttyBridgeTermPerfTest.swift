@@ -33,7 +33,8 @@ final class TermPerfHarness {
             request_resize: nil,
             bell: nil,
             set_title: nil,
-            set_icon_title: nil
+            set_icon_title: nil,
+            settings_changed: nil
         )
         let ctx = Unmanaged.passUnretained(self).toOpaque()
         putty_bridge_termwin_set_callbacks(handle, &callbacks, ctx)

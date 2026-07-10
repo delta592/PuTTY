@@ -74,27 +74,55 @@ final class TerminalFontCache {
     }
 
     private func makeNSFont(bold: Bool) -> NSFont {
-        if bold, let boldFont = NSFontManager.shared.font(
+        let regular = Self.resolveFont(postScriptName: postScriptName, size: pointSize)
+        guard bold else { return regular }
+        let converted = NSFontManager.shared.convert(regular, toHaveTrait: .boldFontMask)
+        if converted.fontDescriptor.symbolicTraits.contains(.bold) {
+            return converted
+        }
+        /* Try a Bold face in the same family before falling back to system mono. */
+        if let family = regular.familyName,
+           let boldFace = NSFontManager.shared.font(
+               withFamily: family,
+               traits: .boldFontMask,
+               weight: 9,
+               size: pointSize
+           ) {
+            return boldFace
+        }
+        return NSFont.monospacedSystemFont(ofSize: pointSize, weight: .bold)
+    }
+
+    /// Resolve PostScript name, then family name, then system monospaced.
+    private static func resolveFont(postScriptName: String, size: CGFloat) -> NSFont {
+        if let named = NSFont(name: postScriptName, size: size) {
+            return named
+        }
+        /* Some installs expose only the family (e.g. "Inconsolata"). */
+        if let familyFont = NSFontManager.shared.font(
             withFamily: postScriptName,
-            traits: .boldFontMask,
-            weight: 9,
-            size: pointSize
+            traits: [],
+            weight: 5,
+            size: size
         ) {
-            return boldFont
+            return familyFont
         }
-        if let regular = NSFont(name: postScriptName, size: pointSize) {
-            return regular
-        }
-        return NSFont.monospacedSystemFont(
-            ofSize: pointSize, weight: bold ? .bold : .regular
-        )
+        return NSFont.monospacedSystemFont(ofSize: size, weight: .regular)
     }
 
     private static func parseFontSpec(_ spec: String) -> (postScriptName: String, pointSize: CGFloat) {
         let parts = spec.split(separator: ":", omittingEmptySubsequences: false)
-        if parts.count == 3, parts[0] == "mac", let size = Double(parts[2]) {
-            return (String(parts[1]), CGFloat(size))
+        if parts.count >= 3, parts[0] == "mac", let size = Double(parts[parts.count - 1]) {
+            /* Join middle segments in case a PostScript name ever contains ':'. */
+            let name = parts[1..<(parts.count - 1)].joined(separator: ":")
+            if !name.isEmpty {
+                return (name, CGFloat(size))
+            }
         }
         return ("SFMono-Regular", 12)
     }
+
+    /// Test/diagnostic: currently configured PostScript name.
+    var currentPostScriptName: String { postScriptName }
+    var currentPointSize: CGFloat { pointSize }
 }

@@ -825,6 +825,8 @@ static void bridge_after_change_settings(void *vctx, int result)
     if (result > 0 && ctx->btw && ctx->btw->seat && ctx->working) {
         mac_gui_seat_reconfigure(ctx->btw->seat, ctx->working);
         ctx->btw->conf = mac_gui_seat_get_conf(ctx->btw->seat);
+        if (ctx->btw->swift_callbacks.settings_changed)
+            ctx->btw->swift_callbacks.settings_changed(ctx->btw->swift_view_ctx);
     }
 
     if (ctx->working)
@@ -940,6 +942,18 @@ double putty_bridge_termwin_get_backing_scale(const PuttyBridgeTermWin *btw)
     if (!btw || !btw->mtw)
         return 1.0;
     return mac_termwin_get_backing_scale(btw->mtw);
+}
+
+const char *putty_bridge_termwin_font_spec(const PuttyBridgeTermWin *btw)
+{
+    FontSpec *fs;
+
+    if (!btw || !btw->conf)
+        return DEFAULT_MAC_FONT;
+    fs = conf_get_fontspec(btw->conf, CONF_font);
+    if (fs && fs->name && *fs->name)
+        return fs->name;
+    return DEFAULT_MAC_FONT;
 }
 
 void putty_bridge_termwin_set_font_metrics(

@@ -477,6 +477,29 @@ static void mac_fire_handler(struct dlgparam *dp, struct MacUCtrl *uc, int event
 }
 
 /*
+ * Push every CTRL_FONTSELECT text field into Conf. The font panel is
+ * modeless; if changeFont: was missed (target/first-responder races),
+ * Save/Open/Apply would otherwise persist the stale FontSpec.
+ */
+static void mac_commit_font_selectors(struct dlgparam *dp)
+{
+    int i;
+
+    if (!dp || !dp->byctrl || !dp->data)
+        return;
+    for (i = 0;; i++) {
+        struct MacUCtrl *uc = index234(dp->byctrl, i);
+        if (!uc)
+            break;
+        if (!uc->ctrl || uc->ctrl->type != CTRL_FONTSELECT)
+            continue;
+        if (!uc->ctrl->handler)
+            continue;
+        uc->ctrl->handler(uc->ctrl, dp, dp->data, EVENT_VALCHANGE);
+    }
+}
+
+/*
  * NSTextField / NSComboBox only send their action when editing ends
  * (Return or focus change). Clicking Apply / Save / Open often leaves
  * the field as first responder, so the Conf copy never sees the typed
@@ -488,6 +511,7 @@ static void mac_commit_pending_edits(struct dlgparam *dp)
         return;
     [dp->window endEditingFor:nil];
     [dp->window makeFirstResponder:nil];
+    mac_commit_font_selectors(dp);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -686,6 +710,40 @@ doCommandBySelector:(SEL)commandSelector
     }
 }
 
+- (void)applySelectedFontToPendingControl
+{
+    struct MacUCtrl *uc = self.pendingFontUCtrl;
+    if (!uc || !uc->ctrl || uc->ctrl->type != CTRL_FONTSELECT)
+        return;
+    if (!uc->widget || ![uc->widget isKindOfClass:[NSTextField class]])
+        return;
+
+    NSFontManager *fm = [NSFontManager sharedFontManager];
+    NSFont *base = [fm selectedFont];
+    if (!base)
+        base = [NSFont monospacedSystemFontOfSize:12
+                                           weight:NSFontWeightRegular];
+    NSFont *font = [fm convertFont:base];
+    if (!font)
+        font = base;
+    if (!font)
+        return;
+
+    /* Integer sizes when whole; avoid "14.000000" noise in the field. */
+    CGFloat pts = font.pointSize;
+    NSString *sizeStr = (fabs(pts - rint(pts)) < 0.01)
+        ? [NSString stringWithFormat:@"%.0f", pts]
+        : [NSString stringWithFormat:@"%g", (double)pts];
+    NSString *spec = [NSString stringWithFormat:@"mac:%@:%@",
+                      font.fontName, sizeStr];
+    ((NSTextField *)uc->widget).stringValue = spec;
+    /*
+     * conf_fontsel_handler only handles EVENT_VALCHANGE (Windows parity).
+     * EVENT_CALLBACK left Conf stale so Save/Apply kept the old font.
+     */
+    mac_fire_handler(self.dp, uc, EVENT_VALCHANGE);
+}
+
 - (void)fontBrowse:(id)sender
 {
     struct MacUCtrl *uc = mac_uctrl_from_sender(sender);
@@ -700,9 +758,12 @@ doCommandBySelector:(SEL)commandSelector
 
     if ([cur hasPrefix:@"mac:"]) {
         NSArray *parts = [cur componentsSeparatedByString:@":"];
-        if (parts.count == 3) {
-            CGFloat size = [parts[2] doubleValue];
-            NSFont *named = [NSFont fontWithName:parts[1]
+        if (parts.count >= 3) {
+            CGFloat size = [parts.lastObject doubleValue];
+            NSString *psName =
+                [[parts subarrayWithRange:NSMakeRange(1, parts.count - 2)]
+                    componentsJoinedByString:@":"];
+            NSFont *named = [NSFont fontWithName:psName
                                             size:size > 0 ? size : 12];
             if (named)
                 font = named;
@@ -710,27 +771,22 @@ doCommandBySelector:(SEL)commandSelector
     }
 
     self.pendingFontUCtrl = uc;
+    /*
+     * Keep MacConfigActions as the font-manager target. AppKit also sends
+     * changeFont: up the responder chain; without an explicit target the
+     * panel can update the field never / miss Conf.
+     */
     fm.target = self;
     fm.action = @selector(changeFont:);
     [fm setSelectedFont:font isMultiple:NO];
+    [[NSFontPanel sharedFontPanel] setPanelFont:font isMultiple:NO];
     [fm orderFrontFontPanel:self];
 }
 
 - (void)changeFont:(id)sender
 {
     (void)sender;
-    struct MacUCtrl *uc = self.pendingFontUCtrl;
-    if (!uc || uc->ctrl->type != CTRL_FONTSELECT)
-        return;
-    NSFont *font = [[NSFontManager sharedFontManager] convertFont:
-                    [NSFont monospacedSystemFontOfSize:12
-                                                weight:NSFontWeightRegular]];
-    if (!font)
-        return;
-    NSString *spec = [NSString stringWithFormat:@"mac:%@:%g",
-                      font.fontName, (double)font.pointSize];
-    ((NSTextField *)uc->widget).stringValue = spec;
-    mac_fire_handler(self.dp, uc, EVENT_CALLBACK);
+    [self applySelectedFontToPendingControl];
 }
 
 - (void)draglistUp:(id)sender
@@ -1171,6 +1227,16 @@ static NSView *mac_layout_one_control(
                                               target:actions
                                               action:@selector(fontBrowse:)];
         mac_prepare_view(change);
+        /*
+         * Associate the button and field too — fontBrowse walks superviews
+         * for mac_uctrl_key, but an explicit link on the button is safer.
+         */
+        objc_setAssociatedObject(change, &mac_uctrl_key,
+                                 [NSValue valueWithPointer:uc],
+                                 OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        objc_setAssociatedObject(field, &mac_uctrl_key,
+                                 [NSValue valueWithPointer:uc],
+                                 OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         [line addArrangedSubview:change];
         [box addArrangedSubview:line];
         uc->widget = field;

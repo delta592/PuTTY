@@ -19,6 +19,7 @@ final class ConfigSaveLoadTests: XCTestCase {
         putty_conf_set_protocol(conf, Int32(PUTTY_CONF_PROT_SSH.rawValue))
         putty_conf_set_username(conf, "uitest")
         putty_conf_set_bool(conf, PUTTY_CONF_BOOL_TCP_NODELAY, true)
+        putty_conf_set_font(conf, "mac:Inconsolata-Regular:14")
 
         XCTAssertTrue(putty_conf_save_session(conf, name))
 
@@ -31,6 +32,7 @@ final class ConfigSaveLoadTests: XCTestCase {
         XCTAssertEqual(putty_conf_get_protocol(loaded), Int32(PUTTY_CONF_PROT_SSH.rawValue))
         XCTAssertEqual(String(cString: putty_conf_get_username(loaded)), "uitest")
         XCTAssertTrue(putty_conf_get_bool(loaded, PUTTY_CONF_BOOL_TCP_NODELAY))
+        XCTAssertEqual(String(cString: putty_conf_get_font(loaded)), "mac:Inconsolata-Regular:14")
 
         putty_conf_free(conf)
         putty_conf_free(loaded)

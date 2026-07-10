@@ -172,6 +172,13 @@ int putty_conf_default_port_for_protocol(int protocol);
 bool putty_conf_get_bool(const PuttyConf *conf, PuttyConfBoolKey key);
 void putty_conf_set_bool(PuttyConf *conf, PuttyConfBoolKey key, bool value);
 
+/**
+ * Terminal font as mac:PostScriptName:pointSize. Pointer owned by conf
+ * (valid until next mutation). Empty string if unset.
+ */
+const char *putty_conf_get_font(const PuttyConf *conf);
+void putty_conf_set_font(PuttyConf *conf, const char *font_spec);
+
 /** True when conf has enough information to open a network/serial session. */
 bool putty_conf_launchable(const PuttyConf *conf);
 

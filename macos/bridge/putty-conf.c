@@ -194,6 +194,29 @@ void putty_conf_set_bool(PuttyConf *conf, PuttyConfBoolKey key, bool value)
     }
 }
 
+const char *putty_conf_get_font(const PuttyConf *conf)
+{
+    FontSpec *fs;
+
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
+    if (!conf || !conf->conf)
+        return "";
+    fs = conf_get_fontspec(conf->conf, CONF_font);
+    return (fs && fs->name) ? fs->name : "";
+}
+
+void putty_conf_set_font(PuttyConf *conf, const char *font_spec)
+{
+    FontSpec *fs;
+
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
+    if (!conf || !conf->conf)
+        return;
+    fs = fontspec_new(font_spec && *font_spec ? font_spec : DEFAULT_MAC_FONT);
+    conf_set_fontspec(conf->conf, CONF_font, fs);
+    fontspec_free(fs);
+}
+
 void putty_conf_delete_session(const char *session_name)
 {
     PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
@@ -228,6 +251,10 @@ int putty_bridge_conf_smoke(void)
     if (strcmp(putty_conf_get_username(conf), "smokeuser") != 0)
         return -5;
 
+    putty_conf_set_font(conf, "mac:Inconsolata-Regular:14");
+    if (strcmp(putty_conf_get_font(conf), "mac:Inconsolata-Regular:14") != 0)
+        return -10;
+
     if (!putty_conf_save_session(conf, putty_conf_smoke_session))
         return -6;
 
@@ -251,6 +278,12 @@ int putty_bridge_conf_smoke(void)
         putty_conf_free(loaded);
         del_settings(putty_conf_smoke_session);
         return -9;
+    }
+    if (strcmp(putty_conf_get_font(loaded), "mac:Inconsolata-Regular:14") != 0) {
+        putty_conf_free(conf);
+        putty_conf_free(loaded);
+        del_settings(putty_conf_smoke_session);
+        return -11;
     }
 
     putty_conf_free(conf);

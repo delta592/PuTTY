@@ -82,24 +82,37 @@ public final class TerminalTextRenderer {
         refreshMetrics()
     }
 
-    /// Keep glyph size in sync with TerminalView's configured point size.
-    /// Do not pass font ascent here — that is a metric, not a point size, and
-    /// using it shrinks glyphs inside the cell (selection highlight looks
-    /// truncated / top-aligned).
-    public func refreshMetrics(pointSize: CGFloat? = nil) {
+    /// Keep glyph size / face in sync with TerminalView's configured font.
+    /// Do not pass font ascent as a point size — that shrinks glyphs inside
+    /// the cell (selection highlight looks truncated / top-aligned).
+    public func refreshMetrics(fontSpec: String? = nil, pointSize: CGFloat? = nil) {
         guard let termWin else { return }
         cellWidth = CGFloat(putty_bridge_termwin_cell_width_pt(termWin))
         cellHeight = CGFloat(putty_bridge_termwin_cell_height_pt(termWin))
         ascent = CGFloat(putty_bridge_termwin_ascent_pt(termWin))
         cursorType = putty_bridge_termwin_cursor_type(termWin)
         boldStyle = putty_bridge_termwin_bold_style(termWin)
-        if let pointSize, pointSize > 0 {
+        if let fontSpec, !fontSpec.isEmpty {
+            fontCache.setFontSpec(fontSpec)
+            if let pointSize, pointSize > 0 {
+                fontCache.setPointSize(pointSize)
+            }
+        } else if let pointSize, pointSize > 0 {
             fontCache.setPointSize(pointSize)
         } else if cellHeight > 0 {
             fontCache.setPointSize(cellHeight * 0.8)
         }
         paletteCache.invalidate()
     }
+
+    /// Measure an "M" cell for the current font face/size (used by TerminalView).
+    public func measureCellFont() -> NSFont {
+        fontCache.nsFont(bold: false, wide: false)
+    }
+
+    /// Currently configured face (for diagnostics / tests).
+    public var configuredFontName: String { fontCache.currentPostScriptName }
+    public var configuredPointSize: CGFloat { fontCache.currentPointSize }
 
     public func beginPaint() {
         /*

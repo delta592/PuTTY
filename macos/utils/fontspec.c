@@ -2,8 +2,8 @@
  * macos/utils/fontspec.c: FontSpec for macOS (AppKit / Core Text).
  *
  * Font names use the form mac:PostScriptName:pointSize, e.g.
- * mac:SFMono-Regular:12. Phase 4 TerminalView parses this when creating
- * NSFont instances; until then the string is stored opaquely in settings.
+ * mac:SFMono-Regular:12. TerminalView / TerminalFontCache parse this when
+ * creating NSFont instances; settings store the string opaquely.
  */
 
 #include "putty.h"

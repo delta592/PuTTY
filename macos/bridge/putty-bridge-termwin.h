@@ -72,6 +72,8 @@ typedef struct PuttyBridgeTermWinCallbacks {
     void (*bell)(void *ctx, int32_t mode);
     void (*set_title)(void *ctx, const char *title_utf8);
     void (*set_icon_title)(void *ctx, const char *title_utf8);
+    /** Fired after mid-session Change Settings Apply (font, colours, …). */
+    void (*settings_changed)(void *ctx);
 } PuttyBridgeTermWinCallbacks;
 
 #define PUTTY_BRIDGE_BELL_DISABLED    0
@@ -244,6 +246,12 @@ double putty_bridge_termwin_get_backing_scale(const PuttyBridgeTermWin *btw);
 void putty_bridge_termwin_set_font_metrics(
     PuttyBridgeTermWin *btw, double cell_width_pt, double cell_height_pt,
     double ascent_pt, double descent_pt);
+
+/**
+ * Terminal font from Conf (mac:PostScriptName:pointSize). Pointer owned by
+ * the termwin Conf; valid until the next Conf mutation/reconfigure.
+ */
+const char *putty_bridge_termwin_font_spec(const PuttyBridgeTermWin *btw);
 
 double putty_bridge_termwin_cell_width_pt(const PuttyBridgeTermWin *btw);
 double putty_bridge_termwin_cell_height_pt(const PuttyBridgeTermWin *btw);
