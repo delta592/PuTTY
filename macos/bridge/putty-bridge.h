@@ -147,6 +147,9 @@ bool putty_conf_load_session(PuttyConf *conf, const char *session_name);
 /** Persist conf under session_name. Returns false on I/O error. */
 bool putty_conf_save_session(PuttyConf *conf, const char *session_name);
 
+/** Delete a named saved session (no-op if missing). */
+void putty_conf_delete_session(const char *session_name);
+
 /** String getters return pointers owned by conf (valid until next mutation). */
 const char *putty_conf_get_host(const PuttyConf *conf);
 void putty_conf_set_host(PuttyConf *conf, const char *host);

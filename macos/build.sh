@@ -13,6 +13,7 @@
 #   configure   Configure the build tree only
 #   open        Launch an .app from the build tree
 #   verify      Run verify-bundle-layout (and verify-universal when applicable)
+#   test        Build putty-mac-test-gate then run CTest (Phase 9.1)
 #   install     Install .app bundles to a prefix
 #   clean       Remove the selected build directory
 #   check       Verify toolchain prerequisites
@@ -61,6 +62,7 @@ declare -gi DO_OPEN=0
 declare -gi DO_RECONFIGURE=0
 declare -gi DO_LOG=1
 declare -ga EXTRA_CMAKE_ARGS=()
+declare -ga EXTRA_CTEST_ARGS=()
 declare -ga ORIG_ARGV=("$@")
 
 # Resolved by resolve_profile.
@@ -85,6 +87,7 @@ declare -gA COMMANDS=(
   [configure]=run_configure
   [open]=run_open
   [verify]=run_verify
+  [test]=run_test
   [install]=run_install
   [clean]=run_clean
   [check]=run_check
@@ -225,6 +228,7 @@ Commands:
   configure   Configure the build tree only
   open        Launch an .app from the build tree
   verify      Run verify-bundle-layout (and verify-universal when applicable)
+  test        Build putty-mac-test-gate, then ctest -L macos (Phase 9.1)
   install     Install .app bundles to a prefix
   clean       Remove the selected build directory
   check       Verify toolchain prerequisites
@@ -245,6 +249,7 @@ Options:
   --jobs N, -j N            Parallel build jobs
   --deployment-target VER   macOS deployment target (default: 15.0)
   --no-log                  Do not write <build-dir>/build.log
+  --ctest-args ARGS         Extra arguments for ctest (quote as one value)
   -DVAR=VALUE               Extra CMake cache entry (repeatable)
 
 Logs:
@@ -258,6 +263,8 @@ Examples:
   ./macos/build.sh build --release --open
   ./macos/build.sh open --dev --app pterm
   ./macos/build.sh verify --universal
+  ./macos/build.sh test --dev
+  ./macos/build.sh test --release --ctest-args '-L unit'
   ./macos/build.sh install --release --prefix /Applications
   ./macos/build.sh clean --dev
 EOF
@@ -269,6 +276,9 @@ EOF
 
 require_darwin() {
   [[ $(uname -s) == Darwin ]] || die 'this script only runs on macOS'
+  # Homebrew often exports LDFLAGS/CPPFLAGS that pull Command Line Tools
+  # Swift overlays and break Xcode SDK module builds.
+  unset LDFLAGS CPPFLAGS SDKROOT || true
 }
 
 resolve_profile() {
@@ -587,6 +597,48 @@ run_verify() {
   fi
 }
 
+run_test() {
+  require_darwin
+  resolve_profile
+  [[ ${GUI} == ON ]] || die 'test is only for GUI profiles (PUTTY_MACOS_GUI=ON)'
+  start_build_log
+
+  if ! cmake_configured || ((DO_RECONFIGURE)) || ! profile_matches_cache; then
+    run_configure
+  fi
+
+  local start=${EPOCHREALTIME}
+  log "Building putty-mac-test-gate (${BUILD_DIR})"
+  run_cmake_build putty-mac-test-gate
+
+  # Prefer the build-root CTestTestfile (includes macos/tests via subdirs).
+  # Fall back to the tests subdir if an older tree lacks the root file.
+  local ctest_dir=${BUILD_DIR}
+  if [[ ! -f ${BUILD_DIR}/CTestTestfile.cmake ]]; then
+    if [[ -f ${BUILD_DIR}/macos/tests/CTestTestfile.cmake ]]; then
+      ctest_dir=${BUILD_DIR}/macos/tests
+    else
+      die 'no CTestTestfile.cmake; reconfigure with BUILD_TESTING=ON'
+    fi
+  fi
+
+  local -a ctest_args=(
+    --test-dir "${ctest_dir}"
+    --output-on-failure
+    -L macos
+  )
+  if [[ -n ${XCODE_CONFIG} ]]; then
+    ctest_args+=(-C "${XCODE_CONFIG}")
+  fi
+  if ((${#EXTRA_CTEST_ARGS[@]} > 0)); then
+    ctest_args+=("${EXTRA_CTEST_ARGS[@]}")
+  fi
+
+  log "Running ctest ${ctest_args[*]@Q}"
+  run_logged ctest "${ctest_args[@]}"
+  log "Tests finished in $(elapsed_since "${start}")"
+}
+
 run_install() {
   require_darwin
   resolve_profile
@@ -627,7 +679,7 @@ parse_args() {
 
   while (($# > 0)); do
     case $1 in
-      build | configure | open | verify | install | clean | check | help)
+      build | configure | open | verify | test | install | clean | check | help)
         if ((command_set)); then
           die 'multiple commands: %s and %s' "${COMMAND}" "$1"
         fi
@@ -686,6 +738,12 @@ parse_args() {
       --no-log)
         DO_LOG=0
         shift
+        ;;
+      --ctest-args)
+        require_value "$@"
+        # shellcheck disable=SC2206
+        EXTRA_CTEST_ARGS+=($2)
+        shift 2
         ;;
       -D*)
         EXTRA_CMAKE_ARGS+=("$1")

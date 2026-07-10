@@ -20,6 +20,10 @@ set(CMAKE_C_STANDARD 99)
 
 include(cmake/setup.cmake)
 
+# Enable CTest at the project root so subdirectory add_test() entries
+# (macos/tests Phase 9.1) are discoverable via `ctest --test-dir <build>`.
+include(CTest)
+
 # Scan the docs directory first, so that when we start calling
 # installed_program(), we'll know if we have man pages available
 add_subdirectory(doc)

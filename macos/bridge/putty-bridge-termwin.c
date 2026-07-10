@@ -77,8 +77,14 @@ static bool bridge_setup_draw_ctx(void *ctx)
 {
     PuttyBridgeTermWin *btw = (PuttyBridgeTermWin *)ctx;
 
+    /*
+     * Headless smokes omit Swift setup_draw_ctx. Still allow term_update
+     * so update_sbar / cursor bookkeeping run (draw_* callbacks no-op).
+     * Production TerminalView always registers setup_draw_ctx and returns
+     * false outside draw(_:) so paint is deferred to AppKit.
+     */
     if (!btw->swift_callbacks.setup_draw_ctx)
-        return false;
+        return true;
     return btw->swift_callbacks.setup_draw_ctx(btw->swift_view_ctx);
 }
 

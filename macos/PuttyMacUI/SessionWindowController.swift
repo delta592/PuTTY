@@ -42,6 +42,14 @@ public final class SessionWindowController: NSWindowController, NSWindowDelegate
         }
     }
 
+    /// Present immediately (UI tests / smoke). Production uses `openNew`.
+    public func presentNow() {
+        if !Self.isOpen(self) {
+            Self.openControllers.append(self)
+        }
+        present()
+    }
+
     public init(conf: PuttyConfHandle?, connect: Bool) {
         self.sessionConf = conf
         self.connectOnOpen = connect

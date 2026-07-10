@@ -194,6 +194,14 @@ void putty_conf_set_bool(PuttyConf *conf, PuttyConfBoolKey key, bool value)
     }
 }
 
+void putty_conf_delete_session(const char *session_name)
+{
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
+    if (!session_name || !*session_name)
+        return;
+    del_settings(session_name);
+}
+
 static const char *const putty_conf_smoke_session = "__PuttyBridgeConfSmoke__";
 
 int putty_bridge_conf_smoke(void)

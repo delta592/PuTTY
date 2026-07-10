@@ -153,9 +153,25 @@ the `macos/` platform when `PUTTY_MACOS_GUI=ON`.
 | `PUTTY_MACOS_GUI=OFF` (default) | `unix/` | CLI tools; GTK `putty`/`pterm` if GTK is found |
 | `PUTTY_MACOS_GUI=ON` | `macos/` | Native `.app` bundles + CLI; no GTK |
 
-## Smoke tests (optional)
+## Smoke / unit tests (Phase 9.1)
 
 From a configured GUI build tree:
+
+```sh
+./macos/build.sh test --dev          # build putty-mac-test-gate + ctest -L macos
+./macos/build.sh test --release
+# or manually:
+cmake --build build-macos-gui-dev --target putty-mac-test-gate
+ctest --test-dir build-macos-gui-dev --output-on-failure -L macos
+```
+
+CTest covers portable C tests (`test_terminal`, `test_lineedit`, `test_conf`,
+`cryptsuite`/`testcrypt`, …), macOS smoke binaries, the Phase 4 perf gate,
+and the `PuttyMacUITests` XCTest bundle (launch, local-echo connect, config
+save/load). `testzlib` (stdin tool) and `testsc` (DynamoRIO dry-run) are
+built but not registered as CTest cases. Manual matrix: [`TESTING.md`](TESTING.md).
+
+Single smoke binary:
 
 ```sh
 cmake --build build-macos-gui-dev --target putty-bridge-termwin-input-smoke-c
@@ -186,4 +202,5 @@ seat, clipboard, and related paths. See `macos/CMakeLists.txt` and
 | [`../README`](../README) | Root build overview (all platforms) |
 | [`../MACOS_GUI_PLAN.md`](../MACOS_GUI_PLAN.md) | Phased design / remaining packaging |
 | [`AGENT.md`](AGENT.md) | OpenSSH agent + askpass |
+| [`TESTING.md`](TESTING.md) | Phase 9.1 CTest / XCTest / manual matrix |
 | [`PuTTY/TERMINAL_PERFORMANCE.md`](PuTTY/TERMINAL_PERFORMANCE.md) | Terminal paint performance notes |

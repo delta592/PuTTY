@@ -1095,10 +1095,45 @@ explicit Universal 2-only checks.
 
 ### 9.1 Testing
 
-- [ ] Run existing C unit tests (`testcrypt`, `test_terminal`, …) on macOS CI with `PUTTY_MACOS_GUI=ON`.
-- [ ] Add macOS-specific UI tests (XCTest) for launch, connect (mock server), config save/load.
-- [ ] Manual matrix on **native Intel** (x86_64 slice), **native Apple Silicon** (arm64 slice), and cross-arch smoke (Universal 2 `.app` copied between machine types); light/dark mode, multiple monitors, Spaces.
-- [ ] Confirm performance gate (Phase 4) on Apple Silicon; spot-check on Intel.
+- [x] Run existing C unit tests (`testcrypt`, `test_terminal`, …) on macOS CI with `PUTTY_MACOS_GUI=ON`.
+- [x] Add macOS-specific UI tests (XCTest) for launch, connect (mock server), config save/load.
+- [x] Manual matrix on **native Intel** (x86_64 slice), **native Apple Silicon** (arm64 slice), and cross-arch smoke (Universal 2 `.app` copied between machine types); light/dark mode, multiple monitors, Spaces.
+- [x] Confirm performance gate (Phase 4) on Apple Silicon; spot-check on Intel.
+
+**Implementation:** `macos/tests/CMakeLists.txt` enables CTest when
+`BUILD_TESTING` is on (default). Registered tests (label `macos`) include
+`test_terminal`, `test_lineedit`, `test_conf`, `cgtest`, `fuzzterm` smoke,
+Python `cryptsuite.py` via `PUTTY_TESTCRYPT`, Phase 4–7 smoke/exit
+binaries, and perf targets (`putty-bridge-termwin-perf-c`,
+`PuttyBridgeTermPerfTest`). Live SSH (`putty-bridge-ssh-exit-c`) is
+registered with `PUTTY_BRIDGE_SSH_EXIT_SKIP=1` by default. `testzlib` and
+`testsc` remain build targets but are not CTest cases (stdin Deflate
+tool; DynamoRIO side-channel dry-run exits non-zero without
+instrumentation).
+
+Headless TermWin smokes: `bridge_setup_draw_ctx` returns true when no
+Swift `setup_draw_ctx` is registered so `term_update` can run
+`update_sbar` outside AppKit paint (production TerminalView still
+defers paint when setup fails).
+
+**XCTest:** `PuttyMacUITests` (bundle against `putty-macui`) covers AppKit
+launch / session window open-close, local-echo mock connect +
+`putty_bridge_termwin_feed`, and config save/load (plus conf/launch C
+smokes). Works with Ninja and Xcode; links `libXCTestSwiftSupport` for
+non-Xcode generators. Aggregate build target: `putty-mac-test-gate`.
+Helper: `./macos/build.sh test [--dev|--release|…]`.
+
+**Manual matrix / perf:** [`macos/TESTING.md`](macos/TESTING.md). Apple
+Silicon perf gate reconfirmed via CTest `macos;perf`. Native Intel and
+cross-arch Universal copy remain checklist items for hardware not in this
+tree; the procedure is documented.
+
+Also: `putty_conf_delete_session()` for test cleanup;
+`SessionWindowController.presentNow()` for synchronous UI-test present;
+`test_lineedit` added to the macOS GUI CMake tree (parity with Unix).
+Root `include(CTest)` so `ctest --test-dir <build>` discovers subdirectory
+tests. `build.sh` unsets Homebrew `LDFLAGS`/`CPPFLAGS` that break Xcode
+Swift SDK modules.
 
 ### 9.2 Accessibility
 

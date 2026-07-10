@@ -44,7 +44,9 @@ Record results on your machine after a Release build:
 | `PuttyBridgeTermPerfTest` | 80×120 | 120 | passes gate | yes |
 
 Release build on Apple Silicon (arm64, macOS 15, July 2026): both targets pass the
-16.67 ms/frame budget with headroom.
+16.67 ms/frame budget with headroom. Re-confirm with
+`./macos/build.sh test --release` (CTest labels `macos;perf`) or the commands
+above. Intel spot-check: see [`../TESTING.md`](../TESTING.md).
 
 ## Profiling
 
