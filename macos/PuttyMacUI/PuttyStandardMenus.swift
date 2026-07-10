@@ -1,0 +1,78 @@
+import AppKit
+
+/// Shared AppKit menu construction for PuTTY / pterm (Phase 9.3).
+@MainActor
+public enum PuttyStandardMenus {
+    /// About + Settings… (⌘,) in the application menu — macOS Settings placement.
+    public static func installAppMenuChrome(
+        into appMenu: NSMenu,
+        appName: String,
+        target: AnyObject,
+        aboutAction: Selector,
+        settingsAction: Selector
+    ) {
+        let about = NSMenuItem(
+            title: "About \(appName)",
+            action: aboutAction,
+            keyEquivalent: "")
+        about.target = target
+        appMenu.insertItem(about, at: 0)
+        appMenu.insertItem(NSMenuItem.separator(), at: 1)
+
+        let settings = NSMenuItem(
+            title: "Settings…",
+            action: settingsAction,
+            keyEquivalent: ",")
+        settings.target = target
+        appMenu.insertItem(settings, at: 2)
+        appMenu.insertItem(NSMenuItem.separator(), at: 3)
+    }
+
+    /// Edit menu with Copy / Paste / Paste Special / Select All (nil target → responder chain).
+    @discardableResult
+    public static func installEditMenu(into mainMenu: NSMenu) -> NSMenu {
+        let editItem = NSMenuItem(title: "Edit", action: nil, keyEquivalent: "")
+        let editMenu = NSMenu(title: "Edit")
+
+        editMenu.addItem(
+            withTitle: "Copy",
+            action: #selector(NSText.copy(_:)),
+            keyEquivalent: "c")
+        editMenu.addItem(
+            withTitle: "Paste",
+            action: #selector(NSText.paste(_:)),
+            keyEquivalent: "v")
+
+        let pasteSpecial = editMenu.addItem(
+            withTitle: "Paste Special",
+            action: Selector(("pasteSpecial:")),
+            keyEquivalent: "v")
+        pasteSpecial.keyEquivalentModifierMask = [.command, .option]
+
+        editMenu.addItem(NSMenuItem.separator())
+        editMenu.addItem(
+            withTitle: "Select All",
+            action: #selector(NSText.selectAll(_:)),
+            keyEquivalent: "a")
+        editMenu.addItem(
+            withTitle: "Copy All",
+            action: Selector(("copyAll:")),
+            keyEquivalent: "")
+
+        editItem.submenu = editMenu
+
+        /*
+         * Insert before Window when present so the bar reads
+         * App | Session | Edit | Window (HIG order).
+         */
+        var insertAt = mainMenu.numberOfItems
+        for i in 0..<mainMenu.numberOfItems {
+            if mainMenu.item(at: i)?.title == "Window" {
+                insertAt = i
+                break
+            }
+        }
+        mainMenu.insertItem(editItem, at: insertAt)
+        return editMenu
+    }
+}

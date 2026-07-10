@@ -860,7 +860,7 @@ bool putty_bridge_termwin_change_settings(PuttyBridgeTermWin *btw)
     if (backend)
         protcfginfo = backend_cfg_info(backend);
 
-    title = dupcat(appname, " Reconfiguration");
+    title = dupcat(appname, " Settings");
     mac_config_create_box(title, ctx->working, true, protcfginfo,
                           bridge_after_change_settings, ctx);
     sfree(title);

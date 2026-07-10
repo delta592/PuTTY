@@ -73,3 +73,9 @@ On Intel: run the same binaries once as a spot-check; set
 Automated: `AccessibilityTests` in `PuttyMacUITests` (VoiceOver identity on
 `TerminalView`, Event Log first responder). Manual VoiceOver / Reduce
 Motion / Increase Contrast checklist: [`ACCESSIBILITY.md`](ACCESSIBILITY.md).
+
+## macOS 15 integration (Phase 9.3)
+
+Automated: `IntegrationTests` (scroll delta math, Edit menu selectors,
+Settings menu placement, accent colour). Manual Settings / accent /
+trackpad / Edit checklist: [`INTEGRATION.md`](INTEGRATION.md).

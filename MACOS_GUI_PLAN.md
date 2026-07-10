@@ -1156,10 +1156,22 @@ XCTest: `AccessibilityTests` in `PuttyMacUITests`.
 
 ### 9.3 macOS 15 integration
 
-- [ ] Adopt standard **Settings** scene patterns where appropriate.
-- [ ] Support system accent colour in chrome (not terminal palette).
-- [ ] Trackpad scroll momentum and Phase 4 scroll fix validation.
-- [ ] Menu bar **Edit → Copy/Paste** wired to responder chain.
+- [x] Adopt standard **Settings** scene patterns where appropriate.
+- [x] Support system accent colour in chrome (not terminal palette).
+- [x] Trackpad scroll momentum and Phase 4 scroll fix validation.
+- [x] Menu bar **Edit → Copy/Paste** wired to responder chain.
+
+**Implementation:** AppKit (not SwiftUI Settings scenes): **Settings…**
+(⌘,) and **About** live in the application menu via
+`PuttyStandardMenus`; Session keeps a Change Settings… alias. Mid-session
+config windows are titled `«App» Settings`. `PuttyChrome` /
+`AccentColor.colorset` use `NSColor.controlAccentColor` for chrome
+borders and toolbar tint only. `TerminalScrollInput` maps precise
+trackpad deltas (including momentum) to cell-height lines; mouse wheels
+keep fixed ticks. **Edit** menu Copy/Paste/Select All/Paste Special/Copy
+All use nil-target selectors handled by `TerminalView`. Docs:
+[`macos/INTEGRATION.md`](macos/INTEGRATION.md). XCTest:
+`IntegrationTests`.
 
 ### 9.4 Printing
 

@@ -291,10 +291,10 @@ final class TerminalScrollContainer: NSView, TerminalResizeScrolling, TerminalWi
 
     private func applyAccessibilityChrome() {
         /*
-         * Increase Contrast strengthens session chrome only — never the
-         * terminal colour palette (Phase 9.2 / 9.3).
+         * System accent (or Increase Contrast label) on session chrome only —
+         * never the terminal colour palette (Phase 9.2 / 9.3).
          */
-        PuttyAccessibility.applyChromeContrast(to: self)
+        PuttyChrome.applyChromeBorder(to: self)
         if PuttyAccessibility.increaseContrast {
             scroller.controlSize = .regular
             scroller.knobStyle = .light

@@ -178,7 +178,6 @@ final class TerminalView: NSView {
     private var caretCell = NSPoint(x: 0, y: 0)
     private var rawMousePointer = false
     private var scrollAccumulator: CGFloat = 0
-    private let scrollLineHeight: CGFloat = 3
     private var clipboard: TerminalClipboard?
 
     private lazy var contextMenu: NSMenu = buildContextMenu()
@@ -384,15 +383,20 @@ final class TerminalView: NSView {
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         guard event.modifierFlags.contains(.command) else { return false }
+        let option = event.modifierFlags.contains(.option)
         switch event.charactersIgnoringModifiers?.lowercased() {
         case "c":
-            copySelection(nil)
+            copy(nil)
             return true
         case "v":
-            pasteFromClipboard(nil)
+            if option {
+                pasteSpecial(nil)
+            } else {
+                paste(nil)
+            }
             return true
         case "a":
-            selectAllAction(nil)
+            selectAll(nil)
             return true
         default:
             return false
@@ -494,39 +498,54 @@ final class TerminalView: NSView {
 
     override func scrollWheel(with event: NSEvent) {
         guard let termWin else { return }
+
+        /*
+         * Cancelled gestures drop residual fractional lines so the next
+         * finger contact starts clean. Momentum events keep flowing through
+         * with non-zero scrollingDeltaY after the finger lifts (Phase 9.3).
+         */
+        if event.phase == .cancelled {
+            scrollAccumulator = 0
+            return
+        }
+
         let cell = cellAt(pointInView: convert(event.locationInWindow, from: nil))
         let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         let shift = mods.contains(.shift)
         let ctrl = mods.contains(.control)
         let alt = mods.contains(.option)
 
+        let cellH = CGFloat(putty_bridge_termwin_cell_height_pt(termWin))
+        let lines = TerminalScrollInput.consumeLines(
+            deltaY: event.scrollingDeltaY,
+            hasPreciseDeltas: event.hasPreciseScrollingDeltas,
+            cellHeight: cellH,
+            accumulator: &scrollAccumulator
+        )
+        guard lines != 0 else { return }
+
         let rawMouse = putty_bridge_termwin_raw_mouse_active(termWin)
         let overrideShift = putty_bridge_termwin_mouse_override_shift(termWin)
         if rawMouse && !(shift && overrideShift) {
-            scrollAccumulator += event.scrollingDeltaY
-            while scrollAccumulator <= -scrollLineHeight {
-                scrollAccumulator += scrollLineHeight
-                putty_bridge_termwin_mouse(
-                    termWin, PUTTY_BRIDGE_MBT_WHEEL_DOWN, PUTTY_BRIDGE_MA_CLICK,
-                    cell.x, cell.y, shift, ctrl, alt
-                )
-            }
-            while scrollAccumulator >= scrollLineHeight {
-                scrollAccumulator -= scrollLineHeight
-                putty_bridge_termwin_mouse(
-                    termWin, PUTTY_BRIDGE_MBT_WHEEL_UP, PUTTY_BRIDGE_MA_CLICK,
-                    cell.x, cell.y, shift, ctrl, alt
-                )
+            if lines < 0 {
+                for _ in 0..<(-lines) {
+                    putty_bridge_termwin_mouse(
+                        termWin, PUTTY_BRIDGE_MBT_WHEEL_DOWN, PUTTY_BRIDGE_MA_CLICK,
+                        cell.x, cell.y, shift, ctrl, alt
+                    )
+                }
+            } else {
+                for _ in 0..<lines {
+                    putty_bridge_termwin_mouse(
+                        termWin, PUTTY_BRIDGE_MBT_WHEEL_UP, PUTTY_BRIDGE_MA_CLICK,
+                        cell.x, cell.y, shift, ctrl, alt
+                    )
+                }
             }
             return
         }
 
-        scrollAccumulator += event.scrollingDeltaY
-        let lines = Int32(scrollAccumulator / scrollLineHeight)
-        if lines != 0 {
-            scrollAccumulator -= CGFloat(lines) * scrollLineHeight
-            putty_bridge_termwin_scroll_lines(termWin, -lines)
-        }
+        putty_bridge_termwin_scroll_lines(termWin, -lines)
     }
 
     override func menu(for event: NSEvent) -> NSMenu? {
@@ -548,33 +567,33 @@ final class TerminalView: NSView {
         addCursorRect(bounds, cursor: cursor)
     }
 
-    // MARK: - Context menu actions
+    // MARK: - Edit menu / context menu (responder chain, Phase 9.3)
 
-    @objc private func copySelection(_ sender: Any?) {
+    @objc func copy(_ sender: Any?) {
         _ = sender
         guard let termWin else { return }
         putty_bridge_termwin_copy_selection(termWin)
     }
 
-    @objc private func pasteFromClipboard(_ sender: Any?) {
+    @objc func paste(_ sender: Any?) {
         _ = sender
         guard let termWin else { return }
         putty_bridge_termwin_request_paste(termWin, PUTTY_BRIDGE_CLIP_CLIPBOARD)
     }
 
-    @objc private func pasteSpecial(_ sender: Any?) {
+    @objc func pasteSpecial(_ sender: Any?) {
         _ = sender
         guard let termWin else { return }
         putty_bridge_termwin_request_paste(termWin, PUTTY_BRIDGE_CLIP_LOCAL)
     }
 
-    @objc private func selectAllAction(_ sender: Any?) {
+    @objc override func selectAll(_ sender: Any?) {
         _ = sender
         guard let termWin else { return }
         putty_bridge_termwin_select_all(termWin)
     }
 
-    @objc private func copyAllAction(_ sender: Any?) {
+    @objc func copyAll(_ sender: Any?) {
         _ = sender
         guard let termWin else { return }
         putty_bridge_termwin_copy_all(termWin)
@@ -751,12 +770,12 @@ final class TerminalView: NSView {
 
     private func buildContextMenu() -> NSMenu {
         let menu = NSMenu()
-        menu.addItem(withTitle: "Copy", action: #selector(copySelection(_:)), keyEquivalent: "")
-        menu.addItem(withTitle: "Paste", action: #selector(pasteFromClipboard(_:)), keyEquivalent: "")
+        menu.addItem(withTitle: "Copy", action: #selector(copy(_:)), keyEquivalent: "")
+        menu.addItem(withTitle: "Paste", action: #selector(paste(_:)), keyEquivalent: "")
         menu.addItem(withTitle: "Paste Special", action: #selector(pasteSpecial(_:)), keyEquivalent: "")
         menu.addItem(.separator())
-        menu.addItem(withTitle: "Select All", action: #selector(selectAllAction(_:)), keyEquivalent: "")
-        menu.addItem(withTitle: "Copy All", action: #selector(copyAllAction(_:)), keyEquivalent: "")
+        menu.addItem(withTitle: "Select All", action: #selector(selectAll(_:)), keyEquivalent: "")
+        menu.addItem(withTitle: "Copy All", action: #selector(copyAll(_:)), keyEquivalent: "")
         return menu
     }
 
@@ -898,5 +917,21 @@ extension TerminalView: NSTextInputClient {
     nonisolated func characterIndex(for point: NSPoint) -> Int {
         _ = point
         return 0
+    }
+}
+
+extension TerminalView: NSMenuItemValidation {
+    func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        guard termWin != nil else { return false }
+        switch menuItem.action {
+        case #selector(copy(_:)), #selector(selectAll(_:)), #selector(copyAll(_:)),
+             #selector(pasteSpecial(_:)):
+            return true
+        case #selector(paste(_:)):
+            return NSPasteboard.general.canReadObject(
+                forClasses: [NSString.self], options: nil)
+        default:
+            return true
+        }
     }
 }

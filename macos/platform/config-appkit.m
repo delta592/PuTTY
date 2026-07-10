@@ -297,14 +297,21 @@ static bool mac_accessibility_reduce_motion(void)
     return NSWorkspace.sharedWorkspace.accessibilityDisplayShouldReduceMotion;
 }
 
-/* Strengthen bezel borders when Increase Contrast is on (chrome only). */
+/* Strengthen chrome borders with system accent (Increase Contrast → label). */
 static void mac_apply_contrast_border(NSView *view)
 {
-    if (!view || !mac_accessibility_increase_contrast())
+    NSColor *border;
+    if (!view)
         return;
     view.wantsLayer = YES;
-    view.layer.borderWidth = 1.5;
-    view.layer.borderColor = NSColor.labelColor.CGColor;
+    if (mac_accessibility_increase_contrast()) {
+        view.layer.borderWidth = 1.5;
+        border = NSColor.labelColor;
+    } else {
+        view.layer.borderWidth = 1.0;
+        border = [NSColor.controlAccentColor colorWithAlphaComponent:0.55];
+    }
+    view.layer.borderColor = border.CGColor;
 }
 
 static void mac_prepare_config_window_keyboard(NSWindow *window, NSView *first)
@@ -2031,8 +2038,9 @@ bool dlg_coloursel_results(dlgcontrol *ctrl, dlgparam *dp,
     item.paletteLabel = @"Category";
     item.toolTip = @"Configuration category (see sidebar)";
     NSTextField *label = [NSTextField labelWithString:
-        self.dp->midsession ? @"Change Settings" : @"Session Settings"];
+        self.dp->midsession ? @"Settings" : @"Session Settings"];
     label.font = [NSFont systemFontOfSize:13 weight:NSFontWeightSemibold];
+    label.textColor = NSColor.controlAccentColor;
     item.view = label;
     return item;
 }
@@ -2469,7 +2477,7 @@ void mac_config_change_settings(
     ctx->after = after;
     ctx->afterctx = afterctx;
 
-    title = dupcat(appname, " Reconfiguration");
+    title = dupcat(appname, " Settings");
     mac_config_create_box(title, ctx->working, true, protcfginfo,
                           mac_change_settings_after, ctx);
     sfree(title);

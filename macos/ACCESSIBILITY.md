@@ -58,11 +58,10 @@ When **Reduce Motion** is enabled:
 
 ## Increase Contrast
 
-When **Increase Contrast** is enabled, **chrome** borders are
-strengthened (config split/scroll views, session container, Event Log
-scroll view). The **terminal colour palette is not altered** — palette
-contrast remains a Conf / Colour panel concern (see Phase 9.3 for system
-accent colour on chrome).
+When **Increase Contrast** is enabled, chrome borders use
+`NSColor.labelColor` at 1.5pt. Otherwise chrome bezels use a translucent
+system accent (`PuttyChrome` / Phase 9.3). The **terminal colour palette
+is not altered**.
 
 `TerminalScrollContainer` observes
 `NSWorkspace.accessibilityDisplayOptionsDidChangeNotification` and

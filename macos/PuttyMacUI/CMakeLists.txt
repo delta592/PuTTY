@@ -5,6 +5,8 @@
 
 add_library(putty-macui STATIC
   PuttyAccessibility.swift
+  PuttyChrome.swift
+  PuttyStandardMenus.swift
   PuttyConfHandle.swift
   PuttyEventLoop.swift
   SessionWindowController.swift
@@ -18,6 +20,7 @@ add_library(putty-macui STATIC
   OsxKeys.swift
   TerminalClipboard.swift
   TerminalScrollContainer.swift
+  TerminalScrollInput.swift
   TerminalWindowChrome.swift)
 
 set_target_properties(putty-macui PROPERTIES
@@ -49,7 +52,7 @@ set(PUTTY_MACOS_PUTTYMACUI_MODULE_DIR
 # pterm-macos-bridge) is linked by each app target.
 putty_macos_configure_swift_target(putty-macui)
 
-# Phase 4.4 full Swift Core Text paint benchmark (links PuttyMacUI renderer).
+# Phase 4.4 full Swift CoreText paint benchmark (links PuttyMacUI renderer).
 add_executable(PuttyBridgeTermPerfTest
   ${CMAKE_CURRENT_SOURCE_DIR}/../bridge/PuttyBridgeTermPerfTest.swift)
 

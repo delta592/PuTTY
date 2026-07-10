@@ -190,6 +190,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SessionMenuUpdating {
         appMenu.addItem(withTitle: "Quit PuTTY",
                         action: #selector(NSApplication.terminate(_:)),
                         keyEquivalent: "q")
+        PuttyStandardMenus.installAppMenuChrome(
+            into: appMenu,
+            appName: "PuTTY",
+            target: self,
+            aboutAction: #selector(showAbout(_:)),
+            settingsAction: #selector(changeSettings(_:))
+        )
 
         let sessionMenuItem = NSMenuItem(title: "Session", action: nil, keyEquivalent: "")
         let sessionMenu = NSMenu(title: "Session")
@@ -219,10 +226,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SessionMenuUpdating {
         SessionSavedSessionsMenu.shared.install(into: sessionMenu)
         sessionMenu.addItem(NSMenuItem.separator())
 
+        /* Settings… lives in the app menu (⌘,); keep a Session alias. */
         let changeItem = sessionMenu.addItem(
             withTitle: "Change Settings…",
             action: #selector(changeSettings(_:)),
-            keyEquivalent: ",")
+            keyEquivalent: "")
         changeItem.target = self
         let closeItem = sessionMenu.addItem(withTitle: "Close",
                                             action: #selector(closeSession(_:)),
@@ -238,6 +246,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SessionMenuUpdating {
         SessionEventLog.shared.install(into: windowMenu)
         mainMenu.addItem(windowMenuItem)
         NSApp.windowsMenu = windowMenu
+
+        PuttyStandardMenus.installEditMenu(into: mainMenu)
 
         NSApp.mainMenu = mainMenu
     }
@@ -296,6 +306,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SessionMenuUpdating {
         if !putty_bridge_termwin_change_settings(termWin) {
             NSSound.beep()
         }
+    }
+
+    @objc private func showAbout(_ sender: Any?) {
+        _ = sender
+        let alert = NSAlert()
+        let name = Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String
+            ?? "PuTTY"
+        let short = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString")
+            as? String ?? ""
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? ""
+        alert.messageText = name
+        var body = String(cString: putty_bridge_buildinfo_platform())
+        if !short.isEmpty {
+            body += "\nVersion \(short)"
+        }
+        if !build.isEmpty && build != short {
+            body += " (\(build))"
+        }
+        alert.informativeText = body
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
     }
 
     @objc private func closeSession(_ sender: Any?) {
