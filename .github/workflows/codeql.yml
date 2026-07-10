@@ -1,0 +1,80 @@
+# Advanced CodeQL setup.
+#
+# Default setup cannot build this repo's Swift (CMake + AppKit, no Xcode
+# project / Package.swift at the root). Swift uses build-mode: manual and
+# the Xcode CMake generator so CodeQL can trace xcodebuild.
+#
+# Docs:
+#   https://docs.github.com/en/code-security/code-scanning/creating-an-advanced-setup-for-code-scanning/codeql-code-scanning-for-compiled-languages
+
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly, same cadence as the former default setup.
+    - cron: '17 6 * * 1'
+
+concurrency:
+  group: codeql-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: c-cpp
+            build-mode: none
+            os: ubuntu-latest
+          - language: python
+            build-mode: none
+            os: ubuntu-latest
+          - language: swift
+            build-mode: manual
+            os: macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+
+      # Prefer the Xcode generator: CodeQL's Swift extractor traces
+      # xcodebuild reliably. Single-arch only (host); Universal 2 is
+      # unnecessary for analysis and slower on CI.
+      - name: Build macOS GUI (Swift)
+        if: matrix.build-mode == 'manual'
+        run: |
+          set -euo pipefail
+          cmake -S . -B build-codeql -G Xcode \
+            -DPUTTY_MACOS_GUI=ON \
+            -DPUTTY_MACOS_UNIVERSAL=OFF \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0
+          # Build all GUI apps so PuttyMacUI, PuTTY, pterm, and puttygen
+          # Swift sources are extracted.
+          cmake --build build-codeql --config Debug --parallel \
+            --target PuTTY \
+            --target pterm \
+            --target puttygen-app
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:${{ matrix.language }}"
