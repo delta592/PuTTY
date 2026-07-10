@@ -1955,6 +1955,9 @@ int putty_bridge_termwin_window_exit_smoke(void)
     if (!conf)
         return 1;
     putty_conf_set_host(conf, "example.com");
+    /* Non-default Columns×Rows must survive putty_bridge_termwin_open. */
+    conf_set_int(conf->conf, CONF_width, 218);
+    conf_set_int(conf->conf, CONF_height, 32);
     if (!putty_conf_warn_on_close(conf)) {
         putty_conf_free(conf);
         return 2;
@@ -1975,6 +1978,22 @@ int putty_bridge_termwin_window_exit_smoke(void)
         putty_conf_free(conf);
         putty_bridge_termwin_free(btw);
         return 5;
+    }
+    if (putty_bridge_termwin_cols(btw) != 218 ||
+        putty_bridge_termwin_rows(btw) != 32) {
+        putty_conf_free(conf);
+        putty_bridge_termwin_free(btw);
+        return 7;
+    }
+    {
+        uint8_t r = 0, g = 0, b = 0;
+        /* Default Foreground (OSC4 index 256) from Conf Colour0. */
+        if (!putty_bridge_termwin_palette_colour(btw, 256, &r, &g, &b) ||
+            r != 187 || g != 187 || b != 187) {
+            putty_conf_free(conf);
+            putty_bridge_termwin_free(btw);
+            return 8;
+        }
     }
 
     action = putty_bridge_process_command_line(

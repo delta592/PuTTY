@@ -848,11 +848,20 @@ static NSView *mac_layout_one_control(
 
       case CTRL_EDITBOX: {
         uc = mac_new_uctrl(ctrl, panel);
-        NSStackView *box = (ctrl->editbox.percentwidth == 100)
-            ? mac_make_vstack() : mac_make_hstack();
+        bool stacked = (ctrl->editbox.percentwidth == 100);
+        NSStackView *box = stacked ? mac_make_vstack() : mac_make_hstack();
+        /*
+         * Side-by-side label+field (e.g. Colours Red/Green/Blue): Fill so the
+         * field claims leftover width. GravityAreas left NSTextField at its
+         * tiny intrinsic size and truncated values like "187".
+         */
+        if (!stacked)
+            box.distribution = NSStackViewDistributionFill;
         if (ctrl->label) {
             NSTextField *lab = mac_make_label(ctrl->label);
             uc->label = lab;
+            [lab setContentCompressionResistancePriority:NSLayoutPriorityRequired
+                                          forOrientation:NSLayoutConstraintOrientationHorizontal];
             [box addArrangedSubview:lab];
         }
         if (ctrl->editbox.has_list) {
@@ -868,6 +877,13 @@ static NSView *mac_layout_one_control(
                                      OBJC_ASSOCIATION_RETAIN_NONATOMIC);
             [combo setContentHuggingPriority:NSLayoutPriorityDefaultLow
                               forOrientation:NSLayoutConstraintOrientationHorizontal];
+            [combo setContentCompressionResistancePriority:NSLayoutPriorityRequired
+                                            forOrientation:NSLayoutConstraintOrientationHorizontal];
+            if (!stacked) {
+                /* Enough for a few digits / short strings in narrow columns. */
+                [combo.widthAnchor constraintGreaterThanOrEqualToConstant:56]
+                    .active = YES;
+            }
             [box addArrangedSubview:combo];
             uc->widget = combo;
         } else {
@@ -887,6 +903,16 @@ static NSView *mac_layout_one_control(
                                      OBJC_ASSOCIATION_RETAIN_NONATOMIC);
             [field setContentHuggingPriority:NSLayoutPriorityDefaultLow
                               forOrientation:NSLayoutConstraintOrientationHorizontal];
+            [field setContentCompressionResistancePriority:NSLayoutPriorityRequired
+                                            forOrientation:NSLayoutConstraintOrientationHorizontal];
+            if (!stacked) {
+                /*
+                 * RGB and similar short fields must show at least "255"
+                 * without clipping when the label ("Green") is long.
+                 */
+                [field.widthAnchor constraintGreaterThanOrEqualToConstant:56]
+                    .active = YES;
+            }
             [box addArrangedSubview:field];
             uc->widget = field;
         }
@@ -1099,11 +1125,36 @@ NSView *mac_config_layout_controlset_impl(
             if (ncols > 8)
                 ncols = 8;
             cols_row = mac_make_hstack();
-            if (ncols > 1)
-                cols_row.distribution = NSStackViewDistributionFillEqually;
+            /*
+             * Honor ctrl_columns() percentages (e.g. Colours 67/33). FillEqually
+             * ignored them and squeezed the RGB edit column.
+             */
+            cols_row.distribution = NSStackViewDistributionFill;
             for (int c = 0; c < ncols; c++) {
                 colstacks[c] = mac_make_vstack();
                 [cols_row addArrangedSubview:colstacks[c]];
+                [colstacks[c]
+                    setContentHuggingPriority:NSLayoutPriorityDefaultLow
+                               forOrientation:
+                                   NSLayoutConstraintOrientationHorizontal];
+            }
+            if (ncols > 1 && ctrl->columns.percentages) {
+                int base_pct = ctrl->columns.percentages[0];
+                if (base_pct < 1)
+                    base_pct = 1;
+                for (int c = 1; c < ncols; c++) {
+                    int pct = ctrl->columns.percentages[c];
+                    if (pct < 1)
+                        pct = 1;
+                    /* col[c] / col[0] == pct / base_pct */
+                    NSLayoutConstraint *rel =
+                        [colstacks[c].widthAnchor
+                            constraintEqualToAnchor:colstacks[0].widthAnchor
+                                         multiplier:(CGFloat)pct /
+                                                    (CGFloat)base_pct];
+                    rel.priority = NSLayoutPriorityDefaultHigh;
+                    rel.active = YES;
+                }
             }
             [body addArrangedSubview:cols_row];
             mac_stack_fill_width(body, cols_row);

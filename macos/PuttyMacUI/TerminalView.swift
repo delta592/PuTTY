@@ -255,7 +255,17 @@ final class TerminalView: NSView {
         clipboard = TerminalClipboard(termWin: termWin)
 
         updateBackingScale()
-        syncTerminalGridSize()
+        updateFontMetrics()
+        /*
+         * Seat already applied Conf Columns×Rows. Size the NSWindow to that
+         * grid — do not derive cols/rows from the placeholder 800×600 frame
+         * (that discarded saved Window dimensions on every Open).
+         */
+        if let resizeScrollHost {
+            resizeScrollHost.sizeWindowToConfiguredGrid()
+        } else {
+            syncTerminalGridSize()
+        }
         resetCursorRects()
         /* Metrics must be live before the first paint; force a draw pass. */
         setNeedsDisplay(bounds)

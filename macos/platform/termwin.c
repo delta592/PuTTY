@@ -320,7 +320,12 @@ static void mac_tw_palette_set(
     for (unsigned i = 0; i < ncolours; i++)
         mtw->colours[start + i] = colours_in[i];
 
-    if (start <= OSC4_COLOUR_bg && OSC4_COLOUR_bg < start + ncolours)
+    /*
+     * Any palette change can affect already-drawn cells (fg/ANSI as well as
+     * default background). Always invalidate the full view so Swift repaints
+     * with fresh TerminalPaletteCache entries.
+     */
+    if (ncolours > 0)
         mtw_request_redraw(mtw, mtw_full_view_dirty(mtw));
 }
 

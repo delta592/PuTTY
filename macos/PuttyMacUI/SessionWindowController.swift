@@ -77,8 +77,9 @@ public final class SessionWindowController: NSWindowController, NSWindowDelegate
         window?.makeKeyAndOrderFront(nil)
         /*
          * Force the scroll container to size TerminalView before openSession
-         * runs font/grid metrics. Without this, the view stays at a zero
-         * frame until the first user resize (blank white window).
+         * runs font metrics. Without this, the view stays at a zero frame
+         * until the first user resize (blank white window). openSession then
+         * sizes the NSWindow to Conf Columns×Rows (not the reverse).
          */
         window?.layoutIfNeeded()
         scrollContainer.layoutSubtreeIfNeeded()

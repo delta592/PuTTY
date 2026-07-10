@@ -6,6 +6,8 @@ import PuttyBridge
 protocol TerminalResizeScrolling: AnyObject {
     func updateScrollbar(total: Int, start: Int, page: Int)
     func requestTerminalResize(cols: Int, rows: Int)
+    /// Size the host window to the terminal's current Conf grid (cols×rows).
+    func sizeWindowToConfiguredGrid()
 }
 
 /// Terminal surface plus a PuTTY-style vertical scrollback scroller.
@@ -118,6 +120,32 @@ final class TerminalScrollContainer: NSView, TerminalResizeScrolling, TerminalWi
             return
         }
 
+        guard applyWindowContentSize(cols: cols, rows: rows, termWin: termWin) else {
+            putty_bridge_termwin_request_resize_completed(termWin)
+            return
+        }
+        winResizePending = true
+    }
+
+    func sizeWindowToConfiguredGrid() {
+        guard let termWin = terminalView.termWin else { return }
+        let cols = Int(putty_bridge_termwin_cols(termWin))
+        let rows = Int(putty_bridge_termwin_rows(termWin))
+        guard cols > 0, rows > 0 else { return }
+        /*
+         * Always set the window frame from Conf cols/rows. Unlike
+         * requestTerminalResize, do not early-out when the terminal grid
+         * already matches — that is the normal open path (seat applies
+         * Conf size, then the placeholder 800×600 window must grow/shrink).
+         */
+        _ = applyWindowContentSize(cols: cols, rows: rows, termWin: termWin)
+    }
+
+    /// Resize the host window so the terminal view fits `cols`×`rows`.
+    @discardableResult
+    private func applyWindowContentSize(
+        cols: Int, rows: Int, termWin: OpaquePointer
+    ) -> Bool {
         var contentW: Double = 0
         var contentH: Double = 0
         putty_bridge_termwin_view_size_for_grid(
@@ -127,16 +155,17 @@ final class TerminalScrollContainer: NSView, TerminalResizeScrolling, TerminalWi
         let scrollerW = scroller.isHidden ? 0.0 : scrollerWidth()
         let contentSize = NSSize(width: contentW + scrollerW, height: contentH)
 
-        guard let window = hostWindow ?? window else {
-            putty_bridge_termwin_request_resize_completed(termWin)
-            return
-        }
+        guard let window = hostWindow ?? window else { return false }
 
-        winResizePending = true
-        let frame = window.frameRect(
+        let oldFrame = window.frame
+        var newFrame = window.frameRect(
             forContentRect: NSRect(origin: .zero, size: contentSize)
         )
-        window.setFrame(frame, display: true, animate: false)
+        /* Keep the window centred on its previous centre (matches open). */
+        newFrame.origin.x = oldFrame.midX - newFrame.width / 2
+        newFrame.origin.y = oldFrame.midY - newFrame.height / 2
+        window.setFrame(newFrame, display: true, animate: false)
+        return true
     }
 
     // MARK: - TerminalWindowChrome

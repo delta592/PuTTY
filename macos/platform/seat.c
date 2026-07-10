@@ -651,6 +651,8 @@ bool mac_gui_seat_start_local_echo(MacGuiSeat *seat)
 void mac_gui_seat_reconfigure(MacGuiSeat *seat, const Conf *conf)
 {
     Conf *newconf, *oldconf;
+    int old_width, old_height, old_savelines;
+    int new_width, new_height, new_savelines;
 
     if (!seat || !conf)
         return;
@@ -660,6 +662,10 @@ void mac_gui_seat_reconfigure(MacGuiSeat *seat, const Conf *conf)
         return;
 
     oldconf = seat->conf;
+    old_width = conf_get_int(oldconf, CONF_width);
+    old_height = conf_get_int(oldconf, CONF_height);
+    old_savelines = conf_get_int(oldconf, CONF_savelines);
+
     seat->conf = newconf;
     mac_termwin_set_conf(&seat->termwin, seat->conf);
     mac_gui_seat_setup_clipboards(seat);
@@ -674,6 +680,28 @@ void mac_gui_seat_reconfigure(MacGuiSeat *seat, const Conf *conf)
         term_reconfig(seat->term, seat->conf);
     if (seat->backend && seat->backend->vt != &null_backend)
         backend_reconfig(seat->backend, seat->conf);
+
+    new_width = conf_get_int(seat->conf, CONF_width);
+    new_height = conf_get_int(seat->conf, CONF_height);
+    new_savelines = conf_get_int(seat->conf, CONF_savelines);
+
+    /*
+     * GTK/Windows resize the window when Columns/Rows change in Change
+     * Settings. Without this, only a later Open honored TermWidth/Height.
+     */
+    if (seat->term && (old_width != new_width || old_height != new_height)) {
+        win_request_resize(
+            mac_termwin_get_termwin(&seat->termwin), new_width, new_height);
+    } else if (seat->term && old_savelines != new_savelines) {
+        term_size(seat->term, seat->term->rows, seat->term->cols,
+                  new_savelines);
+    }
+
+    if (seat->term) {
+        term_invalidate(seat->term);
+        mac_gui_seat_flush_display(seat);
+        win_refresh(mac_termwin_get_termwin(&seat->termwin));
+    }
 
     conf_free(oldconf);
 }

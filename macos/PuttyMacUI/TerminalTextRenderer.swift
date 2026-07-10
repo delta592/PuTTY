@@ -102,6 +102,12 @@ public final class TerminalTextRenderer {
     }
 
     public func beginPaint() {
+        /*
+         * Drop cached OSC4 colours each paint. palette_set updates
+         * MacTermWin.colours, but Change Settings / OSC sequences do not
+         * otherwise invalidate TerminalPaletteCache — stale RGB would stick.
+         */
+        paletteCache.invalidate()
         rowCells.removeAll(keepingCapacity: true)
         rowsNeedSort.removeAll(keepingCapacity: true)
         trustSigils.removeAll(keepingCapacity: true)
