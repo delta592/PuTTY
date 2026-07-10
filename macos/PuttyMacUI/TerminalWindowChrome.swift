@@ -23,8 +23,11 @@ enum TerminalBell {
              * Reverse-video flash is scheduled by terminal.c after win_bell.
              * When Reduce Motion is on, add an audible cue so the bell is not
              * solely a screen flash (Phase 9.2).
+             *
+             * Query NSWorkspace directly (not PuttyAccessibility) so this
+             * file stays self-contained under Xcode's per-file SwiftCompile.
              */
-            if PuttyAccessibility.reduceMotion {
+            if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
                 NSSound.beep()
             }
         default:
