@@ -114,7 +114,9 @@ final class EventLogWindowController: NSWindowController, NSWindowDelegate, NSSe
         for i in 0..<count {
             guard putty_bridge_termwin_eventlog_line(
                 termWin, i, &buf, buf.count) else { continue }
-            let line = String(decoding: buf.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
+            let line = String(
+                decoding: buf.prefix(while: { $0 != 0 }).map { UInt8(bitPattern: $0) },
+                as: UTF8.self)
             if filter.isEmpty || line.localizedCaseInsensitiveContains(filter) {
                 lines.append(line)
             }

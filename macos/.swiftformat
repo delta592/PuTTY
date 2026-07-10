@@ -1,0 +1,15 @@
+# SwiftFormat for macos/ only. Do not run against upstream non-Swift trees.
+#
+# Conservative enable-list so `make format-swift` (--lint) gates without
+# mass-rewriting existing AppKit code. Opt into a fuller style pass later
+# with `make format-swift-apply` after expanding --enable and reviewing.
+#
+# Apply with: make format-swift-apply
+
+--swiftversion 6
+--indent 4
+--trimwhitespace always
+--maxwidth 0
+--disable all
+--enable consecutiveBlankLines,consecutiveSpaces,linebreakAtEndOfFile,trailingSpace
+--exclude **/Generated/**

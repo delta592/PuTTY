@@ -23,6 +23,13 @@ set(PUTTY_FUZZING OFF
   CACHE BOOL "Build PuTTY binaries suitable for fuzzing, NOT FOR REAL USE")
 set(PUTTY_COVERAGE OFF
   CACHE BOOL "Build PuTTY binaries suitable for code coverage analysis")
+set(PUTTY_SWIFT_COVERAGE OFF
+  CACHE BOOL "Instrument Swift (PuttyMacUI / XCTest) for LLVM coverage")
+set(PUTTY_SANITIZE ""
+  CACHE STRING
+  "C/ObjC(/Swift) sanitizers: empty, or comma-separated address,undefined,thread. address and thread are mutually exclusive; Debug CI only.")
+set_property(CACHE PUTTY_SANITIZE PROPERTY STRINGS
+  "" "address" "undefined" "address,undefined" "thread")
 set(PUTTY_COMPRESS_SCROLLBACK ON
   # This is always on in production versions of PuTTY, but downstreams
   # of the code have been known to find it a better tradeoff to
@@ -189,4 +196,90 @@ if(PUTTY_COVERAGE)
       "PUTTY_COVERAGE: libclang_rt.profile_osx.a not found; "
       "Swift targets that link C may fail to link")
   endif()
+endif()
+
+if(PUTTY_SWIFT_COVERAGE)
+  if(NOT APPLE)
+    message(FATAL_ERROR "PUTTY_SWIFT_COVERAGE is only supported on Darwin")
+  endif()
+  # LLVM IR-level coverage for Swift modules (profraw → llvm-cov).
+  add_compile_options(
+    "$<$<COMPILE_LANGUAGE:Swift>:-profile-generate;-profile-coverage-mapping>")
+  add_link_options(
+    "$<$<LINK_LANGUAGE:Swift>:-profile-generate>")
+endif()
+
+# ---------------------------------------------------------------------------
+# Sanitizers (Debug / CI). Instrument C/ObjC; Swift gets matching -sanitize=
+# for address/thread so mixed link lines pick up the runtime. Do not enable
+# on Universal release / notarized builds.
+# ---------------------------------------------------------------------------
+string(STRIP "${PUTTY_SANITIZE}" _putty_sanitize_raw)
+if(_putty_sanitize_raw STREQUAL "")
+  set(PUTTY_SANITIZE_ACTIVE OFF)
+else()
+  set(PUTTY_SANITIZE_ACTIVE ON)
+  string(TOLOWER "${_putty_sanitize_raw}" _putty_sanitize_raw)
+  string(REPLACE " " "" _putty_sanitize_raw "${_putty_sanitize_raw}")
+  string(REPLACE ";" "," _putty_sanitize_raw "${_putty_sanitize_raw}")
+  string(REPLACE "," ";" _putty_sanitize_list "${_putty_sanitize_raw}")
+
+  set(_putty_san_has_address OFF)
+  set(_putty_san_has_thread OFF)
+  set(_putty_san_has_undefined OFF)
+  set(_putty_san_clang_flags)
+  set(_putty_san_swift_flags)
+
+  foreach(_putty_san ${_putty_sanitize_list})
+    if(_putty_san STREQUAL "address")
+      set(_putty_san_has_address ON)
+      list(APPEND _putty_san_clang_flags "address")
+      list(APPEND _putty_san_swift_flags "address")
+    elseif(_putty_san STREQUAL "thread")
+      set(_putty_san_has_thread ON)
+      list(APPEND _putty_san_clang_flags "thread")
+      list(APPEND _putty_san_swift_flags "thread")
+    elseif(_putty_san STREQUAL "undefined")
+      set(_putty_san_has_undefined ON)
+      list(APPEND _putty_san_clang_flags "undefined")
+      # UBSan is C/ObjC-only; Swift has limited/no matching coverage.
+    elseif(NOT _putty_san STREQUAL "")
+      message(FATAL_ERROR
+        "PUTTY_SANITIZE: unknown sanitizer '${_putty_san}' "
+        "(use address, undefined, thread)")
+    endif()
+  endforeach()
+
+  if(_putty_san_has_address AND _putty_san_has_thread)
+    message(FATAL_ERROR
+      "PUTTY_SANITIZE: address and thread cannot be combined")
+  endif()
+
+  if(PUTTY_COVERAGE OR PUTTY_SWIFT_COVERAGE)
+    message(WARNING
+      "PUTTY_SANITIZE with coverage is unsupported in many toolchains; "
+      "prefer separate build trees")
+  endif()
+
+  if(DEFINED PUTTY_MACOS_UNIVERSAL AND PUTTY_MACOS_UNIVERSAL)
+    message(WARNING
+      "PUTTY_SANITIZE with PUTTY_MACOS_UNIVERSAL=ON is not recommended "
+      "(use a host-arch Debug tree)")
+  endif()
+
+  list(JOIN _putty_san_clang_flags "," _putty_san_clang_joined)
+  add_compile_options(
+    "$<$<COMPILE_LANGUAGE:C,OBJC,OBJCXX>:-fsanitize=${_putty_san_clang_joined};-fno-omit-frame-pointer;-g>")
+  add_link_options(
+    "$<$<LINK_LANGUAGE:C,CXX,OBJC,OBJCXX>:-fsanitize=${_putty_san_clang_joined}>")
+
+  if(_putty_san_swift_flags AND APPLE)
+    list(JOIN _putty_san_swift_flags "," _putty_san_swift_joined)
+    add_compile_options(
+      "$<$<COMPILE_LANGUAGE:Swift>:-sanitize=${_putty_san_swift_joined}>")
+    add_link_options(
+      "$<$<LINK_LANGUAGE:Swift>:-sanitize=${_putty_san_swift_joined}>")
+  endif()
+
+  message(STATUS "PUTTY_SANITIZE=${_putty_sanitize_raw} (C/ObjC + Swift where applicable)")
 endif()

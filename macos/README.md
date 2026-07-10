@@ -159,14 +159,24 @@ From the repository root (after a GUI configure/build):
 
 ```sh
 make test              # full CTest suite (label macos)
-make test-all          # CTest + portable utils self-tests
+make test-all          # every test process (CTest, utils, asan, tsan,
+                       # coverage, coverage-swift, quality, analyze-c)
 make test-unit         # label unit
 make test-crypt        # cryptsuite / testcrypt
-make test-perf         # Phase 4 paint budget
+make test-perf         # Phase 4 paint budget (keep this gate)
 make test-ui           # PuttyMacUITests (XCTest)
+make test-thread       # thread-labelled smokes (for TSan)
 make test-utils        # root utils binaries not in CTest
+make asan              # ASan+UBSan Debug tree + unit
+make tsan              # TSan Debug tree + thread
+make coverage          # C/ObjC coverage
+make coverage-swift    # C + Swift coverage + llvm-cov report
+make quality           # SwiftLint + SwiftFormat --lint + clang-tidy
 make help              # list targets
 ```
+
+Sanitizers, coverage, and lint details: [`TESTING.md`](TESTING.md).
+Do not reformat upstream root `*.c` with clang-format.
 
 Defaults to `PROFILE=dev` → `build-macos-gui-dev`. Override with
 `make test PROFILE=release` or `make test BUILD_DIR=…`.

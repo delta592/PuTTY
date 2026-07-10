@@ -110,11 +110,9 @@ public enum PuttyStandardMenus {
          * App | Session | Edit | Window (HIG order).
          */
         var insertAt = mainMenu.numberOfItems
-        for i in 0..<mainMenu.numberOfItems {
-            if mainMenu.item(at: i)?.title == "Window" {
-                insertAt = i
-                break
-            }
+        for i in 0..<mainMenu.numberOfItems where mainMenu.item(at: i)?.title == "Window" {
+            insertAt = i
+            break
         }
         mainMenu.insertItem(editItem, at: insertAt)
         return editMenu

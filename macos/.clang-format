@@ -1,0 +1,18 @@
+# Optional clang-format style for *new* macos/ C and ObjC only.
+# Do NOT run clang-format on upstream root *.c / unix/ / windows/ — that
+# churn fights Simon Tatham's tree and makes rebases painful.
+#
+# Intentionally unused by default Makefile targets. If you format a new
+# macos/ file locally:
+#   clang-format -style=file:macos/.clang-format -i macos/bridge/foo.c
+
+BasedOnStyle: LLVM
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ColumnLimit: 79
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: InlineOnly
+SortIncludes: false
+ReflowComments: false

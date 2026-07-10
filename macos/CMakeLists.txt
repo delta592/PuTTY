@@ -6,6 +6,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/icons.cmake)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/bundle_version.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/quality.cmake)
 
 # Swift language version is set once in the root CMakeLists.txt (Ninja:
 # CMAKE_Swift_LANGUAGE_VERSION; Xcode: CMAKE_XCODE_ATTRIBUTE_SWIFT_VERSION).

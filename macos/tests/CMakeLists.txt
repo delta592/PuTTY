@@ -52,12 +52,26 @@ set(_putty_macos_ctest_binaries
   putty-bridge-termwin-specials-exit-c
 )
 
+# Thread / event-loop smokes preferred under TSan (label "thread").
+set(_putty_macos_thread_ctests
+  putty-bridge-thread-smoke-c
+  putty-bridge-eventloop-smoke-c
+  putty-bridge-termwin-eventloop-exit-c
+  putty-bridge-network-smoke-c
+  putty-bridge-session-smoke-c
+  putty-bridge-launch-smoke-c
+)
+
 foreach(_putty_macos_ctest ${_putty_macos_ctest_binaries})
   if(TARGET ${_putty_macos_ctest})
     add_test(NAME macos.${_putty_macos_ctest}
       COMMAND $<TARGET_FILE:${_putty_macos_ctest}>)
+    set(_putty_macos_ctest_labels "macos;unit")
+    if(_putty_macos_ctest IN_LIST _putty_macos_thread_ctests)
+      string(APPEND _putty_macos_ctest_labels ";thread")
+    endif()
     set_tests_properties(macos.${_putty_macos_ctest} PROPERTIES
-      LABELS "macos;unit"
+      LABELS "${_putty_macos_ctest_labels}"
       TIMEOUT 120)
   endif()
 endforeach()
@@ -219,11 +233,9 @@ set_tests_properties(macos.PuttyMacUITests PROPERTIES
 
 # Aggregate build target for Phase 9.1 (does not run tests).
 set(_putty_macos_test_gate_deps
-  test_terminal
-  test_conf
-  cgtest
-  test_lineedit
+  ${_putty_macos_ctest_binaries}
   testcrypt
+  fuzzterm
   PuttyMacUITests
   PuttyBridgeTermPerfTest
   putty-bridge-termwin-perf-c
@@ -235,8 +247,16 @@ if(TARGET putty-mac-askpass-smoke-c)
   list(APPEND _putty_macos_test_gate_deps putty-mac-askpass-smoke-c)
 endif()
 
+# Drop missing optional targets (e.g. askpass already conditional).
+set(_putty_macos_test_gate_existing)
+foreach(_putty_macos_gate_dep ${_putty_macos_test_gate_deps})
+  if(TARGET ${_putty_macos_gate_dep})
+    list(APPEND _putty_macos_test_gate_existing ${_putty_macos_gate_dep})
+  endif()
+endforeach()
+
 add_custom_target(putty-mac-test-gate
-  DEPENDS ${_putty_macos_test_gate_deps}
+  DEPENDS ${_putty_macos_test_gate_existing}
   COMMENT "Build Phase 9.1 macOS test binaries (CTest + XCTest)")
 
 # Run-targets (cmake --build <dir> --target putty-test-…). Prefer the root
@@ -281,6 +301,9 @@ putty_macos_add_ctest_run_target(putty-test-perf
 putty_macos_add_ctest_run_target(putty-test-ui
   LABEL xctest
   COMMENT "Run CTest cases labelled xctest (PuttyMacUITests)")
+putty_macos_add_ctest_run_target(putty-test-thread
+  LABEL thread
+  COMMENT "Run CTest cases labelled thread (TSan-oriented smokes)")
 
 # Portable utils self-tests are also registered in CTest (-L unit) above.
 # putty-test-utils remains for `make test-utils` / putty-test-all.

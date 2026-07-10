@@ -309,7 +309,7 @@ final class PuttygenWindowController: NSWindowController, NSWindowDelegate, NSTe
             return
         }
 
-        var passphrase: String? = nil
+        var passphrase: String?
         if needsPass {
             passphrase = askPassphrase(message: "Enter passphrase for key")
             if passphrase == nil {

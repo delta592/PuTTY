@@ -1,0 +1,34 @@
+# Narrow clang-tidy config for macos/ C and ObjC only.
+# Do not apply to upstream root *.c (Simon Tatham style / false-positive noise).
+#
+# Run: make tidy-c   or   ./macos/scripts/run-clang-tidy.sh
+
+Checks: >
+  -*,
+  clang-analyzer-core*,
+  clang-analyzer-cplusplus*,
+  clang-analyzer-nullability*,
+  clang-analyzer-unix*,
+  bugprone-assert-side-effect,
+  bugprone-dangling-handle,
+  bugprone-infinite-loop,
+  bugprone-not-null-terminated-result,
+  bugprone-sizeof-expression,
+  bugprone-suspicious-memset-usage,
+  bugprone-undefined-memory-manipulation,
+  bugprone-use-after-move,
+  misc-redundant-expression,
+  misc-static-assert,
+  misc-use-after-move
+
+# Intentionally omit bugprone-macro-parentheses (PuTTY-style FD macros)
+# and clang-diagnostic-* (Homebrew clang-tidy vs Xcode SDK noise).
+
+WarningsAsErrors: ''
+
+HeaderFilterRegex: '.*(macos/(bridge|platform)|putty-bridge|termwin|seat).*'
+
+FormatStyle: none
+
+CheckOptions:
+  bugprone-assert-side-effect.AssertMacros: 'assert;ASSERT;putty_bridge_assert_main_thread'

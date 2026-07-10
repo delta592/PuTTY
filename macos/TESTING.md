@@ -1,8 +1,8 @@
-# Manual QA matrix (Phase 9.1)
+# Manual QA matrix (Phase 9.1) and quality tooling
 
-Automated coverage lives in CTest (`./macos/build.sh test` or `make test`).
+Automated tests live in CTest (`./macos/build.sh test` or `make test`).
 This checklist covers host / display combinations that CI cannot fully
-exercise.
+exercise, plus sanitizers, coverage, and macos/-scoped lint/analysis.
 
 ## Make / CMake test targets
 
@@ -13,20 +13,69 @@ From the repository root:
 | `make test` | CTest `-L macos` (unit + crypt + perf + ui) |
 | `make test-unit` | CTest `-L unit` |
 | `make test-crypt` | CTest `-L crypt` |
-| `make test-perf` | CTest `-L perf` |
+| `make test-perf` | CTest `-L perf` (Phase 4 paint budget — keep this gate) |
 | `make test-ui` | CTest `-L xctest` |
+| `make test-thread` | CTest `-L thread` (TSan-oriented smokes) |
 | `make test-utils` | Portable utils binaries not in CTest |
-| `make test-all` | `test` then `test-utils` |
+| `make test-all` | Every test process, in order: `test`, `test-utils`, `asan`, `tsan`, `coverage`, `coverage-swift`, `quality`, `analyze-c` |
 | `make help` | List targets |
 
 CMake equivalents: `putty-test-macos`, `putty-test-unit`, `putty-test-crypt`,
-`putty-test-perf`, `putty-test-ui`, `putty-test-utils`, `putty-test-all`
-(`cmake --build <build-dir> --target …`).
+`putty-test-perf`, `putty-test-ui`, `putty-test-thread`, `putty-test-utils`,
+`putty-test-all` (`cmake --build <build-dir> --target …`).
 
 `test-utils` runs self-contained root binaries (`test_host_strfoo`,
 `test_decode_utf8`, `test_tree234`, `test_wildcard`, `test_cert_expr`).
 `test_unicode_norm` and `bidi_test` need external UCD fixtures and are
 not included.
+
+## Coverage and sanitizers
+
+Use **separate Debug, host-arch** trees. Do not enable sanitizers on
+Universal release / notarized builds. Do not combine sanitizers with
+coverage in one tree.
+
+| Target | CMake options | Runs |
+|--------|---------------|------|
+| `make coverage` | `PUTTY_COVERAGE=ON` | CTest `unit\|crypt` (C/ObjC `.gcda`) |
+| `make coverage-swift` | `PUTTY_COVERAGE` + `PUTTY_SWIFT_COVERAGE` | `unit\|crypt\|xctest` + `llvm-cov` report for PuttyMacUI |
+| `make asan` / `make ubsan` | `PUTTY_SANITIZE=address,undefined` | CTest `-L unit` |
+| `make tsan` | `PUTTY_SANITIZE=thread` | CTest `-L thread` |
+
+CMake cache knobs (also passable as `-D` to `./macos/build.sh`):
+
+- `PUTTY_SANITIZE` — empty, `address`, `undefined`, `address,undefined`, or `thread`
+- `PUTTY_COVERAGE` — C/ObjC `--coverage`
+- `PUTTY_SWIFT_COVERAGE` — Swift `-profile-generate` / `-profile-coverage-mapping`
+
+Default build dirs: `build-macos-gui-coverage`,
+`build-macos-gui-coverage-swift`, `build-macos-gui-asan`,
+`build-macos-gui-tsan`.
+
+## Lint and static analysis (macos/ only)
+
+These tools **must not** reformat or tidy upstream root `*.c` / `unix/` /
+`windows/`. Optional `macos/.clang-format` exists for *new* macos C only
+and is not wired to a default `make` target.
+
+| Target | Tool | Config |
+|--------|------|--------|
+| `make lint-swift` | SwiftLint | `macos/.swiftlint.yml` |
+| `make format-swift` | SwiftFormat `--lint` | `macos/.swiftformat` |
+| `make format-swift-apply` | SwiftFormat `--apply` | same |
+| `make tidy-c` | clang-tidy | `macos/.clang-tidy` |
+| `make analyze-c` | `clang --analyze` | artifacts under `build-macos-gui-analyze/` |
+| `make quality` | lint + format-lint + tidy | |
+
+Install helpers (Homebrew):
+
+```sh
+brew install swiftlint swiftformat llvm
+```
+
+CMake custom targets (same scripts): `putty-macos-swiftlint`,
+`putty-macos-swiftformat`, `putty-macos-clang-tidy`,
+`putty-macos-clang-analyze`, `putty-macos-quality`.
 
 ## Architectures
 
@@ -45,13 +94,16 @@ not included.
 
 ## Performance gate (Phase 4)
 
-On Apple Silicon (required):
+Keep the existing paint-budget gate; do not replace it with generic
+`swift-benchmark` / XCTest `measure {}` unless measuring a specific
+Swift helper. On Apple Silicon (required):
 
 ```sh
 ./macos/build.sh build --release
 cmake --build build-macos-gui --target PuttyBridgeTermPerfTest putty-bridge-termwin-perf-c
 ./build-macos-gui/putty-bridge-termwin-perf-c
 ./build-macos-gui/PuttyBridgeTermPerfTest
+# or: make test-perf PROFILE=release
 ```
 
 Mean frame must stay ≤ 16.67 ms (see [`PuTTY/TERMINAL_PERFORMANCE.md`](PuTTY/TERMINAL_PERFORMANCE.md)).

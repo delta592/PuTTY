@@ -44,7 +44,9 @@ enum TerminalBell {
             return
         }
 
-        let path = String(decoding: pathBuf.prefix(while: { $0 != 0 }).map(UInt8.init), as: UTF8.self)
+        let path = String(
+            decoding: pathBuf.prefix(while: { $0 != 0 }).map { UInt8(bitPattern: $0) },
+            as: UTF8.self)
         guard let sound = NSSound(contentsOfFile: path, byReference: false) else {
             NSSound.beep()
             return

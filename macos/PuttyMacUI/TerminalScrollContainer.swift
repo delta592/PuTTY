@@ -45,8 +45,7 @@ final class TerminalScrollContainer: NSView, TerminalResizeScrolling, TerminalWi
         addSubview(scroller)
         layoutSubviews()
         applyAccessibilityChrome()
-        accessibilityObserver = PuttyAccessibility.observeDisplayOptionsChanged {
-            [weak self] in
+        accessibilityObserver = PuttyAccessibility.observeDisplayOptionsChanged { [weak self] in
             self?.applyAccessibilityChrome()
             if let window = self?.hostWindow ?? self?.window {
                 PuttyAccessibility.applyWindowMotionPolicy(window)
