@@ -80,7 +80,8 @@ def generate():
         challenge_bytes = rsa_ssh1_encrypt(preimage, key)
         assert len(challenge_bytes) > 0
         challenge = int(mp_from_bytes_be(challenge_bytes))
-        response = hashlib.md5(preimage + test_session_id).digest()
+        # SSH-1 challenge-response is defined to use MD5.
+        response = hashlib.md5(preimage + test_session_id).digest()  # codeql[py/weak-sensitive-data-hashing]
 
         keys1.append(Key1(comment.encode("ASCII"),
                           rsa_ssh1_public_blob(key, 'exponent_first'),

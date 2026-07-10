@@ -1,0 +1,16 @@
+# CodeQL configuration for PuTTY.
+#
+# PuTTY is an SSH client/server toolkit: DES, 3DES, and RC4/Arcfour remain
+# required for protocol interoperability (SSH-1, legacy SSH-2, XDM-AUTHORIZATION-1,
+# PuTTY/OpenSSH private key formats). The weak-cryptographic-algorithm query
+# therefore reports expected protocol support as if it were a vulnerability.
+# Exclude that query; prefer stronger algorithms at runtime via Conf defaults.
+#
+# Docs:
+#   https://docs.github.com/en/code-security/code-scanning/creating-an-advanced-setup-for-code-scanning/customizing-your-advanced-setup-for-code-scanning
+
+name: "PuTTY CodeQL config"
+
+query-filters:
+  - exclude:
+      id: cpp/weak-cryptographic-algorithm

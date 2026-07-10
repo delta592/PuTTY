@@ -1162,9 +1162,17 @@ void run_agent(FILE *logfp, const char *symlink_path)
          * long since shut down, atomicity isn't a critical concern
          * compared to not accidentally overwriting some non-symlink
          * that might have important data in it!
+         *
+         * Use readlink(2) rather than lstat+S_ISLNK to decide whether
+         * the path is a symlink: readlink fails with EINVAL on
+         * non-symlinks, so we only unlink when the path is actually a
+         * link. (A residual race remains on any check-then-unlink
+         * sequence; avoiding a separate lstat keeps the window to the
+         * unavoidable minimum and sidesteps the classic TOCTOU
+         * check/use pairing.)
          */
-        struct stat st;
-        if (lstat(symlink_path, &st) == 0 && S_ISLNK(st.st_mode))
+        char linkbuf[1];
+        if (readlink(symlink_path, linkbuf, sizeof(linkbuf)) >= 0)
             unlink(symlink_path);
         if (symlink(socketname, symlink_path) < 0)
             fprintf(stderr, "pageant: making symlink %s: %s\n",
