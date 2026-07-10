@@ -381,6 +381,14 @@ enum OsxKeys {
         #selector(NSResponder.capitalizeWord(_:)),
         #selector(NSResponder.lowercaseWord(_:)),
         #selector(NSResponder.uppercaseWord(_:)),
-        Selector(("noop:")),
+        #selector(NSObject.puttyNoop(_:)),
     ]
+}
+
+private extension NSObject {
+    /// Declares AppKit's `noop:` for `#selector` (ignore-list only).
+    @objc(noop:)
+    func puttyNoop(_ sender: Any?) {
+        _ = sender
+    }
 }

@@ -256,8 +256,10 @@ final class PuttygenWindowController: NSWindowController, NSWindowDelegate, NSTe
         let keyBits = Int(bitPattern: key)
         let ctxBits = Int(bitPattern: Unmanaged.passUnretained(self).toOpaque())
         DispatchQueue.global(qos: .userInitiated).async {
-            let keyHandle = OpaquePointer(bitPattern: keyBits)!
-            let ctx = UnsafeMutableRawPointer(bitPattern: ctxBits)!
+            guard let keyHandle = OpaquePointer(bitPattern: keyBits),
+                  let ctx = UnsafeMutableRawPointer(bitPattern: ctxBits) else {
+                return
+            }
             var err: UnsafeMutablePointer<CChar>?
             let ok = puttygen_key_generate(
                 keyHandle, type, bits,

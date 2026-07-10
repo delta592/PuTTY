@@ -3,6 +3,11 @@ import AppKit
 /// Shared AppKit menu construction for PuTTY / pterm (Phase 9.3).
 @MainActor
 public enum PuttyStandardMenus {
+    /// Edit → Paste Special (nil-target; handled by `TerminalView`).
+    public static let pasteSpecialSelector = #selector(TerminalView.pasteSpecial(_:))
+    /// Edit → Copy All (nil-target; handled by `TerminalView`).
+    public static let copyAllSelector = #selector(TerminalView.copyAll(_:))
+
     /// About + Settings… (⌘,) + Hide (⌘H) in the application menu.
     public static func installAppMenuChrome(
         into appMenu: NSMenu,
@@ -89,7 +94,7 @@ public enum PuttyStandardMenus {
 
         let pasteSpecial = editMenu.addItem(
             withTitle: "Paste Special",
-            action: Selector(("pasteSpecial:")),
+            action: pasteSpecialSelector,
             keyEquivalent: "v")
         pasteSpecial.keyEquivalentModifierMask = [.command, .option]
 
@@ -100,7 +105,7 @@ public enum PuttyStandardMenus {
             keyEquivalent: "a")
         editMenu.addItem(
             withTitle: "Copy All",
-            action: Selector(("copyAll:")),
+            action: copyAllSelector,
             keyEquivalent: "")
 
         editItem.submenu = editMenu

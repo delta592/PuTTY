@@ -2,29 +2,33 @@
 # Do not apply to upstream root *.c (Simon Tatham style / false-positive noise).
 #
 # Run: make tidy-c   or   ./macos/scripts/run-clang-tidy.sh
+#
+# Intentionally omitted (high false-positive rate on this tree):
+#   - bugprone-sizeof-expression  (TYPECHECK / ((T*)0)->field / put_byte)
+#   - bugprone-macro-parentheses  (FD_SET-style macros)
+#   - clang-analyzer-unix.*       (ported unix agents/sftp/x11 paths)
+#   - clang-analyzer-nullability.* (AppKit nullable URL APIs)
+#   - clang-analyzer-core.CallAndMessage (SeatPromptResult copies)
+#   - clang-diagnostic-*          (Homebrew clang-tidy vs Xcode SDK)
 
 Checks: >
   -*,
-  clang-analyzer-core*,
-  clang-analyzer-cplusplus*,
-  clang-analyzer-nullability*,
-  clang-analyzer-unix*,
   bugprone-assert-side-effect,
   bugprone-dangling-handle,
   bugprone-infinite-loop,
   bugprone-not-null-terminated-result,
-  bugprone-sizeof-expression,
   bugprone-suspicious-memset-usage,
   bugprone-undefined-memory-manipulation,
   bugprone-use-after-move,
+  clang-analyzer-core.NullDereference,
+  clang-analyzer-core.uninitialized.Assign,
+  clang-analyzer-core.uninitialized.Branch,
+  clang-analyzer-core.uninitialized.UndefReturn,
   misc-redundant-expression,
   misc-static-assert,
   misc-use-after-move
 
-# Intentionally omit bugprone-macro-parentheses (PuTTY-style FD macros)
-# and clang-diagnostic-* (Homebrew clang-tidy vs Xcode SDK noise).
-
-WarningsAsErrors: ''
+WarningsAsErrors: '*'
 
 HeaderFilterRegex: '.*(macos/(bridge|platform)|putty-bridge|termwin|seat).*'
 

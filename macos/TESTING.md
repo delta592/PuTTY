@@ -63,7 +63,7 @@ and is not wired to a default `make` target.
 | `make lint-swift` | SwiftLint | `macos/.swiftlint.yml` |
 | `make format-swift` | SwiftFormat `--lint` | `macos/.swiftformat` |
 | `make format-swift-apply` | SwiftFormat `--apply` | same |
-| `make tidy-c` | clang-tidy | `macos/.clang-tidy` |
+| `make tidy-c` | clang-tidy | `macos/.clang-tidy` (narrow checks; no sizeof/macro FP noise) |
 | `make analyze-c` | `clang --analyze` | artifacts under `build-macos-gui-analyze/` |
 | `make quality` | lint + format-lint + tidy | |
 

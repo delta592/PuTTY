@@ -227,8 +227,11 @@ final class TerminalView: NSView {
         }
 
         let handle = putty_bridge_termwin_new()
+        guard let handle else {
+            preconditionFailure("putty_bridge_termwin_new returned nil")
+        }
         termWin = handle
-        renderer.attach(termWin: handle!)
+        renderer.attach(termWin: handle)
 
         var callbacks = PuttyBridgeTermWinCallbacks(
             setup_draw_ctx: TerminalViewBridge.setupDrawCtx,
@@ -620,8 +623,12 @@ final class TerminalView: NSView {
     /// Load face + configured point size from the live termwin Conf.
     private func applyFontSpecFromConf() {
         guard let termWin else { return }
-        let cSpec = putty_bridge_termwin_font_spec(termWin)
-        let spec = cSpec != nil ? String(cString: cSpec!) : "mac:SFMono-Regular:12"
+        let spec: String
+        if let cSpec = putty_bridge_termwin_font_spec(termWin) {
+            spec = String(cString: cSpec)
+        } else {
+            spec = "mac:SFMono-Regular:12"
+        }
         applyFontSpecString(spec)
     }
 

@@ -75,8 +75,8 @@ final class IntegrationTests: XCTestCase {
         XCTAssertTrue(terminal.responds(to: #selector(NSText.copy(_:))))
         XCTAssertTrue(terminal.responds(to: #selector(NSText.paste(_:))))
         XCTAssertTrue(terminal.responds(to: #selector(NSText.selectAll(_:))))
-        XCTAssertTrue(terminal.responds(to: Selector(("pasteSpecial:"))))
-        XCTAssertTrue(terminal.responds(to: Selector(("copyAll:"))))
+        XCTAssertTrue(terminal.responds(to: PuttyStandardMenus.pasteSpecialSelector))
+        XCTAssertTrue(terminal.responds(to: PuttyStandardMenus.copyAllSelector))
 
         controller.window?.close()
         PuttyMacUITestSupport.pumpMain(seconds: 0.1)

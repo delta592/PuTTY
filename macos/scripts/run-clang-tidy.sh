@@ -102,23 +102,43 @@ if [[ -n ${cmake_h_dir} ]]; then
 fi
 
 ec=0
+tmpdir=$(mktemp -d "${TMPDIR:-/tmp}/putty-clang-tidy.XXXXXX")
+trap 'rm -rf -- "${tmpdir}"' EXIT
+
+run_one() {
+  local src=$1
+  local out=${tmpdir}/$(echo "${src}" | tr '/ ' '__').log
+  if [[ -n ${compile_db} ]]; then
+    if ! "${TIDY}" "${extra[@]}" -p "${compile_db}" "${ROOT}/${src}" \
+      >"${out}" 2>&1; then
+      ec=1
+    fi
+  else
+    if ! "${TIDY}" "${extra[@]}" "${src}" -- >"${out}" 2>&1; then
+      ec=1
+    fi
+  fi
+  if [[ -s ${out} ]]; then
+    cat -- "${out}"
+    if rg -q 'warning:|error:' "${out}"; then
+      ec=1
+    fi
+  fi
+}
+
 if [[ -n ${compile_db} ]]; then
   printf '    using compile_commands.json from %s (+ SDK extra-args)\n' "${compile_db}"
-  for src in "${sources[@]}"; do
-    if ! "${TIDY}" "${extra[@]}" -p "${compile_db}" "${ROOT}/${src}"; then
-      ec=1
-    fi
-  done
 else
   printf '    no compile_commands.json; using explicit -extra-arg flags\n'
-  for src in "${sources[@]}"; do
-    if ! "${TIDY}" "${extra[@]}" "${src}" --; then
-      ec=1
-    fi
-  done
 fi
+
+for src in "${sources[@]}"; do
+  run_one "${src}"
+done
 
 if ((ec != 0)); then
   printf 'clang-tidy: findings (exit %d)\n' "${ec}" >&2
+else
+  printf 'clang-tidy: ok (%d sources)\n' "${#sources[@]}"
 fi
 exit "${ec}"
