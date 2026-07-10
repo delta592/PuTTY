@@ -5,15 +5,18 @@
 # then:
 #   make test
 #   make test-all
+#   make coverage
 #   make help
 #
 # Override the build profile / tree:
 #   make test PROFILE=release
 #   make test BUILD_DIR=/path/to/build-macos-gui
+#   make coverage COVERAGE_BUILD_DIR=/path/to/build-macos-gui-coverage
 
 PROFILE   ?= dev
 BUILD_DIR ?=
 JOBS      ?=
+COVERAGE_BUILD_DIR ?= build-macos-gui-coverage
 
 # profile -> default build directory (must match macos/build.sh)
 ifeq ($(PROFILE),dev)
@@ -77,11 +80,13 @@ help:
 	  '  make test-all        test + test-utils' \
 	  '  make test-list       List CTest cases (ctest -N -L macos)' \
 	  '  make test-gate       Build putty-mac-test-gate only (do not run)' \
+	  '  make coverage        Debug + PUTTY_COVERAGE; CTest unit|crypt' \
 	  '' \
 	  'Examples:' \
 	  '  make test' \
 	  '  make test-all PROFILE=release' \
 	  '  make test-perf BUILD_DIR=build-macos-gui' \
+	  '  make coverage' \
 	  '' \
 	  'Equivalent: ./macos/build.sh test --$(PROFILE)'
 
@@ -145,3 +150,19 @@ test-gate:
 	$(CMAKE) --build "$(BUILD_DIR)" $(CMAKE_CONFIG) $(PARALLEL) --target \
 	  test_host_strfoo test_decode_utf8 \
 	  test_tree234 test_wildcard test_cert_expr
+
+# Instrumented C coverage tree (separate from PROFILE builds). Instruments
+# CMAKE_C_FLAGS + link flags via -DPUTTY_COVERAGE=ON; does not cover Swift/ObjC.
+.PHONY: coverage
+coverage:
+	@echo "==> configuring coverage -> $(COVERAGE_BUILD_DIR)"
+	$(CMAKE) -S . -B "$(COVERAGE_BUILD_DIR)" -G Ninja \
+	  -DCMAKE_BUILD_TYPE=Debug \
+	  -DPUTTY_MACOS_GUI=ON \
+	  -DPUTTY_COVERAGE=ON
+	$(CMAKE) --build "$(COVERAGE_BUILD_DIR)" $(PARALLEL) \
+	  --target putty-test-unit putty-test-crypt
+	@printf '%s\n' \
+	  "coverage: unit|crypt finished under $(COVERAGE_BUILD_DIR)" \
+	  "  .gcda:  find $(COVERAGE_BUILD_DIR) -name '*.gcda'" \
+	  "  report: xcrun llvm-cov gcov -n path/to/foo.c.gcda"

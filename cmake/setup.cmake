@@ -168,5 +168,12 @@ if(NOT PUTTY_COMPRESS_SCROLLBACK)
   set(NO_SCROLLBACK_COMPRESSION ON)
 endif()
 if(PUTTY_COVERAGE)
+  # Match gcc/clang --coverage: instrument C and link the profile runtime.
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fprofile-arcs -ftest-coverage -g ")
+  set(CMAKE_EXE_LINKER_FLAGS
+    "${CMAKE_EXE_LINKER_FLAGS} -fprofile-arcs -ftest-coverage ")
+  set(CMAKE_SHARED_LINKER_FLAGS
+    "${CMAKE_SHARED_LINKER_FLAGS} -fprofile-arcs -ftest-coverage ")
+  set(CMAKE_MODULE_LINKER_FLAGS
+    "${CMAKE_MODULE_LINKER_FLAGS} -fprofile-arcs -ftest-coverage ")
 endif()
