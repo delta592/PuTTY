@@ -158,6 +158,7 @@ xctest_add_bundle(PuttyMacUITests putty-macui
   PuttyMacUITests/LaunchTests.swift
   PuttyMacUITests/ConfigSaveLoadTests.swift
   PuttyMacUITests/MockConnectTests.swift
+  PuttyMacUITests/AccessibilityTests.swift
   PuttyMacUITests/TestSupport.swift)
 
 set_target_properties(PuttyMacUITests PROPERTIES

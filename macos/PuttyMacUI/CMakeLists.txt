@@ -4,6 +4,7 @@
 # (Universal 2 when PUTTY_MACOS_UNIVERSAL_ACTIVE). puttygen stays separate.
 
 add_library(putty-macui STATIC
+  PuttyAccessibility.swift
   PuttyConfHandle.swift
   PuttyEventLoop.swift
   SessionWindowController.swift

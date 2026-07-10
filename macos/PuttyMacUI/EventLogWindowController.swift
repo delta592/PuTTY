@@ -22,6 +22,8 @@ final class EventLogWindowController: NSWindowController, NSWindowDelegate, NSSe
         )
         window.title = "PuTTY Event Log"
         window.minSize = NSSize(width: 400, height: 200)
+        PuttyAccessibility.applyWindowMotionPolicy(window)
+        window.setAccessibilityLabel("Event Log")
 
         let root = NSView(frame: contentRect)
         root.autoresizingMask = [.width, .height]
@@ -29,6 +31,7 @@ final class EventLogWindowController: NSWindowController, NSWindowDelegate, NSSe
         searchField = NSSearchField(frame: .zero)
         searchField.translatesAutoresizingMaskIntoConstraints = false
         searchField.placeholderString = "Filter"
+        searchField.setAccessibilityLabel("Filter event log")
         root.addSubview(searchField)
 
         let scroll = NSScrollView(frame: .zero)
@@ -41,6 +44,7 @@ final class EventLogWindowController: NSWindowController, NSWindowDelegate, NSSe
         textView = NSTextView(frame: .zero)
         textView.isEditable = false
         textView.isSelectable = true
+        textView.setAccessibilityLabel("Event log entries")
         textView.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
         textView.textContainerInset = NSSize(width: 4, height: 4)
         textView.minSize = NSSize(width: 0, height: 0)
@@ -73,6 +77,10 @@ final class EventLogWindowController: NSWindowController, NSWindowDelegate, NSSe
         searchField.delegate = self
         searchField.target = self
         searchField.action = #selector(searchFieldChanged(_:))
+        window.initialFirstResponder = searchField
+        window.autorecalculatesKeyViewLoop = true
+        window.recalculateKeyViewLoop()
+        PuttyAccessibility.applyChromeContrast(to: scroll)
 
         if let parent {
             let parentFrame = parent.frame

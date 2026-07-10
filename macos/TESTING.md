@@ -67,3 +67,9 @@ On Intel: run the same binaries once as a spot-check; set
 | 2026-07-09 | intrepid (this tree) | arm64 | automated | `./macos/build.sh test --dev`: 29/29 CTest (incl. XCTest + perf) |
 | | | x86_64 native | | Pending physical Intel Mac |
 | | | Universal cross-copy | | Pending second machine |
+
+## Accessibility (Phase 9.2)
+
+Automated: `AccessibilityTests` in `PuttyMacUITests` (VoiceOver identity on
+`TerminalView`, Event Log first responder). Manual VoiceOver / Reduce
+Motion / Increase Contrast checklist: [`ACCESSIBILITY.md`](ACCESSIBILITY.md).

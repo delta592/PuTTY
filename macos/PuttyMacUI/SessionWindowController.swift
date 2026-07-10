@@ -67,8 +67,11 @@ public final class SessionWindowController: NSWindowController, NSWindowDelegate
             ?? "PuTTY"
         window.title = appName
         window.animationBehavior = .none
+        PuttyAccessibility.applyWindowMotionPolicy(window)
         window.contentView = scrollContainer
         scrollContainer.hostWindow = window
+        window.setAccessibilityLabel("\(appName) session")
+        window.setAccessibilityRoleDescription("terminal session window")
 
         super.init(window: window)
         window.delegate = self

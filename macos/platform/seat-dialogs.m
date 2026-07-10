@@ -489,6 +489,7 @@ SeatPromptResult mac_seat_get_userpass_input_dialog(prompts_t *p)
         NSTextField *caption = [NSTextField labelWithString:
             mac_nsstring_from_utf8(pr->prompt)];
         [caption setFrame:NSMakeRect(12, y - 16, width - 24, 16)];
+        caption.refusesFirstResponder = YES;
         [content addSubview:caption];
         y -= 16 + labelGap;
 
@@ -501,6 +502,8 @@ SeatPromptResult mac_seat_get_userpass_input_dialog(prompts_t *p)
                 NSMakeRect(12, y - fieldHeight, width - 24, fieldHeight)];
 
         field.stringValue = @"";
+        field.accessibilityLabel = caption.stringValue;
+        [field setAccessibilityTitleUIElement:caption];
         [content addSubview:field];
         [fields addObject:field];
         y -= fieldHeight + rowGap;
@@ -512,6 +515,12 @@ SeatPromptResult mac_seat_get_userpass_input_dialog(prompts_t *p)
     alert.accessoryView = content;
     [alert addButtonWithTitle:@"OK"];
     [alert addButtonWithTitle:@"Cancel"];
+
+    if (fields.count > 0) {
+        alert.window.initialFirstResponder = fields[0];
+        alert.window.autorecalculatesKeyViewLoop = YES;
+        [alert.window recalculateKeyViewLoop];
+    }
 
     response = [alert runModal];
 

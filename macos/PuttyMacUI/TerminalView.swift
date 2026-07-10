@@ -223,6 +223,10 @@ final class TerminalView: NSView {
         layer?.contentsScale = window?.backingScaleFactor ?? 1.0
         layer?.backgroundColor = NSColor.black.cgColor
 
+        PuttyAccessibility.configureTerminalView(self) { [weak self] in
+            self?.window?.title ?? "Terminal"
+        }
+
         let handle = putty_bridge_termwin_new()
         termWin = handle
         renderer.attach(termWin: handle!)

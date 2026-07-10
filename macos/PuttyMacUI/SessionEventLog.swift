@@ -25,7 +25,7 @@ public final class SessionEventLog: NSObject {
         updateMenuState()
     }
 
-    func setKeyController(_ controller: SessionWindowController?) {
+    public func setKeyController(_ controller: SessionWindowController?) {
         keyController = controller
         updateMenuState()
     }
@@ -51,7 +51,7 @@ public final class SessionEventLog: NSObject {
         showEventLog(for: controller)
     }
 
-    func showEventLog(for controller: SessionWindowController) {
+    public func showEventLog(for controller: SessionWindowController) {
         guard let termWin = controller.activeTermWin else {
             NSSound.beep()
             return
@@ -69,6 +69,11 @@ public final class SessionEventLog: NSObject {
         }
         controllers[id] = log
         log.present()
+    }
+
+    /// Event Log window for UI tests (nil if not open).
+    public func eventLogWindow(for controller: SessionWindowController) -> NSWindow? {
+        controllers[ObjectIdentifier(controller)]?.window
     }
 
     func sessionDidReceiveEvent(for controller: SessionWindowController) {

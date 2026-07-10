@@ -258,6 +258,68 @@ static struct MacUCtrl *mac_find_uctrl(dlgparam *dp, dlgcontrol *ctrl)
     return find234(dp->byctrl, ctrl, mac_uctrl_find);
 }
 
+/* Phase 9.2: VoiceOver labels + title UI element for config controls. */
+static void mac_apply_control_accessibility(struct MacUCtrl *uc)
+{
+    NSString *label = nil;
+    NSView *target;
+
+    if (!uc || !uc->ctrl)
+        return;
+
+    if (uc->ctrl->label && uc->ctrl->label[0])
+        label = mac_ns(uc->ctrl->label);
+
+    target = uc->widget ? uc->widget : uc->toplevel;
+    if (!target)
+        return;
+
+    if (label.length > 0)
+        target.accessibilityLabel = label;
+
+    if (uc->label && target != (NSView *)uc->label)
+        [target setAccessibilityTitleUIElement:uc->label];
+
+    /* Static text is not part of the keyboard loop. */
+    if ([target isKindOfClass:[NSTextField class]] &&
+        ![(NSTextField *)target isEditable]) {
+        [(NSTextField *)target setRefusesFirstResponder:YES];
+    }
+}
+
+static bool mac_accessibility_increase_contrast(void)
+{
+    return NSWorkspace.sharedWorkspace.accessibilityDisplayShouldIncreaseContrast;
+}
+
+static bool mac_accessibility_reduce_motion(void)
+{
+    return NSWorkspace.sharedWorkspace.accessibilityDisplayShouldReduceMotion;
+}
+
+/* Strengthen bezel borders when Increase Contrast is on (chrome only). */
+static void mac_apply_contrast_border(NSView *view)
+{
+    if (!view || !mac_accessibility_increase_contrast())
+        return;
+    view.wantsLayer = YES;
+    view.layer.borderWidth = 1.5;
+    view.layer.borderColor = NSColor.labelColor.CGColor;
+}
+
+static void mac_prepare_config_window_keyboard(NSWindow *window, NSView *first)
+{
+    if (!window)
+        return;
+    if (mac_accessibility_reduce_motion())
+        window.animationBehavior = NSWindowAnimationBehaviorNone;
+    window.autorecalculatesKeyViewLoop = YES;
+    [window recalculateKeyViewLoop];
+    if (first)
+        window.initialFirstResponder = first;
+    window.accessibilityLabel = window.title;
+}
+
 static void mac_add_uctrl(dlgparam *dp, struct MacUCtrl *uc)
 {
     struct MacUCtrl *added = add234(dp->byctrl, uc);
@@ -265,6 +327,7 @@ static void mac_add_uctrl(dlgparam *dp, struct MacUCtrl *uc)
     objc_setAssociatedObject(uc->toplevel, &mac_uctrl_key,
                              [NSValue valueWithPointer:uc],
                              OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    mac_apply_control_accessibility(uc);
 }
 
 static struct MacUCtrl *mac_uctrl_from_sender(id sender)
@@ -441,6 +504,7 @@ static NSScrollView *mac_make_scroll_view(NSView *document)
     scroll.translatesAutoresizingMaskIntoConstraints = NO;
     document.translatesAutoresizingMaskIntoConstraints = NO;
     scroll.documentView = document;
+    mac_apply_contrast_border(scroll);
     return scroll;
 }
 
@@ -2160,6 +2224,7 @@ MacConfigBox *mac_config_create_box(
     outline.columnAutoresizingStyle = NSTableViewLastColumnOnlyAutoresizingStyle;
     outline.dataSource = controller;
     outline.delegate = controller;
+    outline.accessibilityLabel = @"Category";
     NSScrollView *sideScroll = mac_make_scroll_view(outline);
     sideScroll.borderType = NSBezelBorder;
     box->dp.sidebar = outline;
@@ -2225,6 +2290,7 @@ MacConfigBox *mac_config_create_box(
 
     NSScrollView *contentScroll = mac_make_scroll_view(contentHost);
     contentScroll.borderType = NSBezelBorder;
+    contentScroll.accessibilityLabel = @"Settings";
     /* Document matches clip width; height follows stacked content. */
     [contentHost.widthAnchor
         constraintEqualToAnchor:contentScroll.contentView.widthAnchor].active =
@@ -2300,6 +2366,9 @@ MacConfigBox *mac_config_create_box(
         [window contentRectForFrameRect:NSMakeRect(0, 0, window.minSize.width,
                                                    window.minSize.height)]
             .size;
+
+    mac_apply_contrast_border(split);
+    mac_prepare_config_window_keyboard(window, outline);
 
     [window makeKeyAndOrderFront:nil];
     [NSApp activateIgnoringOtherApps:YES];
@@ -2560,6 +2629,7 @@ static void make_ca_config_box(NSWindow *spawning_window, bool run_modal)
     }
 
     mac_cacfg = box;
+    mac_prepare_config_window_keyboard(window, content);
     [window makeKeyAndOrderFront:nil];
     [NSApp activateIgnoringOtherApps:YES];
 

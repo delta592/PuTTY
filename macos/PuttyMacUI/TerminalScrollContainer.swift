@@ -25,6 +25,7 @@ final class TerminalScrollContainer: NSView, TerminalResizeScrolling, TerminalWi
     private var iconTitle = ""
 
     weak var hostWindow: NSWindow?
+    nonisolated(unsafe) private var accessibilityObserver: NSObjectProtocol?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -36,10 +37,27 @@ final class TerminalScrollContainer: NSView, TerminalResizeScrolling, TerminalWi
         scroller.isEnabled = false
         scroller.target = self
         scroller.action = #selector(scrollerMoved(_:))
+        scroller.setAccessibilityElement(true)
+        scroller.setAccessibilityRole(.scrollBar)
+        scroller.setAccessibilityLabel("Terminal scrollback")
 
         addSubview(terminalView)
         addSubview(scroller)
         layoutSubviews()
+        applyAccessibilityChrome()
+        accessibilityObserver = PuttyAccessibility.observeDisplayOptionsChanged {
+            [weak self] in
+            self?.applyAccessibilityChrome()
+            if let window = self?.hostWindow ?? self?.window {
+                PuttyAccessibility.applyWindowMotionPolicy(window)
+            }
+        }
+    }
+
+    deinit {
+        if let accessibilityObserver {
+            NotificationCenter.default.removeObserver(accessibilityObserver)
+        }
     }
 
     @available(*, unavailable)
@@ -177,6 +195,7 @@ final class TerminalScrollContainer: NSView, TerminalResizeScrolling, TerminalWi
     func setWindowTitle(_ title: String) {
         windowTitle = title
         hostWindow?.title = title
+        PuttyAccessibility.updateTerminalValue(terminalView, title: title)
         updateDockTile()
     }
 
@@ -268,5 +287,17 @@ final class TerminalScrollContainer: NSView, TerminalResizeScrolling, TerminalWi
         let range = max(scrollTotal - scrollPage, 1)
         let pos = Int(sender.doubleValue * CGFloat(range))
         putty_bridge_termwin_scroll_to(termWin, Int32(pos))
+    }
+
+    private func applyAccessibilityChrome() {
+        /*
+         * Increase Contrast strengthens session chrome only — never the
+         * terminal colour palette (Phase 9.2 / 9.3).
+         */
+        PuttyAccessibility.applyChromeContrast(to: self)
+        if PuttyAccessibility.increaseContrast {
+            scroller.controlSize = .regular
+            scroller.knobStyle = .light
+        }
     }
 }

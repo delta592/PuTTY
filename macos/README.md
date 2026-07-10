@@ -216,5 +216,6 @@ seat, clipboard, and related paths. See `macos/CMakeLists.txt` and
 | [`../README`](../README) | Root build overview (all platforms) |
 | [`../MACOS_GUI_PLAN.md`](../MACOS_GUI_PLAN.md) | Phased design / remaining packaging |
 | [`AGENT.md`](AGENT.md) | OpenSSH agent + askpass |
+| [`ACCESSIBILITY.md`](ACCESSIBILITY.md) | Phase 9.2 VoiceOver / keyboard / Reduce Motion |
 | [`TESTING.md`](TESTING.md) | Phase 9.1 CTest / XCTest / manual matrix |
 | [`PuTTY/TERMINAL_PERFORMANCE.md`](PuTTY/TERMINAL_PERFORMANCE.md) | Terminal paint performance notes |

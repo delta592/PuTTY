@@ -80,8 +80,11 @@ char *gtk_askpass_main(const char *display, const char *wintitle,
 
         field = [[NSSecureTextField alloc]
             initWithFrame:NSMakeRect(0, 0, 280, 24)];
+        field.accessibilityLabel = message;
         alert.accessoryView = field;
         alert.window.initialFirstResponder = field;
+        alert.window.autorecalculatesKeyViewLoop = YES;
+        [alert.window recalculateKeyViewLoop];
 
         response = [alert runModal];
         if (response != NSAlertFirstButtonReturn) {

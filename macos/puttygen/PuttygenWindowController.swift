@@ -36,11 +36,18 @@ final class PuttygenWindowController: NSWindowController, NSWindowDelegate, NSTe
         window.title = "PuTTYgen"
         window.contentView = content
         window.minSize = NSSize(width: 560, height: 460)
+        if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            window.animationBehavior = .none
+        }
+        window.setAccessibilityLabel("PuTTYgen")
         super.init(window: window)
         window.delegate = self
         window.center()
         buildUI(in: content)
         refreshKeyDisplay()
+        window.initialFirstResponder = typePopUp
+        window.autorecalculatesKeyViewLoop = true
+        window.recalculateKeyViewLoop()
     }
 
     @available(*, unavailable)
@@ -70,11 +77,13 @@ final class PuttygenWindowController: NSWindowController, NSWindowDelegate, NSTe
         typePopUp.selectItem(at: 0)
         typePopUp.target = self
         typePopUp.action = #selector(typeChanged(_:))
+        typePopUp.setAccessibilityLabel("Key type")
 
         bitsField.isEditable = true
         bitsField.isEnabled = false
         bitsField.frame.size.width = 80
         bitsField.widthAnchor.constraint(equalToConstant: 80).isActive = true
+        bitsField.setAccessibilityLabel("Bits")
 
         let params = NSStackView(views: [
             label("Key type:"), typePopUp,
@@ -86,8 +95,10 @@ final class PuttygenWindowController: NSWindowController, NSWindowDelegate, NSTe
 
         generateButton.target = self
         generateButton.action = #selector(generateKey(_:))
+        generateButton.setAccessibilityLabel("Generate key")
         loadButton.target = self
         loadButton.action = #selector(loadKey(_:))
+        loadButton.setAccessibilityLabel("Load key")
         let actions = NSStackView(views: [generateButton, loadButton])
         actions.orientation = .horizontal
         actions.spacing = 8
@@ -101,12 +112,14 @@ final class PuttygenWindowController: NSWindowController, NSWindowDelegate, NSTe
         progress.translatesAutoresizingMaskIntoConstraints = false
         progress.heightAnchor.constraint(equalToConstant: 16).isActive = true
         progress.widthAnchor.constraint(equalToConstant: 400).isActive = true
+        progress.setAccessibilityLabel("Key generation progress")
         stack.addArrangedSubview(progress)
 
         stack.addArrangedSubview(label("Fingerprint (SHA-256):"))
         fingerprintField.isSelectable = true
         fingerprintField.lineBreakMode = .byTruncatingMiddle
         fingerprintField.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        fingerprintField.setAccessibilityLabel("Fingerprint")
         stack.addArrangedSubview(fingerprintField)
 
         stack.addArrangedSubview(label("Public key for pasting into OpenSSH authorized_keys:"))
@@ -119,6 +132,7 @@ final class PuttygenWindowController: NSWindowController, NSWindowDelegate, NSTe
         publicKeyView.isRichText = false
         publicKeyView.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
         publicKeyView.autoresizingMask = [.width, .height]
+        publicKeyView.setAccessibilityLabel("Public key")
         scroll.documentView = publicKeyView
         stack.addArrangedSubview(scroll)
         scroll.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
@@ -126,6 +140,7 @@ final class PuttygenWindowController: NSWindowController, NSWindowDelegate, NSTe
         stack.addArrangedSubview(label("Key comment:"))
         commentField.delegate = self
         commentField.isEnabled = false
+        commentField.setAccessibilityLabel("Key comment")
         stack.addArrangedSubview(commentField)
         commentField.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
 
@@ -137,20 +152,26 @@ final class PuttygenWindowController: NSWindowController, NSWindowDelegate, NSTe
         passRow.spacing = 8
         passphraseField.widthAnchor.constraint(equalToConstant: 140).isActive = true
         confirmField.widthAnchor.constraint(equalToConstant: 140).isActive = true
+        passphraseField.setAccessibilityLabel("Key passphrase")
+        confirmField.setAccessibilityLabel("Confirm passphrase")
         stack.addArrangedSubview(passRow)
 
         savePrivateButton.target = self
         savePrivateButton.action = #selector(savePrivateKey(_:))
+        savePrivateButton.setAccessibilityLabel("Save private key")
         savePublicButton.target = self
         savePublicButton.action = #selector(savePublicKey(_:))
+        savePublicButton.setAccessibilityLabel("Save public key")
         exportButton.target = self
         exportButton.action = #selector(exportOpenSSH(_:))
+        exportButton.setAccessibilityLabel("Export OpenSSH key")
         let saveRow = NSStackView(views: [savePrivateButton, savePublicButton, exportButton])
         saveRow.orientation = .horizontal
         saveRow.spacing = 8
         stack.addArrangedSubview(saveRow)
 
         statusLabel.textColor = .secondaryLabelColor
+        statusLabel.setAccessibilityLabel("Status")
         stack.addArrangedSubview(statusLabel)
     }
 

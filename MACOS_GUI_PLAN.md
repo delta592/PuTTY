@@ -1137,9 +1137,22 @@ Swift SDK modules.
 
 ### 9.2 Accessibility
 
-- [ ] VoiceOver labels for terminal view (limited — document as terminal emulator).
-- [ ] Keyboard navigation for all dialogs.
-- [ ] Respect **Reduce Motion** and **Increase Contrast** settings.
+- [x] VoiceOver labels for terminal view (limited — document as terminal emulator).
+- [x] Keyboard navigation for all dialogs.
+- [x] Respect **Reduce Motion** and **Increase Contrast** settings.
+
+**Implementation:** `PuttyMacUI/PuttyAccessibility.swift` centralises System
+Settings queries (`reduceMotion` / `increaseContrast`), chrome contrast,
+and terminal VoiceOver identity. `TerminalView` exposes role text-area /
+label `Terminal` / help text documenting that VoiceOver cannot read the
+character grid as a document (use Copy or Event Log). Scrollback scroller
+is labelled. Config / Host CA / userpass / askpass / Event Log / PuTTYgen
+set `initialFirstResponder`, recalculate the key-view loop, and attach
+`accessibilityLabel` (plus title UI elements for labelled fields). Reduce
+Motion keeps window animations off and adds an audible cue for visual
+bell; Increase Contrast strengthens chrome borders only (not the terminal
+palette). Docs: [`macos/ACCESSIBILITY.md`](macos/ACCESSIBILITY.md).
+XCTest: `AccessibilityTests` in `PuttyMacUITests`.
 
 ### 9.3 macOS 15 integration
 

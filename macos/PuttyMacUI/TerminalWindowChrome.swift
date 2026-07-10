@@ -10,6 +10,7 @@ protocol TerminalWindowChrome: AnyObject {
 }
 
 /// Plays terminal bells per Conf beep mode.
+@MainActor
 enum TerminalBell {
     static func play(mode: Int32, termWin: OpaquePointer) {
         switch mode {
@@ -18,7 +19,14 @@ enum TerminalBell {
         case PUTTY_BRIDGE_BELL_WAVEFILE:
             playWaveFile(termWin: termWin)
         case PUTTY_BRIDGE_BELL_VISUAL:
-            break
+            /*
+             * Reverse-video flash is scheduled by terminal.c after win_bell.
+             * When Reduce Motion is on, add an audible cue so the bell is not
+             * solely a screen flash (Phase 9.2).
+             */
+            if PuttyAccessibility.reduceMotion {
+                NSSound.beep()
+            }
         default:
             break
         }
