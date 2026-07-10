@@ -524,6 +524,93 @@ static void test_wintitle(Mock *mk)
     SEQUAL(mk->title->s, "bar");
 }
 
+/*
+ * Feed a compact escape / UTF-8 / bidi corpus through the terminal.
+ * Goal is coverage of common CSI/OSC/charset paths without asserting
+ * every cell (fuzzterm covers crash-freedom separately).
+ */
+static void test_escape_utf8_bidi_corpus(Mock *mk)
+{
+    reset(mk);
+    conf_set_bool(mk->conf, CONF_no_bidi, false);
+    mk->ucsdata->line_codepage = CP_UTF8;
+    term_reconfig(mk->term, mk->conf);
+
+    term_datapl(mk->term, PTRLEN_LITERAL(
+        "Hello \xc3\xa9 \xe2\x82\xac\r\n"
+        "\033[1;31mred\033[0m \033[1;32mgreen\033[0m\r\n"
+        "\033[2J\033[H"
+        "\033(0qqqq\033(B\r\n"
+        "\033[?1049halt\033[?1049l"
+        "\033[4h\033[4l"
+        "\033[?25l\033[?25h"
+        "\xd7\x90\xd7\x91\xd7\x92\r\n"
+        "\033]0;corpus-title\007"
+        "\033[38;5;196m256\033[0m "
+        "\033[38;2;10;20;30mtrue\033[0m\r\n"
+        "\033[3;10Hmove\033[K"
+        "\033[1;1H"
+        "\033M\033D\033E"
+        "\033[7mrev\033[27m\r\n"
+        /* Extra CSI / mode coverage for terminal.c without new fixtures. */
+        "\033[0m\033[1m\033[2m\033[3m\033[4m\033[5m\033[7m\033[8m\033[0m"
+        "\033[22m\033[23m\033[24m\033[25m\033[27m\033[28m"
+        "\033[39m\033[49m"
+        "\033[A\033[B\033[C\033[D\033[G"
+        "\033[1;1f\033[6n"
+        "\033[?1h\033[?1l\033[?7h\033[?7l"
+        "\033[?1000h\033[?1000l\033[?1002h\033[?1002l"
+        "\033[?1006h\033[?1006l"
+        "\033[?2004hpaste\033[?2004l"
+        "\033]4;1;rgb:aa/bb/cc\033\\"
+        "\033]10;?\033\\\033]11;?\033\\"
+        "\033[3J"
+        "\033[?47h\033[?47l"
+        "\033#8"
+        "\033[5n"
+        "\033Z"
+        "\033c"
+    ));
+    term_update(mk->term);
+    IEQUAL(mk->term->rows, 24);
+    IEQUAL(mk->term->cols, 80);
+}
+
+#ifdef PUTTY_TEST_DATA_DIR
+static void feed_file(Mock *mk, const char *path)
+{
+    FILE *fp = fopen(path, "rb");
+    char buf[4096];
+    size_t n;
+
+    if (!fp)
+        return;
+    while ((n = fread(buf, 1, sizeof(buf), fp)) > 0)
+        term_data(mk->term, buf, n);
+    fclose(fp);
+    term_update(mk->term);
+}
+
+static void test_corpus_files(Mock *mk)
+{
+    static const char *const files[] = {
+        PUTTY_TEST_DATA_DIR "/vt100.txt",
+        PUTTY_TEST_DATA_DIR "/lattrs.txt",
+        PUTTY_TEST_DATA_DIR "/scocols.txt",
+        PUTTY_TEST_DATA_DIR "/colours.txt",
+        PUTTY_TEST_DATA_DIR "/utf8.txt",
+        PUTTY_TEST_DATA_DIR "/coverage_escapes.txt",
+    };
+    size_t i;
+
+    reset(mk);
+    mk->ucsdata->line_codepage = CP_UTF8;
+    for (i = 0; i < lenof(files); i++)
+        feed_file(mk, files[i]);
+    IEQUAL(mk->term->rows, 24);
+}
+#endif
+
 int main(void)
 {
     Mock *mk = mock_new();
@@ -533,6 +620,10 @@ int main(void)
     test_wrap(mk);
     test_nonwrap(mk);
     test_wintitle(mk);
+    test_escape_utf8_bidi_corpus(mk);
+#ifdef PUTTY_TEST_DATA_DIR
+    test_corpus_files(mk);
+#endif
 
     bool failed = mk->any_test_failed;
     mock_free(mk);

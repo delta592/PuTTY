@@ -168,12 +168,25 @@ if(NOT PUTTY_COMPRESS_SCROLLBACK)
   set(NO_SCROLLBACK_COMPRESSION ON)
 endif()
 if(PUTTY_COVERAGE)
-  # Match gcc/clang --coverage: instrument C and link the profile runtime.
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fprofile-arcs -ftest-coverage -g ")
-  set(CMAKE_EXE_LINKER_FLAGS
-    "${CMAKE_EXE_LINKER_FLAGS} -fprofile-arcs -ftest-coverage ")
-  set(CMAKE_SHARED_LINKER_FLAGS
-    "${CMAKE_SHARED_LINKER_FLAGS} -fprofile-arcs -ftest-coverage ")
-  set(CMAKE_MODULE_LINKER_FLAGS
-    "${CMAKE_MODULE_LINKER_FLAGS} -fprofile-arcs -ftest-coverage ")
+  # Match gcc/clang --coverage for C/ObjC only. Do not put these on
+  # CMAKE_*_LINKER_FLAGS — Swift rejects -fprofile-arcs as a driver flag.
+  add_compile_options(
+    "$<$<COMPILE_LANGUAGE:C,OBJC,OBJCXX>:-fprofile-arcs;-ftest-coverage;-g>")
+  add_link_options(
+    "$<$<LINK_LANGUAGE:C,CXX,OBJC,OBJCXX>:-fprofile-arcs;-ftest-coverage>")
+  # Swift links instrumented C archives; pull in clang's profile runtime
+  # explicitly (ld does not accept -fprofile-arcs).
+  execute_process(
+    COMMAND ${CMAKE_C_COMPILER} -print-file-name=libclang_rt.profile_osx.a
+    OUTPUT_VARIABLE PUTTY_CLANG_PROFILE_LIB
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_QUIET)
+  if(PUTTY_CLANG_PROFILE_LIB AND EXISTS "${PUTTY_CLANG_PROFILE_LIB}")
+    add_link_options(
+      "$<$<LINK_LANGUAGE:Swift>:${PUTTY_CLANG_PROFILE_LIB}>")
+  else()
+    message(WARNING
+      "PUTTY_COVERAGE: libclang_rt.profile_osx.a not found; "
+      "Swift targets that link C may fail to link")
+  endif()
 endif()

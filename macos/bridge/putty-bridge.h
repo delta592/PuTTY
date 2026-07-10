@@ -345,6 +345,8 @@ bool putty_bridge_is_main_thread(void);
 int putty_bridge_session_smoke(void);
 int putty_bridge_conf_smoke(void);
 int putty_bridge_eventloop_smoke(void);
+int putty_bridge_cmdline_smoke(void);
+int putty_bridge_network_smoke(void);
 
 /** Exit gate: DispatchSource timers + toplevel callbacks. Returns 0 on success. */
 int putty_bridge_eventloop_exit_smoke(void);

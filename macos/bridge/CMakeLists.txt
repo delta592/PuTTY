@@ -74,6 +74,27 @@ putty_add_bridge_smoke(putty-bridge-conf-smoke-c
   FUNC putty_bridge_conf_smoke
   OK_MSG "putty-bridge-conf-smoke: ok")
 
+putty_add_bridge_smoke(putty-bridge-session-smoke-c
+  FUNC putty_bridge_session_smoke
+  OK_MSG "putty-bridge-session-smoke: ok")
+
+putty_add_bridge_smoke(putty-bridge-eventloop-smoke-c
+  FUNC putty_bridge_eventloop_smoke
+  OK_MSG "putty-bridge-eventloop-smoke: ok")
+
+putty_add_bridge_smoke(putty-bridge-thread-smoke-c
+  FUNC putty_bridge_thread_smoke
+  OK_MSG "putty-bridge-thread-smoke: ok")
+
+putty_add_bridge_smoke(putty-bridge-cmdline-smoke-c
+  FUNC putty_bridge_cmdline_smoke
+  OK_MSG "putty-bridge-cmdline-smoke: ok")
+
+putty_add_bridge_smoke(putty-bridge-network-smoke-c
+  FUNC putty_bridge_network_smoke
+  OK_MSG "putty-bridge-network-smoke: ok"
+  EXTRA_SOURCES putty-bridge-network-smoke.c)
+
 # Phase 4.4 terminal paint performance gate (custom driver with noop callbacks).
 add_executable(putty-bridge-termwin-perf-c
   putty-bridge-termwin-perf-main.c)

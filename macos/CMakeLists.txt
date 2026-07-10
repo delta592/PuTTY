@@ -241,6 +241,8 @@ add_executable(test_terminal
   ${CMAKE_SOURCE_DIR}/stubs/no-printing.c
   platform/unicode.c
   platform/no-gtk.c)
+target_compile_definitions(test_terminal PRIVATE
+  PUTTY_TEST_DATA_DIR="${CMAKE_SOURCE_DIR}/test")
 target_link_libraries(test_terminal
   guiterminal settings eventloop utils ${platform_libraries})
 

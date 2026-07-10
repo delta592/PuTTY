@@ -20,6 +20,12 @@ set(_putty_macos_ctest_binaries
   test_conf
   cgtest
   test_lineedit
+  test_host_strfoo
+  test_decode_utf8
+  test_tree234
+  test_wildcard
+  test_cert_expr
+  test_stripctrl
   putty-mac-termwin-smoke-c
   putty-mac-seat-smoke-c
   putty-mac-seat-output-smoke-c
@@ -27,6 +33,11 @@ set(_putty_macos_ctest_binaries
   putty-mac-config-smoke-c
   putty-mac-askpass-smoke-c
   putty-bridge-conf-smoke-c
+  putty-bridge-session-smoke-c
+  putty-bridge-eventloop-smoke-c
+  putty-bridge-thread-smoke-c
+  putty-bridge-cmdline-smoke-c
+  putty-bridge-network-smoke-c
   putty-bridge-launch-smoke-c
   putty-bridge-termwin-exit-c
   putty-bridge-termwin-input-smoke-c
@@ -51,11 +62,12 @@ foreach(_putty_macos_ctest ${_putty_macos_ctest_binaries})
   endif()
 endforeach()
 
-# fuzzterm: smoke stdin to catch easy crashes (mirrors Buildscr).
+# fuzzterm: smoke stdin + in-tree corpora (mirrors Buildscr, adds coverage).
 if(TARGET fuzzterm)
   add_test(NAME macos.fuzzterm-smoke
     COMMAND ${CMAKE_COMMAND}
       -DPUTTY_FUZZTERM=$<TARGET_FILE:fuzzterm>
+      -DPUTTY_TEST_DATA_DIR=${CMAKE_SOURCE_DIR}/test
       -P ${CMAKE_CURRENT_SOURCE_DIR}/run_fuzzterm_smoke.cmake)
   set_tests_properties(macos.fuzzterm-smoke PROPERTIES
     LABELS "macos;unit"
@@ -270,15 +282,16 @@ putty_macos_add_ctest_run_target(putty-test-ui
   LABEL xctest
   COMMENT "Run CTest cases labelled xctest (PuttyMacUITests)")
 
-# Portable utils self-tests (root CMakeLists) — not registered with add_test.
-# Omit test_unicode_norm / bidi_test (need external UCD NormalizationTest /
-# BidiTest fixtures that are not shipped in-tree).
+# Portable utils self-tests are also registered in CTest (-L unit) above.
+# putty-test-utils remains for `make test-utils` / putty-test-all.
+# Omit test_unicode_norm / bidi_test (need external UCD fixtures).
 set(_putty_macos_utils_tests
   test_host_strfoo
   test_decode_utf8
   test_tree234
   test_wildcard
-  test_cert_expr)
+  test_cert_expr
+  test_stripctrl)
 set(_putty_macos_utils_commands)
 set(_putty_macos_utils_deps)
 foreach(_putty_macos_utils ${_putty_macos_utils_tests})

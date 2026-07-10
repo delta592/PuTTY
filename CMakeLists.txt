@@ -136,6 +136,11 @@ add_executable(test_cert_expr
 target_compile_definitions(test_cert_expr PRIVATE TEST)
 target_link_libraries(test_cert_expr utils ${platform_libraries})
 
+add_executable(test_stripctrl
+  utils/stripctrl.c)
+target_compile_definitions(test_stripctrl PRIVATE STRIPCTRL_TEST)
+target_link_libraries(test_stripctrl utils ${platform_libraries})
+
 add_executable(bidi_gettype
   terminal/bidi_gettype.c)
 target_link_libraries(bidi_gettype guiterminal utils ${platform_libraries})

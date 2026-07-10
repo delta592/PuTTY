@@ -69,13 +69,12 @@ static bool putty_bridge_cmdline_extra(
             *action = PUTTY_BRIDGE_CMDLINE_HOST_CA;
             return true;
         }
-        if (p[0] != '-' && (cmdline_tooltype & TOOLTYPE_HOST_ARG)) {
-            /* Non-option arguments are handled by cmdline_process_param. */
-            return false;
-        }
-        if (p[0] == '-') {
-            cmdline_error("unrecognized option \"%s\"", p);
-        }
+        /*
+         * Other options (and bare hostnames) are handled by
+         * cmdline_process_param in the caller. Do not treat unknown
+         * dashes as fatal here — that blocked -P/-l/-ssh/-load.
+         */
+        return false;
     }
 
     return false;
@@ -211,6 +210,136 @@ bool putty_conf_launchable(const PuttyConf *conf)
     if (!conf || !conf->conf)
         return false;
     return conf_launchable(conf->conf);
+}
+
+int putty_bridge_cmdline_smoke(void)
+{
+    PuttyConf *conf = NULL;
+    bool connect = false;
+    PuttyBridgeCmdlineAction action;
+    char *argv_help[] = { "putty", "--help", NULL };
+    char *argv_version[] = { "putty", "--version", NULL };
+    char *argv_pgpfp[] = { "putty", "-pgpfp", NULL };
+    char *argv_hostca[] = { "putty", "-host-ca", NULL };
+    char *argv_cleanup[] = { "putty", "-cleanup", NULL };
+    char *argv_host[] = {
+        "putty", "bridge-cmdline.example", "-P", "2222", "-l", "smoke",
+        "-ssh", NULL
+    };
+    FILE *nullout;
+
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
+
+    nullout = fopen("/dev/null", "w");
+    if (!nullout)
+        nullout = stderr;
+
+    action = putty_bridge_process_command_line(
+        2, argv_help, &conf, &connect);
+    if (action != PUTTY_BRIDGE_CMDLINE_EXIT_HELP || conf)
+        return -1;
+    putty_bridge_print_help(nullout);
+
+    action = putty_bridge_process_command_line(
+        2, argv_version, &conf, &connect);
+    if (action != PUTTY_BRIDGE_CMDLINE_EXIT_VERSION || conf)
+        return -2;
+    putty_bridge_print_version(nullout);
+
+    action = putty_bridge_process_command_line(
+        2, argv_pgpfp, &conf, &connect);
+    if (action != PUTTY_BRIDGE_CMDLINE_EXIT_OK || conf)
+        return -3;
+
+    action = putty_bridge_process_command_line(
+        2, argv_hostca, &conf, &connect);
+    if (action != PUTTY_BRIDGE_CMDLINE_HOST_CA || conf)
+        return -4;
+
+    action = putty_bridge_process_command_line(
+        2, argv_cleanup, &conf, &connect);
+    if (action != PUTTY_BRIDGE_CMDLINE_CLEANUP || conf)
+        return -5;
+
+    action = putty_bridge_process_command_line(
+        7, argv_host, &conf, &connect);
+    if (action != PUTTY_BRIDGE_CMDLINE_LAUNCH || !conf)
+        return -6;
+    if (!connect)
+        return -7;
+    if (strcmp(putty_conf_get_host(conf), "bridge-cmdline.example") != 0)
+        return -8;
+    if (putty_conf_get_port(conf) != 2222)
+        return -9;
+    if (strcmp(putty_conf_get_username(conf), "smoke") != 0)
+        return -10;
+    if (putty_conf_get_protocol(conf) != PUTTY_CONF_PROT_SSH)
+        return -11;
+    if (!putty_conf_launchable(conf))
+        return -12;
+    putty_conf_free(conf);
+    conf = NULL;
+
+    {
+        char *argv_more[] = {
+            "putty", "-telnet", "telnet.example", "-P", "23",
+            "-4", "-C", NULL
+        };
+        action = putty_bridge_process_command_line(
+            7, argv_more, &conf, &connect);
+        if (action != PUTTY_BRIDGE_CMDLINE_LAUNCH || !conf)
+            return -13;
+        if (putty_conf_get_protocol(conf) != PUTTY_CONF_PROT_TELNET)
+            return -14;
+        putty_conf_free(conf);
+        conf = NULL;
+    }
+
+    {
+        char *argv_raw[] = { "putty", "-raw", "raw.example", NULL };
+        action = putty_bridge_process_command_line(
+            3, argv_raw, &conf, &connect);
+        if (action != PUTTY_BRIDGE_CMDLINE_LAUNCH || !conf)
+            return -15;
+        if (putty_conf_get_protocol(conf) != PUTTY_CONF_PROT_RAW)
+            return -16;
+        putty_conf_free(conf);
+        conf = NULL;
+    }
+
+    {
+        char *argv_ssh2[] = {
+            "putty", "-ssh", "-2", "ssh2.example", "-P", "22",
+            "-l", "u", "-N", "-A", "-a", "-X", "-x", "-t", "-T",
+            NULL
+        };
+        action = putty_bridge_process_command_line(
+            15, argv_ssh2, &conf, &connect);
+        if (action != PUTTY_BRIDGE_CMDLINE_LAUNCH || !conf)
+            return -17;
+        if (putty_conf_get_protocol(conf) != PUTTY_CONF_PROT_SSH)
+            return -18;
+        putty_conf_free(conf);
+        conf = NULL;
+    }
+
+    {
+        char *argv_rlogin[] = {
+            "putty", "-rlogin", "rlogin.example", NULL
+        };
+        action = putty_bridge_process_command_line(
+            3, argv_rlogin, &conf, &connect);
+        if (action != PUTTY_BRIDGE_CMDLINE_LAUNCH || !conf)
+            return -19;
+        if (putty_conf_get_protocol(conf) != PUTTY_CONF_PROT_RLOGIN)
+            return -20;
+        putty_conf_free(conf);
+        conf = NULL;
+    }
+
+    if (nullout != stderr)
+        fclose(nullout);
+    return 0;
 }
 
 bool putty_conf_warn_on_close(const PuttyConf *conf)

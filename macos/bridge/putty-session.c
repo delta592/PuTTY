@@ -554,16 +554,84 @@ struct Backend *putty_session_get_backend(PuttySession *session)
     return session->backend;
 }
 
+static void putty_bridge_session_smoke_on_output(
+    void *ctx, const void *data, size_t len)
+{
+    size_t *n = ctx;
+    (void)data;
+    if (n)
+        *n += len;
+}
+
+static void putty_bridge_session_smoke_on_title(
+    void *ctx, const char *title)
+{
+    (void)ctx;
+    (void)title;
+}
+
+static void putty_bridge_session_smoke_on_bell(void *ctx, int mode)
+{
+    (void)ctx;
+    (void)mode;
+}
+
+static void putty_bridge_session_smoke_on_exit(void *ctx)
+{
+    (void)ctx;
+}
+
+static void putty_bridge_session_smoke_on_redraw(
+    void *ctx, PuttyBridgeRect dirty)
+{
+    (void)ctx;
+    (void)dirty;
+}
+
 int putty_bridge_session_smoke(void)
 {
     PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     PuttySession *session;
+    PuttyConf *conf;
+    PuttySessionCallbacks cbs;
+    size_t output_bytes = 0;
+    static const char probe[] = "session-smoke\r\n";
 
     session = putty_session_new(NULL);
     if (!session)
         return -1;
     if (!session->term || !session->conf)
         return -2;
+
+    memset(&cbs, 0, sizeof(cbs));
+    cbs.on_output = putty_bridge_session_smoke_on_output;
+    cbs.on_title_changed = putty_bridge_session_smoke_on_title;
+    cbs.on_bell = putty_bridge_session_smoke_on_bell;
+    cbs.on_exit = putty_bridge_session_smoke_on_exit;
+    cbs.on_request_redraw = putty_bridge_session_smoke_on_redraw;
+    putty_session_set_callbacks(session, &cbs, &output_bytes);
+
+    conf = putty_conf_new();
+    if (!conf) {
+        putty_session_free(session);
+        return -3;
+    }
+    putty_conf_set_host(conf, "session-smoke.example");
+    putty_conf_set_port(conf, 2222);
+    putty_conf_set_protocol(conf, PUTTY_CONF_PROT_SSH);
+    putty_session_reconfigure(session, conf);
+    putty_conf_free(conf);
+
+    if (putty_session_output(session, probe, sizeof(probe) - 1) != 0) {
+        putty_session_free(session);
+        return -4;
+    }
+    if (putty_session_get_backend(session) != NULL) {
+        putty_session_free(session);
+        return -5;
+    }
+
+    putty_session_set_callbacks(session, NULL, NULL);
     putty_session_free(session);
     return 0;
 }

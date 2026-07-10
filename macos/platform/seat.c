@@ -768,6 +768,26 @@ int mac_gui_seat_smoke(void)
     term_update(seat->term);
     if (seat->term->rows < 1 || seat->term->cols < 1)
         return 7;
+
+    if (mac_gui_seat_get_terminal(seat) != seat->term)
+        return 8;
+    if (mac_gui_seat_get_backend(seat) == NULL)
+        return 9;
+    if (mac_gui_seat_get_conf(seat) == NULL)
+        return 10;
+    if (mac_gui_seat_get_logctx(seat) == NULL)
+        return 11;
+    if (!mac_gui_seat_is_active(seat))
+        return 12;
+    if (mac_gui_seat_can_restart(seat))
+        return 13;
+    (void)mac_gui_seat_should_warn_on_close(seat);
+    {
+        char *warn = mac_gui_seat_close_warn_text(seat);
+        sfree(warn);
+    }
+    mac_gui_seat_flush_display(seat);
+
     mac_gui_seat_free(seat);
     return 0;
 }

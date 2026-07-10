@@ -3,6 +3,7 @@
  */
 
 #include <limits.h>
+#include <unistd.h>
 
 #include "putty-bridge-internal.h"
 
@@ -219,6 +220,12 @@ __attribute__((weak)) void timer_change_notify(unsigned long next)
     (void)next;
 }
 
+static void putty_bridge_eventloop_uxsel_cb(int fd, int event)
+{
+    (void)fd;
+    (void)event;
+}
+
 int putty_bridge_eventloop_smoke(void)
 {
     PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
@@ -226,6 +233,8 @@ int putty_bridge_eventloop_smoke(void)
     PuttySession *session;
     uint64_t now;
     const char test_input[] = "x";
+    int pipefd[2] = { -1, -1 };
+    int fdstate = 0, fdrwx = 0;
 
     putty_bridge_eventloop_init();
 
@@ -233,6 +242,20 @@ int putty_bridge_eventloop_smoke(void)
     putty_run_timers(now);
     if (putty_toplevel_callback_pending())
         putty_run_toplevel_callbacks();
+
+    if (pipe(pipefd) == 0) {
+        uxsel_set(pipefd[0], SELECT_R, putty_bridge_eventloop_uxsel_cb);
+        if (first_fd(&fdstate, &fdrwx) < 0) {
+            close(pipefd[0]);
+            close(pipefd[1]);
+            return -5;
+        }
+        while (next_fd(&fdstate, &fdrwx) >= 0)
+            ;
+        uxsel_del(pipefd[0]);
+        close(pipefd[0]);
+        close(pipefd[1]);
+    }
 
     wrapper = putty_pollwrapper_new();
     if (!wrapper)
@@ -244,6 +267,10 @@ int putty_bridge_eventloop_smoke(void)
         return -2;
     }
     putty_pollwrapper_process_events(wrapper);
+    if (putty_pollwrapper_poll_timeout(wrapper, 0) < 0) {
+        putty_pollwrapper_free(wrapper);
+        return -6;
+    }
     putty_pollwrapper_free(wrapper);
 
     session = putty_session_new(NULL);
@@ -252,6 +279,9 @@ int putty_bridge_eventloop_smoke(void)
     if (putty_session_output(session, test_input, sizeof(test_input) - 1) != 0)
         return -4;
     putty_session_free(session);
+
+    putty_bridge_eventloop_start();
+    putty_bridge_eventloop_pump_once();
 
     return 0;
 }

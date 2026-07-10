@@ -255,6 +255,31 @@ int putty_bridge_conf_smoke(void)
     if (strcmp(putty_conf_get_font(conf), "mac:Inconsolata-Regular:14") != 0)
         return -10;
 
+    if (putty_conf_default_port_for_protocol(PUTTY_CONF_PROT_SSH) != 22)
+        return -20;
+    if (putty_conf_default_port_for_protocol(PUTTY_CONF_PROT_TELNET) != 23)
+        return -21;
+    if (putty_conf_default_port_for_protocol(PUTTY_CONF_PROT_SERIAL) != 0)
+        return -22;
+    if (!putty_conf_launchable(conf))
+        return -23;
+
+    {
+        PuttyConf *copy = putty_conf_copy(conf);
+        if (!copy)
+            return -24;
+        if (strcmp(putty_conf_get_host(copy), "bridge-smoke.example") != 0) {
+            putty_conf_free(copy);
+            return -25;
+        }
+        putty_conf_set_bool(copy, PUTTY_CONF_BOOL_TCP_NODELAY, false);
+        if (putty_conf_get_bool(copy, PUTTY_CONF_BOOL_TCP_NODELAY)) {
+            putty_conf_free(copy);
+            return -26;
+        }
+        putty_conf_free(copy);
+    }
+
     if (!putty_conf_save_session(conf, putty_conf_smoke_session))
         return -6;
 
@@ -286,8 +311,8 @@ int putty_bridge_conf_smoke(void)
         return -11;
     }
 
+    putty_conf_delete_session(putty_conf_smoke_session);
     putty_conf_free(conf);
     putty_conf_free(loaded);
-    del_settings(putty_conf_smoke_session);
     return 0;
 }

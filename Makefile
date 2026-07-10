@@ -64,7 +64,8 @@ UTILS_TESTS := \
   test_decode_utf8 \
   test_tree234 \
   test_wildcard \
-  test_cert_expr
+  test_cert_expr \
+  test_stripctrl
 
 .PHONY: help
 help:
@@ -149,10 +150,11 @@ test-gate:
 	@# Ensure root utils self-tests exist for test-utils / test-all.
 	$(CMAKE) --build "$(BUILD_DIR)" $(CMAKE_CONFIG) $(PARALLEL) --target \
 	  test_host_strfoo test_decode_utf8 \
-	  test_tree234 test_wildcard test_cert_expr
+	  test_tree234 test_wildcard test_cert_expr test_stripctrl
 
 # Instrumented C coverage tree (separate from PROFILE builds). Instruments
-# CMAKE_C_FLAGS + link flags via -DPUTTY_COVERAGE=ON; does not cover Swift/ObjC.
+# C/ObjC via -DPUTTY_COVERAGE=ON; does not cover Swift sources. Expect ~50–60%
+# on bridge+platform+terminal+utils+settings without live SSH/serial.
 .PHONY: coverage
 coverage:
 	@echo "==> configuring coverage -> $(COVERAGE_BUILD_DIR)"
@@ -160,8 +162,9 @@ coverage:
 	  -DCMAKE_BUILD_TYPE=Debug \
 	  -DPUTTY_MACOS_GUI=ON \
 	  -DPUTTY_COVERAGE=ON
-	$(CMAKE) --build "$(COVERAGE_BUILD_DIR)" $(PARALLEL) \
-	  --target putty-test-unit putty-test-crypt
+	@find "$(COVERAGE_BUILD_DIR)" -name '*.gcda' -delete 2>/dev/null || true
+	$(CMAKE) --build "$(COVERAGE_BUILD_DIR)" $(PARALLEL) --target putty-mac-test-gate
+	$(CTEST) --test-dir "$(COVERAGE_BUILD_DIR)" --output-on-failure -L 'unit|crypt'
 	@printf '%s\n' \
 	  "coverage: unit|crypt finished under $(COVERAGE_BUILD_DIR)" \
 	  "  .gcda:  find $(COVERAGE_BUILD_DIR) -name '*.gcda'" \
