@@ -94,7 +94,7 @@ jobs:
       always() &&
       (github.event_name != 'pull_request' || needs.changes.outputs.macos == 'true') &&
       (needs.changes.result == 'success' || needs.changes.result == 'skipped')
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 90
     permissions:
       contents: read
