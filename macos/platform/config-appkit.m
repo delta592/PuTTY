@@ -111,6 +111,7 @@ struct MacConfigBox {
 @end
 
 @interface MacConfigBoxController : NSObject <NSWindowDelegate,
+                                              NSSplitViewDelegate,
                                               NSOutlineViewDataSource,
                                               NSOutlineViewDelegate,
                                               NSTableViewDataSource,
@@ -140,7 +141,12 @@ struct MacConfigBox {
 - (BOOL)isFlipped { return YES; }
 @end
 
+/* Config NSWindow: keep a grabable strip on-screen; do not override setFrame. */
+@interface MacConfigWindow : NSWindow
+@end
+
 static char mac_uctrl_key;
+static char mac_config_controller_key;
 static NSString * const kMacConfigToolbarId = @"org.tartarus.putty.config";
 static NSString * const kMacConfigToolbarCategory = @"category";
 
@@ -273,6 +279,87 @@ static struct MacUCtrl *mac_uctrl_from_sender(id sender)
     return NULL;
 }
 
+/*
+ * Soft minimums for config layout. Must stay below
+ * NSLayoutPriorityWindowSizeStayPut (500): anything higher (e.g. DefaultHigh
+ * 750) beats the user's resize drag and freezes the window. Required (1000)
+ * also yanks the origin off-screen. DefaultLow (250) prefers readable layout
+ * without owning the NSWindow frame.
+ */
+static const NSLayoutPriority kMacConfigSoftMinPriority =
+    NSLayoutPriorityDefaultLow; /* 250 */
+
+static void mac_activate_soft_min_width(NSView *v, CGFloat width)
+{
+    NSLayoutConstraint *c =
+        [v.widthAnchor constraintGreaterThanOrEqualToConstant:width];
+    c.priority = kMacConfigSoftMinPriority;
+    c.active = YES;
+}
+
+/*
+ * Ensure a grabable strip of the window stays on a visible screen. Does not
+ * force the whole frame on-screen (users may park windows partly off-edge);
+ * only corrects frames that would otherwise be unreachable after a bad
+ * Auto Layout resize.
+ */
+static NSRect mac_clamp_window_frame_to_screens(NSRect frame)
+{
+    NSScreen *screen = nil;
+    CGFloat best_area = -1.0;
+
+    for (NSScreen *s in [NSScreen screens]) {
+        NSRect inter = NSIntersectionRect(frame, s.visibleFrame);
+        CGFloat area = NSWidth(inter) * NSHeight(inter);
+        if (area > best_area) {
+            best_area = area;
+            screen = s;
+        }
+    }
+    if (!screen)
+        screen = [NSScreen mainScreen];
+    if (!screen)
+        return frame;
+
+    NSRect vis = screen.visibleFrame;
+    /* Title-bar drag strip: enough width/height to click and pull back. */
+    const CGFloat min_visible_w = 120.0;
+    const CGFloat min_visible_h = 28.0;
+
+    if (NSWidth(frame) > NSWidth(vis)) {
+        frame.size.width = NSWidth(vis);
+        frame.origin.x = NSMinX(vis);
+    }
+    if (NSHeight(frame) > NSHeight(vis)) {
+        frame.size.height = NSHeight(vis);
+        frame.origin.y = NSMinY(vis);
+    }
+
+    if (NSMaxX(frame) < NSMinX(vis) + min_visible_w)
+        frame.origin.x = NSMinX(vis) + min_visible_w - NSWidth(frame);
+    if (NSMinX(frame) > NSMaxX(vis) - min_visible_w)
+        frame.origin.x = NSMaxX(vis) - min_visible_w;
+    if (NSMaxY(frame) < NSMinY(vis) + min_visible_h)
+        frame.origin.y = NSMinY(vis) + min_visible_h - NSHeight(frame);
+    if (NSMinY(frame) > NSMaxY(vis) - min_visible_h)
+        frame.origin.y = NSMaxY(vis) - min_visible_h;
+
+    return frame;
+}
+
+@implementation MacConfigWindow
+- (NSRect)constrainFrameRect:(NSRect)frameRect toScreen:(NSScreen *)screen
+{
+    NSRect constrained = [super constrainFrameRect:frameRect toScreen:screen];
+    NSSize min = self.minSize;
+    if (min.width > 0 && NSWidth(constrained) < min.width)
+        constrained.size.width = min.width;
+    if (min.height > 0 && NSHeight(constrained) < min.height)
+        constrained.size.height = min.height;
+    return mac_clamp_window_frame_to_screens(constrained);
+}
+@end
+
 static NSTextField *mac_make_label(const char *text)
 {
     NSTextField *tf = [NSTextField labelWithString:mac_ns(text)];
@@ -280,6 +367,12 @@ static NSTextField *mac_make_label(const char *text)
     tf.translatesAutoresizingMaskIntoConstraints = NO;
     [tf setContentHuggingPriority:NSLayoutPriorityDefaultHigh
                    forOrientation:NSLayoutConstraintOrientationHorizontal];
+    /*
+     * Below Required so long labels cannot force the window wider than
+     * window.minSize during live resize (that yanks the origin left).
+     */
+    [tf setContentCompressionResistancePriority:kMacConfigSoftMinPriority
+                                 forOrientation:NSLayoutConstraintOrientationHorizontal];
     [tf setContentCompressionResistancePriority:NSLayoutPriorityRequired
                                  forOrientation:NSLayoutConstraintOrientationVertical];
     return tf;
@@ -292,6 +385,13 @@ static void mac_prepare_view(NSView *v)
     v.translatesAutoresizingMaskIntoConstraints = NO;
     [v setContentCompressionResistancePriority:NSLayoutPriorityDefaultHigh
                                 forOrientation:NSLayoutConstraintOrientationVertical];
+    /*
+     * Buttons default to Required horizontal resistance (full title width).
+     * Soften so live resize is governed by window.minSize, not intrinsic
+     * content width — Required here was yanking the frame off-screen.
+     */
+    [v setContentCompressionResistancePriority:kMacConfigSoftMinPriority
+                                forOrientation:NSLayoutConstraintOrientationHorizontal];
 }
 
 static NSStackView *mac_make_vstack(void)
@@ -690,7 +790,6 @@ doCommandBySelector:(SEL)commandSelector
 
 @end
 
-static char mac_config_controller_key;
 static char mac_actions_key;
 static char mac_smoke_actions_key;
 
@@ -860,7 +959,11 @@ static NSView *mac_layout_one_control(
         if (ctrl->label) {
             NSTextField *lab = mac_make_label(ctrl->label);
             uc->label = lab;
-            [lab setContentCompressionResistancePriority:NSLayoutPriorityRequired
+            /*
+             * Prefer keeping labels readable, but never Required — that
+             * forces the window wider than the user's resize drag.
+             */
+            [lab setContentCompressionResistancePriority:kMacConfigSoftMinPriority
                                           forOrientation:NSLayoutConstraintOrientationHorizontal];
             [box addArrangedSubview:lab];
         }
@@ -877,12 +980,11 @@ static NSView *mac_layout_one_control(
                                      OBJC_ASSOCIATION_RETAIN_NONATOMIC);
             [combo setContentHuggingPriority:NSLayoutPriorityDefaultLow
                               forOrientation:NSLayoutConstraintOrientationHorizontal];
-            [combo setContentCompressionResistancePriority:NSLayoutPriorityRequired
+            [combo setContentCompressionResistancePriority:kMacConfigSoftMinPriority
                                             forOrientation:NSLayoutConstraintOrientationHorizontal];
             if (!stacked) {
                 /* Enough for a few digits / short strings in narrow columns. */
-                [combo.widthAnchor constraintGreaterThanOrEqualToConstant:56]
-                    .active = YES;
+                mac_activate_soft_min_width(combo, 56);
             }
             [box addArrangedSubview:combo];
             uc->widget = combo;
@@ -903,15 +1005,14 @@ static NSView *mac_layout_one_control(
                                      OBJC_ASSOCIATION_RETAIN_NONATOMIC);
             [field setContentHuggingPriority:NSLayoutPriorityDefaultLow
                               forOrientation:NSLayoutConstraintOrientationHorizontal];
-            [field setContentCompressionResistancePriority:NSLayoutPriorityRequired
+            [field setContentCompressionResistancePriority:kMacConfigSoftMinPriority
                                             forOrientation:NSLayoutConstraintOrientationHorizontal];
             if (!stacked) {
                 /*
                  * RGB and similar short fields must show at least "255"
                  * without clipping when the label ("Green") is long.
                  */
-                [field.widthAnchor constraintGreaterThanOrEqualToConstant:56]
-                    .active = YES;
+                mac_activate_soft_min_width(field, 56);
             }
             [box addArrangedSubview:field];
             uc->widget = field;
@@ -961,7 +1062,15 @@ static NSView *mac_layout_one_control(
             scroll.documentView = table;
             [scroll.heightAnchor constraintEqualToConstant:
                 (CGFloat)(ctrl->listbox.height * 22 + 8)].active = YES;
-            [scroll.widthAnchor constraintGreaterThanOrEqualToConstant:200].active = YES;
+            mac_activate_soft_min_width(scroll, 200);
+            [scroll setContentCompressionResistancePriority:
+                       kMacConfigSoftMinPriority
+                                            forOrientation:
+                                                NSLayoutConstraintOrientationHorizontal];
+            [table setContentCompressionResistancePriority:
+                      kMacConfigSoftMinPriority
+                                           forOrientation:
+                                               NSLayoutConstraintOrientationHorizontal];
 
             MacConfigBoxController *ctl =
                 objc_getAssociatedObject(dp->window, &mac_config_controller_key);
@@ -1756,6 +1865,55 @@ bool dlg_coloursel_results(dlgcontrol *ctrl, dlgparam *dp,
     return NO;
 }
 
+- (void)windowDidEndLiveResize:(NSNotification *)notification
+{
+    /*
+     * After a user drag, ensure a grabable strip remains on-screen if Auto
+     * Layout nudged the origin. Do not intervene mid-drag.
+     */
+    NSWindow *window = notification.object;
+    if (![window isKindOfClass:[NSWindow class]])
+        return;
+    NSRect clamped = mac_clamp_window_frame_to_screens(window.frame);
+    if (!NSEqualRects(clamped, window.frame))
+        [window setFrame:clamped display:YES animate:NO];
+}
+
+/*
+ * Pane widths via the split-view delegate — not Required width constraints
+ * on the scroll views. Those constraints were shrinking contentView to the
+ * split's fitting width (~306pt) while the window frame stayed at minSize,
+ * which smooshed the settings pane into a thin strip.
+ */
+- (CGFloat)splitView:(NSSplitView *)splitView
+    constrainMinCoordinate:(CGFloat)proposedMinimumPosition
+               ofSubviewAt:(NSInteger)dividerIndex
+{
+    (void)splitView;
+    (void)proposedMinimumPosition;
+    (void)dividerIndex;
+    return 140.0;
+}
+
+- (CGFloat)splitView:(NSSplitView *)splitView
+    constrainMaxCoordinate:(CGFloat)proposedMaximumPosition
+               ofSubviewAt:(NSInteger)dividerIndex
+{
+    (void)proposedMaximumPosition;
+    (void)dividerIndex;
+    /* Leave at least ~360pt for the settings pane. */
+    CGFloat total = NSWidth(splitView.bounds);
+    return MAX(140.0, total - 360.0);
+}
+
+- (BOOL)splitView:(NSSplitView *)splitView
+    canCollapseSubview:(NSView *)subview
+{
+    (void)splitView;
+    (void)subview;
+    return NO;
+}
+
 @end
 
 /* ---------------------------------------------------------------------- */
@@ -1837,17 +1995,19 @@ MacConfigBox *mac_config_create_box(
     box->dp.ctrlbox = mac_config_build_controlbox(conf, midsession, protcfginfo);
 
     NSRect frame = NSMakeRect(0, 0, 960, 640);
-    NSWindow *window =
-        [[NSWindow alloc] initWithContentRect:frame
-                                    styleMask:(NSWindowStyleMaskTitled |
-                                               NSWindowStyleMaskClosable |
-                                               NSWindowStyleMaskMiniaturizable |
-                                               NSWindowStyleMaskResizable)
-                                      backing:NSBackingStoreBuffered
-                                        defer:NO];
+    MacConfigWindow *window =
+        [[MacConfigWindow alloc] initWithContentRect:frame
+                                           styleMask:(NSWindowStyleMaskTitled |
+                                                      NSWindowStyleMaskClosable |
+                                                      NSWindowStyleMaskMiniaturizable |
+                                                      NSWindowStyleMaskResizable)
+                                             backing:NSBackingStoreBuffered
+                                               defer:NO];
     window.title = mac_ns(title);
     window.minSize = NSMakeSize(720, 480);
     window.animationBehavior = NSWindowAnimationBehaviorNone;
+    /* Do not restore a previous (possibly off-screen / crushed) frame. */
+    window.restorable = NO;
     box->dp.window = window;
 
     MacConfigBoxController *controller = [[MacConfigBoxController alloc] init];
@@ -1869,6 +2029,7 @@ MacConfigBox *mac_config_create_box(
     split.vertical = YES;
     split.dividerStyle = NSSplitViewDividerStyleThin;
     split.translatesAutoresizingMaskIntoConstraints = NO;
+    split.delegate = controller;
 
     NSOutlineView *outline = [[NSOutlineView alloc] initWithFrame:NSZeroRect];
     NSTableColumn *col = [[NSTableColumn alloc] initWithIdentifier:@"cat"];
@@ -1886,22 +2047,6 @@ MacConfigBox *mac_config_create_box(
     NSScrollView *sideScroll = mac_make_scroll_view(outline);
     sideScroll.borderType = NSBezelBorder;
     box->dp.sidebar = outline;
-    /*
-     * Sidebar should be just wide enough for category labels (incl. nested
-     * "Credentials" / "GSSAPI"). Prefer ~180pt; allow drag 140–240. A high
-     * preferred-width priority keeps Auto Layout from expanding it to fill
-     * leftover space (that belongs to the settings pane).
-     */
-    [sideScroll.widthAnchor constraintGreaterThanOrEqualToConstant:140].active =
-        YES;
-    [sideScroll.widthAnchor constraintLessThanOrEqualToConstant:240].active =
-        YES;
-    {
-        NSLayoutConstraint *pref =
-            [sideScroll.widthAnchor constraintEqualToConstant:180];
-        pref.priority = NSLayoutPriorityDefaultHigh; /* 750: below Required */
-        pref.active = YES;
-    }
 
     MacFlippedView *contentHost = [[MacFlippedView alloc] initWithFrame:NSZeroRect];
     contentHost.translatesAutoresizingMaskIntoConstraints = NO;
@@ -1968,14 +2113,13 @@ MacConfigBox *mac_config_create_box(
     [contentHost.widthAnchor
         constraintEqualToAnchor:contentScroll.contentView.widthAnchor].active =
         YES;
-    [contentScroll.widthAnchor constraintGreaterThanOrEqualToConstant:420]
-        .active = YES;
 
     [split addSubview:sideScroll];
     [split addSubview:contentScroll];
     /* Keep sidebar width when the window resizes; settings pane grows. */
-    [split setHoldingPriority:260 forSubviewAtIndex:0];
-    [split setHoldingPriority:1 forSubviewAtIndex:1];
+    [split setHoldingPriority:NSLayoutPriorityDefaultHigh forSubviewAtIndex:0];
+    [split setHoldingPriority:NSLayoutPriorityFittingSizeCompression
+             forSubviewAtIndex:1];
 
     NSStackView *root = mac_make_vstack();
     root.edgeInsets = NSEdgeInsetsMake(8, 8, 8, 8);
@@ -1985,29 +2129,20 @@ MacConfigBox *mac_config_create_box(
         [root addArrangedSubview:actionArea];
         mac_stack_fill_width(root, actionArea);
     }
+    /*
+     * Fill contentView with autoresizing — do not pin root to contentView
+     * with Auto Layout. Edge constraints from the AL tree were shrinking
+     * contentView to the split's fitting width (~306pt) while the window
+     * frame stayed at minSize (720), smooshing the settings pane.
+     */
+    root.translatesAutoresizingMaskIntoConstraints = YES;
+    root.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
 
-    NSView *contentView = [[NSView alloc] initWithFrame:frame];
+    NSView *contentView = [[NSView alloc] initWithFrame:NSZeroRect];
+    contentView.autoresizesSubviews = YES;
     window.contentView = contentView;
+    root.frame = contentView.bounds;
     [contentView addSubview:root];
-    [NSLayoutConstraint activateConstraints:@[
-        [root.topAnchor constraintEqualToAnchor:contentView.topAnchor],
-        [root.bottomAnchor constraintEqualToAnchor:contentView.bottomAnchor],
-        [root.leadingAnchor constraintEqualToAnchor:contentView.leadingAnchor],
-        [root.trailingAnchor constraintEqualToAnchor:contentView.trailingAnchor],
-        [split.heightAnchor constraintGreaterThanOrEqualToConstant:400],
-    ]];
-
-    /* Sidebar hugs its preferred width; settings pane expands into leftover. */
-    [sideScroll setContentHuggingPriority:NSLayoutPriorityDefaultHigh
-                           forOrientation:NSLayoutConstraintOrientationHorizontal];
-    [contentScroll setContentHuggingPriority:NSLayoutPriorityFittingSizeCompression
-                              forOrientation:NSLayoutConstraintOrientationHorizontal];
-    [sideScroll setContentCompressionResistancePriority:NSLayoutPriorityDefaultLow
-                                         forOrientation:NSLayoutConstraintOrientationHorizontal];
-    [contentScroll setContentCompressionResistancePriority:
-                       NSLayoutPriorityDefaultHigh
-                                            forOrientation:
-                                                NSLayoutConstraintOrientationHorizontal];
 
     [outline reloadData];
     [outline expandItem:nil expandChildren:YES];
@@ -2029,11 +2164,27 @@ MacConfigBox *mac_config_create_box(
             dlg_listbox_select(list, &box->dp, 0);
     }
 
-    /* Initial divider: compact sidebar, rest for settings. */
+    {
+        NSRect framed = NSMakeRect(0, 0, 960, 640);
+        framed = mac_clamp_window_frame_to_screens(framed);
+        [window setFrame:framed display:NO];
+        [window center];
+        framed = mac_clamp_window_frame_to_screens(window.frame);
+        if (!NSEqualRects(framed, window.frame))
+            [window setFrame:framed display:NO];
+        root.frame = contentView.bounds;
+    }
     [window layoutIfNeeded];
     [split setPosition:180 ofDividerAtIndex:0];
+    /*
+     * Do not let Auto Layout invent a contentMinSize from the control tree.
+     * Floor matches window.minSize's content rect so the window can grow.
+     */
+    window.contentMinSize =
+        [window contentRectForFrameRect:NSMakeRect(0, 0, window.minSize.width,
+                                                   window.minSize.height)]
+            .size;
 
-    [window center];
     [window makeKeyAndOrderFront:nil];
     [NSApp activateIgnoringOtherApps:YES];
     return box;
@@ -2203,7 +2354,7 @@ static void make_ca_config_box(NSWindow *spawning_window, bool run_modal)
     setup_ca_config_box(box->dp.ctrlbox);
 
     window =
-        [[NSWindow alloc]
+        [[MacConfigWindow alloc]
             initWithContentRect:NSMakeRect(0, 0, 720, 520)
                       styleMask:(NSWindowStyleMaskTitled |
                                  NSWindowStyleMaskClosable |
@@ -2213,6 +2364,7 @@ static void make_ca_config_box(NSWindow *spawning_window, bool run_modal)
                           defer:NO];
     window.title = @"PuTTY trusted host certification authorities";
     window.minSize = NSMakeSize(560, 400);
+    window.restorable = NO;
     box->dp.window = window;
 
     controller = [[MacConfigBoxController alloc] init];
@@ -2265,8 +2417,12 @@ static void make_ca_config_box(NSWindow *spawning_window, bool run_modal)
         constraintEqualToAnchor:window.contentView.trailingAnchor
                        constant:-8]
         .active = YES;
-    [scroll.heightAnchor constraintGreaterThanOrEqualToConstant:360].active =
-        YES;
+    {
+        NSLayoutConstraint *scroll_min_h =
+            [scroll.heightAnchor constraintGreaterThanOrEqualToConstant:360];
+        scroll_min_h.priority = kMacConfigSoftMinPriority;
+        scroll_min_h.active = YES;
+    }
 
     dlg_refresh(NULL, &box->dp);
 
@@ -2275,9 +2431,12 @@ static void make_ca_config_box(NSWindow *spawning_window, bool run_modal)
         NSRect frame = window.frame;
         frame.origin.x = NSMidX(parent) - NSWidth(frame) / 2;
         frame.origin.y = NSMidY(parent) - NSHeight(frame) / 2;
-        [window setFrame:frame display:NO];
+        [window setFrame:mac_clamp_window_frame_to_screens(frame) display:NO];
     } else {
         [window center];
+        NSRect clamped = mac_clamp_window_frame_to_screens(window.frame);
+        if (!NSEqualRects(clamped, window.frame))
+            [window setFrame:clamped display:NO];
     }
 
     mac_cacfg = box;

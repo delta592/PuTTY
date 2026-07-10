@@ -31,6 +31,18 @@ enum PuTTYMain {
             break
         }
 
+        /*
+         * Clear before NSApp.run(): the "unexpectedly quit while reopening
+         * windows" alert is shown by AppKit during launch, before
+         * applicationDidFinishLaunching, if Saved Application State exists.
+         */
+        UserDefaults.standard.set(false, forKey: "NSQuitAlwaysKeepsWindows")
+        let savedState = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(
+                "Library/Saved Application State/org.tartarus.projects.putty.macputty.savedState",
+                isDirectory: true)
+        try? FileManager.default.removeItem(at: savedState)
+
         let delegate = AppDelegate(
             initialConf: conf,
             initialConnect: connect,
@@ -81,6 +93,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SessionMenuUpdating {
         self.pendingConnect = initialConnect
         self.hostCaOnly = hostCaOnly
         super.init()
+    }
+
+    func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool {
+        _ = app
+        /* Session/config windows set geometry themselves; OS window
+         * restoration after a crash reopened crushed/off-screen frames. */
+        return false
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {

@@ -28,6 +28,11 @@
     <string>NSApplication</string>
     <key>NSHighResolutionCapable</key>
     <true/>
+    <!-- Config/session windows manage their own geometry; OS restore after a
+         crash previously reopened crushed/off-screen frames and blocked
+         launch with the "unexpectedly quit while reopening windows" alert. -->
+    <key>NSQuitAlwaysKeepsWindows</key>
+    <false/>
     <key>CFBundleURLTypes</key>
     <array>
         <dict>
