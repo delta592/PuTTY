@@ -44,7 +44,10 @@ jobs:
             os: ubuntu-latest
           - language: swift
             build-mode: manual
-            os: macos-latest
+            # Pin arm64 image: macos-latest has flipped between 15/26 and
+            # Xcode 16/26, which made -G Xcode ignore CMAKE_OSX_ARCHITECTURES
+            # and compile x86_64 (breaking NEON objects).
+            os: macos-15
 
     steps:
       - name: Checkout repository
@@ -57,16 +60,20 @@ jobs:
         if: matrix.build-mode == 'manual'
         run: |
           set -euo pipefail
-          # Native arch only: earlier -G Xcode runs on macos-*-arm64 still
-          # emitted x86_64 objects despite PUTTY_MACOS_UNIVERSAL=OFF.
           HOST_ARCH="$(uname -m)"
-          cmake -S . -B build-codeql -G Xcode \
+          echo "host arch=${HOST_ARCH}"
+          # Ninja honors CMAKE_OSX_ARCHITECTURES. With -G Xcode, cmake --build
+          # under CodeQL tracing was observed to invoke:
+          #   xcodebuild ... ARCHS=x86_64
+          # despite CMAKE_OSX_ARCHITECTURES=arm64, which then compiled
+          # sha512-neon.c with -march=armv8… for an x86_64 target (exit 65).
+          brew install ninja
+          cmake -S . -B build-codeql -G Ninja \
             -DPUTTY_MACOS_GUI=ON \
             -DPUTTY_MACOS_UNIVERSAL=OFF \
             -DCMAKE_OSX_ARCHITECTURES="${HOST_ARCH}" \
             -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0 \
-            -DCMAKE_XCODE_ATTRIBUTE_ONLY_ACTIVE_ARCH=YES
-          # macos_early.cmake writes this; print it for the Actions log.
+            -DCMAKE_BUILD_TYPE=Debug
           grep '^CMAKE_OSX_ARCHITECTURES:' build-codeql/CMakeCache.txt
           grep -E "^CMAKE_OSX_ARCHITECTURES:STRING=${HOST_ARCH}$" \
             build-codeql/CMakeCache.txt
@@ -82,11 +89,8 @@ jobs:
         if: matrix.build-mode == 'manual'
         run: |
           set -euo pipefail
-          # PuTTY.app links PuttyMacUI (~90% of production Swift). Skip pterm /
-          # puttygen-app to avoid a second full C+Swift link under the tracer.
-          HOST_ARCH="$(uname -m)"
-          cmake --build build-codeql --config Debug --parallel --target PuTTY -- \
-            "ARCHS=${HOST_ARCH}" ONLY_ACTIVE_ARCH=YES
+          # PuTTY.app links PuttyMacUI (~90% of production Swift).
+          cmake --build build-codeql --parallel --target PuTTY
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
