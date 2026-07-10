@@ -139,6 +139,11 @@ typedef struct PuttyBridgeTermWinCallbacks {
 #define PUTTY_BRIDGE_MA_RELEASE         5
 #define PUTTY_BRIDGE_MA_MOVE            6
 
+/* CONF_mouse_is_xterm / putty.h mouse-button assignments */
+#define PUTTY_BRIDGE_MOUSE_COMPROMISE   0
+#define PUTTY_BRIDGE_MOUSE_XTERM        1
+#define PUTTY_BRIDGE_MOUSE_WINDOWS      2
+
 /* Clipboard IDs (putty.h / platform.h). */
 #define PUTTY_BRIDGE_CLIP_LOCAL         1
 #define PUTTY_BRIDGE_CLIP_CLIPBOARD     2
@@ -318,6 +323,12 @@ bool putty_bridge_termwin_raw_mouse_active(const PuttyBridgeTermWin *btw);
 bool putty_bridge_termwin_pointer_indicates_raw_mouse(
     const PuttyBridgeTermWin *btw);
 bool putty_bridge_termwin_mouse_override_shift(const PuttyBridgeTermWin *btw);
+/** CONF_mouse_is_xterm: COMPROMISE / XTERM / WINDOWS. */
+int32_t putty_bridge_termwin_mouse_buttons_mode(const PuttyBridgeTermWin *btw);
+/** True when right-click should open the context menu (not paste/extend). */
+bool putty_bridge_termwin_right_click_shows_menu(
+    const PuttyBridgeTermWin *btw, bool control);
+void putty_bridge_termwin_cancel_selection_drag(PuttyBridgeTermWin *btw);
 
 void putty_bridge_termwin_copy_selection(PuttyBridgeTermWin *btw);
 void putty_bridge_termwin_copy_all(PuttyBridgeTermWin *btw);

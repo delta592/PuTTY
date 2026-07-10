@@ -225,6 +225,24 @@ void macos_setup_config_box(struct controlbox *b, bool midsession, int protocol)
                   conf_checkbox_handler,
                   I(CONF_utf8_override));
 
+    /*
+     * macOS trackpads often lack a middle button, so offer the same
+     * mouse-button assignment modes as Windows (Compromise pastes on
+     * right-click by default).
+     */
+    s = ctrl_getset(b, "Window/Selection", "mouse",
+                    "Control use of mouse");
+    ctrl_radiobuttons(s, "Action of mouse buttons:", 'm', 1,
+                      HELPCTX(selection_buttons),
+                      conf_radiobutton_handler,
+                      I(CONF_mouse_is_xterm),
+                      "Windows (Middle extends, Right brings up menu)", I(2),
+                      "Compromise (Middle extends, Right pastes)", I(0),
+                      "xterm (Right extends, Middle pastes)", I(1));
+    c = s->ctrls[s->ncontrols - 1];
+    memmove(s->ctrls + 1, s->ctrls, (s->ncontrols - 1) * sizeof(dlgcontrol *));
+    s->ctrls[0] = c;
+
 #ifdef OSX_META_KEY_CONFIG
     /*
      * Option and/or Command may act as Meta, or keep their OS roles.

@@ -276,14 +276,20 @@ static const SeatVtable bridge_demo_seat_vt = {
     .echoedit_update = nullseat_echoedit_update,
 };
 
-static Mouse_Button bridge_translate_button(Mouse_Button button)
+static Mouse_Button bridge_translate_button(
+    PuttyBridgeTermWin *btw, Mouse_Button button)
 {
+    int mode = MOUSE_COMPROMISE;
+
+    if (btw && btw->conf)
+        mode = conf_get_int(btw->conf, CONF_mouse_is_xterm);
+
     if (button == MBT_LEFT)
         return MBT_SELECT;
     if (button == MBT_MIDDLE)
-        return MBT_PASTE;
+        return mode == MOUSE_XTERM ? MBT_PASTE : MBT_EXTEND;
     if (button == MBT_RIGHT)
-        return MBT_EXTEND;
+        return mode == MOUSE_XTERM ? MBT_EXTEND : MBT_PASTE;
     if (button == MBT_NOTHING)
         return MBT_NOTHING;
     return button;
@@ -1250,7 +1256,7 @@ void putty_bridge_termwin_mouse(
         return;
 
     braw = (Mouse_Button)button_raw;
-    bcooked = bridge_translate_button(braw);
+    bcooked = bridge_translate_button(btw, braw);
     ma = (Mouse_Action)action;
 
     term_mouse(btw->term, braw, bcooked, ma, cell_x, cell_y, shift, ctrl, alt);
@@ -1389,6 +1395,36 @@ bool putty_bridge_termwin_mouse_override_shift(const PuttyBridgeTermWin *btw)
     if (!btw->conf)
         return true;
     return conf_get_bool(btw->conf, CONF_mouse_override);
+}
+
+int32_t putty_bridge_termwin_mouse_buttons_mode(const PuttyBridgeTermWin *btw)
+{
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
+    if (!btw || !btw->conf)
+        return PUTTY_BRIDGE_MOUSE_COMPROMISE;
+    return conf_get_int(btw->conf, CONF_mouse_is_xterm);
+}
+
+bool putty_bridge_termwin_right_click_shows_menu(
+    const PuttyBridgeTermWin *btw, bool control)
+{
+    /*
+     * Match Windows: MOUSE_WINDOWS always shows the context menu on
+     * right-click; Control+right-click shows it in any mode (escape hatch
+     * when right-click is bound to paste/extend).
+     */
+    if (control)
+        return true;
+    return putty_bridge_termwin_mouse_buttons_mode(btw) ==
+           PUTTY_BRIDGE_MOUSE_WINDOWS;
+}
+
+void putty_bridge_termwin_cancel_selection_drag(PuttyBridgeTermWin *btw)
+{
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
+    if (!btw || !btw->term)
+        return;
+    term_cancel_selection_drag(btw->term);
 }
 
 void putty_bridge_termwin_copy_selection(PuttyBridgeTermWin *btw)
@@ -1594,6 +1630,34 @@ int putty_bridge_termwin_input_smoke(void)
         btw, MBT_LEFT, MA_DRAG, 5, 1, false, false, false);
     putty_bridge_termwin_mouse(
         btw, MBT_LEFT, MA_RELEASE, 5, 1, false, false, false);
+
+    /*
+     * Default CONF_mouse_is_xterm is MOUSE_COMPROMISE: right-click pastes.
+     * Exercise the cooked mapping (does not require a real pasteboard).
+     */
+    if (putty_bridge_termwin_mouse_buttons_mode(btw) !=
+        PUTTY_BRIDGE_MOUSE_COMPROMISE) {
+        putty_bridge_termwin_free(btw);
+        return 3;
+    }
+    if (putty_bridge_termwin_right_click_shows_menu(btw, false)) {
+        putty_bridge_termwin_free(btw);
+        return 4;
+    }
+    if (!putty_bridge_termwin_right_click_shows_menu(btw, true)) {
+        putty_bridge_termwin_free(btw);
+        return 5;
+    }
+    putty_bridge_termwin_mouse(
+        btw, MBT_RIGHT, MA_CLICK, 2, 2, false, false, false);
+    putty_bridge_termwin_mouse(
+        btw, MBT_RIGHT, MA_RELEASE, 2, 2, false, false, false);
+
+    conf_set_int(btw->conf, CONF_mouse_is_xterm, MOUSE_WINDOWS);
+    if (!putty_bridge_termwin_right_click_shows_menu(btw, false)) {
+        putty_bridge_termwin_free(btw);
+        return 6;
+    }
 
     putty_bridge_termwin_select_all(btw);
     putty_bridge_termwin_free(btw);

@@ -416,6 +416,18 @@ final class TerminalView: NSView {
 
     override func rightMouseDown(with event: NSEvent) {
         window?.makeFirstResponder(self)
+        guard let termWin else { return }
+        let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        let control = mods.contains(.control)
+        if putty_bridge_termwin_right_click_shows_menu(termWin, control) {
+            /*
+             * Windows mouse mode (or Control+right-click): show the
+             * context menu instead of paste/extend.
+             */
+            putty_bridge_termwin_cancel_selection_drag(termWin)
+            NSMenu.popUpContextMenu(contextMenu, with: event, for: self)
+            return
+        }
         sendMouse(event: event, button: PUTTY_BRIDGE_MBT_RIGHT, action: PUTTY_BRIDGE_MA_CLICK)
     }
 
@@ -430,6 +442,27 @@ final class TerminalView: NSView {
 
     override func mouseUp(with event: NSEvent) {
         sendMouse(event: event, action: PUTTY_BRIDGE_MA_RELEASE)
+    }
+
+    override func rightMouseUp(with event: NSEvent) {
+        guard let termWin else { return }
+        let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        if putty_bridge_termwin_right_click_shows_menu(termWin, mods.contains(.control)) {
+            return
+        }
+        sendMouse(event: event, button: PUTTY_BRIDGE_MBT_RIGHT, action: PUTTY_BRIDGE_MA_RELEASE)
+    }
+
+    override func otherMouseUp(with event: NSEvent) {
+        sendMouse(event: event, button: PUTTY_BRIDGE_MBT_MIDDLE, action: PUTTY_BRIDGE_MA_RELEASE)
+    }
+
+    override func rightMouseDragged(with event: NSEvent) {
+        sendMouse(event: event, button: PUTTY_BRIDGE_MBT_RIGHT, action: PUTTY_BRIDGE_MA_DRAG)
+    }
+
+    override func otherMouseDragged(with event: NSEvent) {
+        sendMouse(event: event, button: PUTTY_BRIDGE_MBT_MIDDLE, action: PUTTY_BRIDGE_MA_DRAG)
     }
 
     override func scrollWheel(with event: NSEvent) {
@@ -470,7 +503,16 @@ final class TerminalView: NSView {
     }
 
     override func menu(for event: NSEvent) -> NSMenu? {
-        contextMenu
+        /*
+         * AppKit may ask for a menu independently of rightMouseDown
+         * (e.g. Control+click). Only supply one when Conf says so.
+         */
+        guard let termWin else { return contextMenu }
+        let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        if putty_bridge_termwin_right_click_shows_menu(termWin, mods.contains(.control)) {
+            return contextMenu
+        }
+        return nil
     }
 
     override func resetCursorRects() {
