@@ -52,7 +52,10 @@ putty_macos_configure_swift_target(putty-macui)
 add_executable(PuttyBridgeTermPerfTest
   ${CMAKE_CURRENT_SOURCE_DIR}/../bridge/PuttyBridgeTermPerfTest.swift)
 
-# Executable with @main — do not pass -parse-as-library.
+# Required for @main with a single-file executable under Ninja; harmless on Xcode.
+target_compile_options(PuttyBridgeTermPerfTest PRIVATE
+  "$<$<COMPILE_LANGUAGE:Swift>:-parse-as-library>")
+
 target_link_libraries(PuttyBridgeTermPerfTest PRIVATE
   "-framework AppKit"
   putty-macui

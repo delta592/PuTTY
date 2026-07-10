@@ -6,6 +6,13 @@
 
 set(PUTTY_MACOS_APPKIT 1)
 
+# AppKit .m sources store ObjC objects in C structs (MacUCtrl / dlgparam) and
+# rely on ARC (__strong). Without -fobjc-arc those qualifiers are ignored and
+# autoreleased arrays (e.g. listItems) are freed before NSTableView paints —
+# see macos/app_crash.txt / app_crash_002.txt.
+add_compile_options($<$<COMPILE_LANGUAGE:OBJC>:-fobjc-arc>)
+set(CMAKE_XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC YES)
+
 if(PUTTY_MACOS_UNIVERSAL_ACTIVE)
   set(PUTTY_MACOS_UNIVERSAL_BUILD 1)
 else()

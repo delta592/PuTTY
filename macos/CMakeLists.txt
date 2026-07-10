@@ -59,6 +59,17 @@ add_library(macguifrontend STATIC
   platform/osxkeys.c
   platform/config-macos.c
   platform/config-appkit.m)
+# Force ARC on .m sources. CMAKE_XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC alone
+# does not always reach the clang command line for mixed C/OBJC static libs
+# (see macos/app_crash_002.txt: dangling listItems without retain).
+foreach(_putty_macos_objc_src
+    platform/seat-dialogs.m
+    platform/eventloop-appkit.m
+    platform/config-appkit.m)
+  set_source_files_properties(${_putty_macos_objc_src} PROPERTIES
+    COMPILE_FLAGS "-fobjc-arc"
+    XCODE_EXPLICIT_ENABLE_OBJC_ARC YES)
+endforeach()
 # be_list lives on the final app/bridge target (PuTTY vs pterm), not here.
 target_link_libraries(macguifrontend PUBLIC
   guiterminal eventloop settings utils charset
@@ -68,6 +79,8 @@ target_include_directories(macguifrontend PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/platform)
 # config.c / dialog.c live in guiterminal; ensure licence.h is available.
 add_dependencies(macguifrontend generated_licence_h)
+set_target_properties(macguifrontend PROPERTIES
+  XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC YES)
 
 add_sources_from_current_dir(network
   platform/network.c
@@ -278,6 +291,11 @@ be_list(pageant Pageant)
 target_link_libraries(pageant
   eventloop console agent settings network crypto utils
   "-framework AppKit" "-framework Foundation")
+set_source_files_properties(platform/askpass-appkit.m PROPERTIES
+  COMPILE_FLAGS "-fobjc-arc"
+  XCODE_EXPLICIT_ENABLE_OBJC_ARC YES)
+set_target_properties(pageant PROPERTIES
+  XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC YES)
 installed_program(pageant)
 
 # Phase 7.4: headless askpass smoke (PUTTY_ASKPASS_RESPONSE).
@@ -289,6 +307,8 @@ add_executable(putty-mac-askpass-smoke-c
 target_link_libraries(putty-mac-askpass-smoke-c
   utils
   "-framework AppKit" "-framework Foundation")
+set_target_properties(putty-mac-askpass-smoke-c PROPERTIES
+  XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC YES)
 
 # ---------------------------------------------------------------------------
 # Swift / AppKit GUI (Phase 1+)
