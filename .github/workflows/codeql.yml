@@ -1,8 +1,8 @@
 # Advanced CodeQL setup.
 #
 # Default setup cannot build this repo's Swift (CMake + AppKit, no Xcode
-# project / Package.swift at the root). Swift uses build-mode: manual and
-# the Xcode CMake generator so CodeQL can trace xcodebuild.
+# project / Package.swift at the root). Swift uses build-mode: manual so
+# CodeQL can trace a real compile.
 #
 # Docs:
 #   https://docs.github.com/en/code-security/code-scanning/creating-an-advanced-setup-for-code-scanning/codeql-code-scanning-for-compiled-languages
@@ -50,6 +50,24 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
+      # Configure *before* CodeQL init so try_compile / compiler-id probes are
+      # not wrapped by the tracer. On the first successful Swift job that step
+      # alone took ~13 minutes (each check ~5–7s under DYLD tracing).
+      - name: Configure macOS GUI (untraced)
+        if: matrix.build-mode == 'manual'
+        run: |
+          set -euo pipefail
+          # Force arm64: macos-*-arm64 runners previously still emitted
+          # x86_64 object files with -G Xcode despite PUTTY_MACOS_UNIVERSAL=OFF.
+          cmake -S . -B build-codeql -G Xcode \
+            -DPUTTY_MACOS_GUI=ON \
+            -DPUTTY_MACOS_UNIVERSAL=OFF \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0 \
+            -DCMAKE_XCODE_ATTRIBUTE_ONLY_ACTIVE_ARCH=YES
+          grep -E '^CMAKE_OSX_ARCHITECTURES:STRING=arm64$' \
+            build-codeql/CMakeCache.txt
+
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
         with:
@@ -57,23 +75,14 @@ jobs:
           build-mode: ${{ matrix.build-mode }}
           config-file: ./.github/codeql/codeql-config.yml
 
-      # Prefer the Xcode generator: CodeQL's Swift extractor traces
-      # xcodebuild reliably. Single-arch only (host); Universal 2 is
-      # unnecessary for analysis and slower on CI.
       - name: Build macOS GUI (Swift)
         if: matrix.build-mode == 'manual'
         run: |
           set -euo pipefail
-          cmake -S . -B build-codeql -G Xcode \
-            -DPUTTY_MACOS_GUI=ON \
-            -DPUTTY_MACOS_UNIVERSAL=OFF \
-            -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0
-          # Build all GUI apps so PuttyMacUI, PuTTY, pterm, and puttygen
-          # Swift sources are extracted.
-          cmake --build build-codeql --config Debug --parallel \
-            --target PuTTY \
-            --target pterm \
-            --target puttygen-app
+          # PuTTY.app links PuttyMacUI (~90% of production Swift). Skip pterm /
+          # puttygen-app to avoid a second full C+Swift link under the tracer.
+          cmake --build build-codeql --config Debug --parallel --target PuTTY -- \
+            ARCHS=arm64 ONLY_ACTIVE_ARCH=YES
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
