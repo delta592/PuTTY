@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <errno.h>
 #include <unistd.h>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -65,6 +66,8 @@ static bool agent_try_read(agent_pending_query *conn)
 
     ret = read(conn->fd, conn->retbuf+conn->retlen,
                conn->retsize-conn->retlen);
+    if (ret < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
+        return false;                  /* nonblocking; try again later */
     if (ret <= 0) {
         if (conn->retbuf != conn->sizebuf) sfree(conn->retbuf);
         conn->retbuf = NULL;
@@ -178,6 +181,14 @@ agent_pending_query *agent_query(
         }
         done += ret;
     }
+
+    /*
+     * Non-blocking for async uxsel front ends (macOS Dispatch sources
+     * require it; poll/select tolerate it). Applied after the request
+     * write so a short agent query need not handle EAGAIN on write.
+     * The synchronous callback==NULL path clears this below.
+     */
+    nonblock(sock);
 
     conn = snew(agent_pending_query);
     conn->fd = sock;

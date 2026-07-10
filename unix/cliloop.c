@@ -120,6 +120,18 @@ bool cliloop_always_continue(void *ctx, bool fd, bool cb) { return true; }
  * Any application using this main loop doesn't need to do anything
  * when uxsel adds or removes an fd, because we synchronously re-check
  * the current list every time we go round the main loop above.
+ *
+ * Weak stubs: macos/platform/eventloop-appkit.m provides strong AppKit
+ * implementations for GUI binaries linking macguifrontend.
  */
-uxsel_id *uxsel_input_add(int fd, int rwx) { return NULL; }
-void uxsel_input_remove(uxsel_id *id) { }
+__attribute__((weak)) uxsel_id *uxsel_input_add(int fd, int rwx)
+{
+    (void)fd;
+    (void)rwx;
+    return NULL;
+}
+
+__attribute__((weak)) void uxsel_input_remove(uxsel_id *id)
+{
+    (void)id;
+}

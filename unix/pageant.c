@@ -1462,6 +1462,14 @@ int main(int argc, char **argv)
         display = getenv("DISPLAY");
         if (display && !*display)
             display = NULL;
+#ifdef __APPLE__
+        /*
+         * macOS AppKit askpass does not need an X11 DISPLAY. Treat the
+         * Aqua session as always available for GUI prompts (Phase 7.4).
+         */
+        if (!display)
+            display = "macos";
+#endif
     }
 
     /*

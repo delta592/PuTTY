@@ -1,5 +1,20 @@
 cmake_minimum_required(VERSION 3.7...3.28)
-project(putty LANGUAGES C)
+
+set(PUTTY_MACOS_GUI OFF
+  CACHE BOOL "Enable Swift/AppKit native GUI on macOS (Darwin only)")
+
+if(PUTTY_MACOS_GUI)
+  if(NOT APPLE)
+    message(FATAL_ERROR
+      "PUTTY_MACOS_GUI is only supported on Darwin (macOS)")
+  endif()
+  include(cmake/macos_early.cmake)
+  cmake_policy(SET CMP0157 NEW)
+  project(putty LANGUAGES C OBJC OBJCXX Swift)
+  set(CMAKE_Swift_LANGUAGE_VERSION 6)
+else()
+  project(putty LANGUAGES C)
+endif()
 
 set(CMAKE_C_STANDARD 99)
 
@@ -172,7 +187,12 @@ add_executable(test_conf
 be_list(test_conf TestConf SSH SERIAL OTHERBACKENDS)
 target_link_libraries(test_conf sshclient otherbackends settings network crypto utils ${platform_libraries})
 
-foreach(subdir ${platform} ${extra_dirs})
+if(platform STREQUAL macos)
+  add_subdirectory(macos)
+else()
+  add_subdirectory(${platform})
+endif()
+foreach(subdir ${extra_dirs})
   add_subdirectory(${subdir})
 endforeach()
 
@@ -181,7 +201,7 @@ endforeach()
 # But that wasn't allowed until cmake 3.13 (see cmake policy CMP0073),
 # and we still have a min cmake version less than that. So we do it
 # here instead.
-if(platform STREQUAL unix)
+if(platform STREQUAL unix OR platform STREQUAL macos)
   target_link_libraries(utils charset)
 endif()
 

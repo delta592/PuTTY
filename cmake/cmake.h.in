@@ -22,12 +22,16 @@
 #cmakedefine NOT_X_WINDOWS
 #cmakedefine OMIT_UTMP
 
+#cmakedefine PUTTY_MACOS_APPKIT
+#cmakedefine01 PUTTY_MACOS_UNIVERSAL_BUILD
+
 #cmakedefine01 HAVE_ASM_HWCAP_H
 #cmakedefine01 HAVE_SYS_AUXV_H
 #cmakedefine01 HAVE_SYS_SYSCTL_H
 #cmakedefine01 HAVE_SYS_TYPES_H
 #cmakedefine01 HAVE_GLOB_H
 #cmakedefine01 HAVE_UTMP_H
+#cmakedefine01 HAVE_POLL_H
 #cmakedefine01 HAVE_FUTIMES
 #cmakedefine01 HAVE_GETADDRINFO
 #cmakedefine01 HAVE_POSIX_OPENPT

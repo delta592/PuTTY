@@ -1,0 +1,14 @@
+/*
+ * PuttyBridge — clang module exposing the macOS PuTTY C bridge to Swift.
+ *
+ * Import with:  import PuttyBridge
+ *
+ * Swift must not import putty.h or link PuTTY internals directly; use the
+ * functions in putty-bridge.h instead.
+ *
+ * All PuttyBridge entry points must be invoked on the AppKit main thread.
+ */
+module PuttyBridge {
+    header "putty-bridge.h"
+    export *
+}
