@@ -57,15 +57,18 @@ jobs:
         if: matrix.build-mode == 'manual'
         run: |
           set -euo pipefail
-          # Force arm64: macos-*-arm64 runners previously still emitted
-          # x86_64 object files with -G Xcode despite PUTTY_MACOS_UNIVERSAL=OFF.
+          # Native arch only: earlier -G Xcode runs on macos-*-arm64 still
+          # emitted x86_64 objects despite PUTTY_MACOS_UNIVERSAL=OFF.
+          HOST_ARCH="$(uname -m)"
           cmake -S . -B build-codeql -G Xcode \
             -DPUTTY_MACOS_GUI=ON \
             -DPUTTY_MACOS_UNIVERSAL=OFF \
-            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_ARCHITECTURES="${HOST_ARCH}" \
             -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0 \
             -DCMAKE_XCODE_ATTRIBUTE_ONLY_ACTIVE_ARCH=YES
-          grep -E '^CMAKE_OSX_ARCHITECTURES:STRING=arm64$' \
+          # macos_early.cmake writes this; print it for the Actions log.
+          grep '^CMAKE_OSX_ARCHITECTURES:' build-codeql/CMakeCache.txt
+          grep -E "^CMAKE_OSX_ARCHITECTURES:STRING=${HOST_ARCH}$" \
             build-codeql/CMakeCache.txt
 
       - name: Initialize CodeQL
@@ -81,8 +84,9 @@ jobs:
           set -euo pipefail
           # PuTTY.app links PuttyMacUI (~90% of production Swift). Skip pterm /
           # puttygen-app to avoid a second full C+Swift link under the tracer.
+          HOST_ARCH="$(uname -m)"
           cmake --build build-codeql --config Debug --parallel --target PuTTY -- \
-            ARCHS=arm64 ONLY_ACTIVE_ARCH=YES
+            "ARCHS=${HOST_ARCH}" ONLY_ACTIVE_ARCH=YES
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4

@@ -20,12 +20,28 @@ if(PUTTY_MACOS_UNIVERSAL)
     set(PUTTY_MACOS_UNIVERSAL_ACTIVE FALSE)
   endif()
 else()
-  set(_putty_macos_architectures "${CMAKE_HOST_SYSTEM_PROCESSOR}")
+  # Prefer an explicit -DCMAKE_OSX_ARCHITECTURES=... (CodeQL CI forces
+  # arm64). Otherwise use the host arch; fall back to uname -m if the host
+  # processor is not set yet (seen with some generators before project()).
+  if(CMAKE_OSX_ARCHITECTURES AND NOT CMAKE_OSX_ARCHITECTURES STREQUAL "")
+    set(_putty_macos_architectures "${CMAKE_OSX_ARCHITECTURES}")
+  elseif(CMAKE_HOST_SYSTEM_PROCESSOR AND
+         NOT CMAKE_HOST_SYSTEM_PROCESSOR STREQUAL "")
+    set(_putty_macos_architectures "${CMAKE_HOST_SYSTEM_PROCESSOR}")
+  else()
+    execute_process(
+      COMMAND uname -m
+      OUTPUT_VARIABLE _putty_macos_architectures
+      OUTPUT_STRIP_TRAILING_WHITESPACE)
+  endif()
   set(PUTTY_MACOS_UNIVERSAL_ACTIVE FALSE)
 endif()
 
 set(CMAKE_OSX_ARCHITECTURES "${_putty_macos_architectures}"
   CACHE STRING "Build architectures for macOS binaries" FORCE)
+message(STATUS
+  "macOS architectures: ${CMAKE_OSX_ARCHITECTURES}"
+  " (universal=${PUTTY_MACOS_UNIVERSAL_ACTIVE})")
 
 if(CMAKE_OSX_DEPLOYMENT_TARGET STREQUAL "")
   set(CMAKE_OSX_DEPLOYMENT_TARGET "15.0"
