@@ -44,9 +44,6 @@ jobs:
             os: ubuntu-latest
           - language: swift
             build-mode: manual
-            # Pin arm64 image: macos-latest has flipped between 15/26 and
-            # Xcode 16/26, which made -G Xcode ignore CMAKE_OSX_ARCHITECTURES
-            # and compile x86_64 (breaking NEON objects).
             os: macos-15
 
     steps:
@@ -54,29 +51,35 @@ jobs:
         uses: actions/checkout@v7
 
       # Configure *before* CodeQL init so try_compile / compiler-id probes are
-      # not wrapped by the tracer. On the first successful Swift job that step
-      # alone took ~13 minutes (each check ~5–7s under DYLD tracing).
+      # not wrapped by the tracer (otherwise configure alone is ~13 minutes).
       - name: Configure macOS GUI (untraced)
         if: matrix.build-mode == 'manual'
         run: |
           set -euo pipefail
-          HOST_ARCH="$(uname -m)"
-          echo "host arch=${HOST_ARCH}"
-          # Ninja honors CMAKE_OSX_ARCHITECTURES. With -G Xcode, cmake --build
-          # under CodeQL tracing was observed to invoke:
-          #   xcodebuild ... ARCHS=x86_64
-          # despite CMAKE_OSX_ARCHITECTURES=arm64, which then compiled
-          # sha512-neon.c with -march=armv8… for an x86_64 target (exit 65).
+          # CodeQL's Swift tracer wraps the build as an x86_64 process, so
+          # swiftc/ld require x86_64. Building arm64 C objects then fails at
+          # link with "found architecture 'arm64', required 'x86_64'". Match
+          # the tracer: configure and compile the whole tree for x86_64
+          # (cross-compile on arm64 runners). That also keeps NEON feature
+          # tests off, avoiding -march=armv8… on an Intel target.
           brew install ninja
           cmake -S . -B build-codeql -G Ninja \
             -DPUTTY_MACOS_GUI=ON \
             -DPUTTY_MACOS_UNIVERSAL=OFF \
-            -DCMAKE_OSX_ARCHITECTURES="${HOST_ARCH}" \
+            -DCMAKE_OSX_ARCHITECTURES=x86_64 \
             -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0 \
             -DCMAKE_BUILD_TYPE=Debug
-          grep '^CMAKE_OSX_ARCHITECTURES:' build-codeql/CMakeCache.txt
-          grep -E "^CMAKE_OSX_ARCHITECTURES:STRING=${HOST_ARCH}$" \
+          grep -E '^CMAKE_OSX_ARCHITECTURES:STRING=x86_64$' \
             build-codeql/CMakeCache.txt
+          # Feature tests must match the Intel target (no NEON object libs).
+          if grep -E '^HAVE_NEON_CRYPTO:(INTERNAL|BOOL)=1$' \
+               build-codeql/CMakeCache.txt; then
+            echo "error: NEON enabled under x86_64 CodeQL configure" >&2
+            exit 1
+          fi
+          echo "NEON feature flags (expect unset/0):"
+          grep -E '^HAVE_(ARM_NEON|NEON_|WMMINTRIN)' build-codeql/CMakeCache.txt \
+            || true
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
