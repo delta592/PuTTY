@@ -206,6 +206,17 @@ struct mac_hostkey_dialog_ctx {
     void *callback_ctx;
 };
 
+static void mac_drain_toplevel_callbacks(void)
+{
+    /*
+     * Dialog completion handlers run outside mac_uxsel_fire. SSH may
+     * queue ic_out_pq / ic_process_queue from the seat callback; drain
+     * them immediately so NEWKEYS / USERAUTH are not left sitting.
+     */
+    while (run_toplevel_callbacks())
+        ;
+}
+
 static void mac_hostkey_dialog_finish(
     struct mac_hostkey_dialog_ctx *ctx, SeatPromptResult result, bool store)
 {
@@ -217,6 +228,7 @@ static void mac_hostkey_dialog_finish(
     sfree(ctx->keytype);
     sfree(ctx->keystr);
     sfree(ctx);
+    mac_drain_toplevel_callbacks();
 }
 
 SeatPromptResult mac_seat_confirm_ssh_host_key(
@@ -316,6 +328,7 @@ static void mac_simple_prompt_finish(
     if (sctx->callback)
         sctx->callback(sctx->callback_ctx, result);
     sfree(sctx);
+    mac_drain_toplevel_callbacks();
 }
 
 static SeatPromptResult mac_seat_confirm_weak_dialog(
