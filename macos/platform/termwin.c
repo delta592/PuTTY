@@ -96,6 +96,11 @@ static bool mac_tw_setup_draw_ctx(TermWin *tw)
 {
     MacTermWin *mtw = mtw_from_termwin(tw);
 
+    /*
+     * AppKit only has a live NSGraphicsContext inside draw(_:). When
+     * term_update runs from SSH I/O, setup fails and we rely on
+     * win_refresh → setNeedsDisplay → TerminalView.draw → term_paint.
+     */
     if (mtw->callbacks.setup_draw_ctx &&
         !mtw->callbacks.setup_draw_ctx(mtw->view_ctx))
         return false;
@@ -452,6 +457,10 @@ void mac_termwin_cache_conf_values(MacTermWin *mtw)
 
 void mac_termwin_set_backing_scale(MacTermWin *mtw, double scale)
 {
+    /* mtw is NULL until putty_bridge_termwin_open / init_demo creates it;
+     * TerminalView.viewDidMoveToWindow can run earlier. */
+    if (!mtw)
+        return;
     if (scale <= 0.0)
         scale = 1.0;
     mtw->backing_scale = scale;
@@ -459,6 +468,8 @@ void mac_termwin_set_backing_scale(MacTermWin *mtw, double scale)
 
 double mac_termwin_get_backing_scale(const MacTermWin *mtw)
 {
+    if (!mtw)
+        return 1.0;
     return mtw->backing_scale;
 }
 
@@ -466,6 +477,8 @@ void mac_termwin_set_font_metrics(
     MacTermWin *mtw, double cell_width_pt, double cell_height_pt,
     double ascent_pt, double descent_pt)
 {
+    if (!mtw)
+        return;
     mtw->cell_width_pt = cell_width_pt;
     mtw->cell_height_pt = cell_height_pt;
     mtw->ascent_pt = ascent_pt;

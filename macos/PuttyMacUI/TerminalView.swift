@@ -198,7 +198,15 @@ final class TerminalView: NSView {
 
     private func commonInit() {
         wantsLayer = true
+        /*
+         * Layer-backed custom views must opt into OnSetNeedsDisplay; otherwise
+         * AppKit can leave the layer's solid backgroundColor on screen and
+         * never call draw(_:) after SSH output schedules a redraw — which
+         * looks like a permanently blank black terminal.
+         */
+        layerContentsRedrawPolicy = .onSetNeedsDisplay
         layer?.contentsScale = window?.backingScaleFactor ?? 1.0
+        layer?.backgroundColor = NSColor.black.cgColor
 
         let handle = putty_bridge_termwin_new()
         termWin = handle
@@ -241,6 +249,10 @@ final class TerminalView: NSView {
         updateBackingScale()
         syncTerminalGridSize()
         resetCursorRects()
+        /* Metrics must be live before the first paint; force a draw pass. */
+        setNeedsDisplay(bounds)
+        window?.displayIfNeeded()
+        window?.makeFirstResponder(self)
     }
 
     override func viewDidMoveToWindow() {
@@ -273,7 +285,10 @@ final class TerminalView: NSView {
 
         let cellW = putty_bridge_termwin_cell_width_pt(termWin)
         let cellH = putty_bridge_termwin_cell_height_pt(termWin)
-        guard cellW > 0, cellH > 0 else { return }
+        guard cellW > 0, cellH > 0 else {
+            /* Pre-openSession draw; openSession will display again. */
+            return
+        }
 
         let left = max(0, Int32(floor(dirtyRect.minX / cellW)))
         let top = max(0, Int32(floor(dirtyRect.minY / cellH)))

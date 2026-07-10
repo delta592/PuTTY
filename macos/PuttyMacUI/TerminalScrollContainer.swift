@@ -26,6 +26,8 @@ final class TerminalScrollContainer: NSView, TerminalResizeScrolling, TerminalWi
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
+        wantsLayer = true
+        layer?.backgroundColor = NSColor.black.cgColor
         terminalView.resizeScrollHost = self
         terminalView.windowChromeHost = self
 
@@ -35,11 +37,25 @@ final class TerminalScrollContainer: NSView, TerminalResizeScrolling, TerminalWi
 
         addSubview(terminalView)
         addSubview(scroller)
+        layoutSubviews()
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    override func layout() {
+        super.layout()
+        layoutSubviews()
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        needsLayout = true
+        layoutSubtreeIfNeeded()
+        applyLiveResize()
+        terminalView.setNeedsDisplay(terminalView.bounds)
     }
 
     override func resizeSubviews(withOldSize oldSize: NSSize) {

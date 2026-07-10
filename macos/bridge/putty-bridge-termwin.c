@@ -77,9 +77,9 @@ static bool bridge_setup_draw_ctx(void *ctx)
 {
     PuttyBridgeTermWin *btw = (PuttyBridgeTermWin *)ctx;
 
-    if (btw->swift_callbacks.setup_draw_ctx)
-        return btw->swift_callbacks.setup_draw_ctx(btw->swift_view_ctx);
-    return true;
+    if (!btw->swift_callbacks.setup_draw_ctx)
+        return false;
+    return btw->swift_callbacks.setup_draw_ctx(btw->swift_view_ctx);
 }
 
 static void bridge_free_draw_ctx(void *ctx)
@@ -902,12 +902,16 @@ bool putty_bridge_termwin_init_demo(PuttyBridgeTermWin *btw)
 void putty_bridge_termwin_set_backing_scale(PuttyBridgeTermWin *btw, double scale)
 {
     PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
+    if (!btw || !btw->mtw)
+        return;
     mac_termwin_set_backing_scale(btw->mtw, scale);
 }
 
 double putty_bridge_termwin_get_backing_scale(const PuttyBridgeTermWin *btw)
 {
     PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
+    if (!btw || !btw->mtw)
+        return 1.0;
     return mac_termwin_get_backing_scale(btw->mtw);
 }
 
@@ -916,6 +920,8 @@ void putty_bridge_termwin_set_font_metrics(
     double ascent_pt, double descent_pt)
 {
     PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
+    if (!btw || !btw->mtw)
+        return;
     mac_termwin_set_font_metrics(
         btw->mtw, cell_width_pt, cell_height_pt, ascent_pt, descent_pt);
 }
@@ -940,7 +946,9 @@ void putty_bridge_termwin_resize_to_view(
     int cols, rows;
 
     PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
-    if (!btw->term)
+    if (!btw || !btw->term || !btw->mtw)
+        return;
+    if (btw->mtw->cell_width_pt <= 0.0 || btw->mtw->cell_height_pt <= 0.0)
         return;
 
     cols = (int)(view_width_pt / btw->mtw->cell_width_pt);
@@ -958,11 +966,23 @@ void putty_bridge_termwin_paint(
     PuttyBridgeTermWin *btw, int32_t left, int32_t top,
     int32_t right, int32_t bottom)
 {
+    TermWin *tw;
+
     PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
-    if (!btw->term)
+    if (!btw || !btw->term || !btw->mtw)
         return;
 
+    /*
+     * term_paint → do_paint emits win_draw_text without calling
+     * setup_draw_ctx. Windows sets an HDC before term_paint; we must
+     * bracket with setup/free so Swift beginPaint/endPaint flush glyphs
+     * into the current NSGraphicsContext (i.e. inside TerminalView.draw).
+     */
+    tw = mac_termwin_get_termwin(btw->mtw);
+    if (!win_setup_draw_ctx(tw))
+        return;
     term_paint(btw->term, left, top, right, bottom, true);
+    win_free_draw_ctx(tw);
 }
 
 bool putty_bridge_termwin_palette_colour(

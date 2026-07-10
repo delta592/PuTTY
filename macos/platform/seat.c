@@ -139,6 +139,11 @@ static size_t mac_seat_output(
         return 0;
 
     backlog = term_data(mgs->term, data, len);
+    /*
+     * term_update (via toplevel callbacks) cannot paint without an
+     * NSGraphicsContext; always invalidate the view so draw(_:) runs
+     * putty_bridge_termwin_paint with a real graphics context.
+     */
     mac_gui_seat_flush_display(mgs);
     mac_gui_seat_request_redraw(mgs);
     return backlog;

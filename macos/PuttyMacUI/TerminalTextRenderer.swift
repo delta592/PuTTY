@@ -89,7 +89,15 @@ public final class TerminalTextRenderer {
         ascent = CGFloat(putty_bridge_termwin_ascent_pt(termWin))
         cursorType = putty_bridge_termwin_cursor_type(termWin)
         boldStyle = putty_bridge_termwin_bold_style(termWin)
-        fontCache.invalidate()
+        /*
+         * Derive point size from measured ascent when available so glyphs
+         * match the cell grid TerminalView configured.
+         */
+        if ascent > 0 {
+            fontCache.setPointSize(ascent)
+        } else if cellHeight > 0 {
+            fontCache.setPointSize(cellHeight * 0.8)
+        }
         paletteCache.invalidate()
     }
 
@@ -201,107 +209,124 @@ public final class TerminalTextRenderer {
         }
     }
 
+    private func textAttributes(
+        bold: Bool, fg: NSColor, requestAttr: UInt32
+    ) -> [NSAttributedString.Key: Any] {
+        /*
+         * Use AppKit NSColor + NSFont. CTLineDraw was inheriting the CG fill
+         * colour from the preceding background rect (black-on-black).
+         */
+        let nsFont = fontCache.nsFont(bold: bold, wide: false)
+        // Ensure we never paint with an effectively-black foreground on black bg.
+        var drawFg = fg
+        if drawFg.redComponent + drawFg.greenComponent + drawFg.blueComponent < 0.05 {
+            drawFg = NSColor(
+                srgbRed: 0.73, green: 0.73, blue: 0.73, alpha: 1.0
+            )
+        }
+        var attrs: [NSAttributedString.Key: Any] = [
+            .font: nsFont,
+            .foregroundColor: drawFg,
+        ]
+        if (requestAttr & PUTTY_BRIDGE_ATTR_UNDER) != 0 {
+            attrs[.underlineStyle] = NSUnderlineStyle.single.rawValue
+        }
+        if (requestAttr & PUTTY_BRIDGE_ATTR_STRIKE) != 0 {
+            attrs[.strikethroughStyle] = NSUnderlineStyle.single.rawValue
+        }
+        return attrs
+    }
+
     private func drawCTLineRun(_ run: [PaintCell], originY: CGFloat, context: CGContext) {
+        _ = context
         lineScratch.deleteCharacters(in: NSRange(location: 0, length: lineScratch.length))
 
         for cell in run {
-            let colours = resolvedCGColours(for: cell.request)
+            let colours = resolvedColours(for: cell.request)
             let bold = (cell.request.attr & PUTTY_BRIDGE_ATTR_BOLD) != 0
-            let font = fontCache.ctFont(bold: bold, wide: false)
-            var attrs: [NSAttributedString.Key: Any] = [
-                .font: font,
-                .foregroundColor: colours.fg,
-            ]
-            if (cell.request.attr & PUTTY_BRIDGE_ATTR_UNDER) != 0 {
-                attrs[.underlineStyle] = NSUnderlineStyle.single.rawValue
-            }
-            if (cell.request.attr & PUTTY_BRIDGE_ATTR_STRIKE) != 0 {
-                attrs[.strikethroughStyle] = NSUnderlineStyle.single.rawValue
-            }
-
+            let attrs = textAttributes(
+                bold: bold, fg: colours.fg, requestAttr: cell.request.attr
+            )
             appendCodepoints(cell.request.codepoints, to: lineScratch, attributes: attrs)
         }
 
         guard lineScratch.length > 0 else { return }
 
         let originX = CGFloat(run[0].request.x) * cellWidth
-        let line = CTLineCreateWithAttributedString(lineScratch)
-        drawCTLine(line, originX: originX, originY: originY, context: context)
+        drawAttributedLine(lineScratch, originX: originX, originY: originY)
     }
 
     private func drawIndividual(_ cell: PaintCell, originY: CGFloat, context: CGContext) {
-        let colours = resolvedCGColours(for: cell.request)
+        let colours = resolvedColours(for: cell.request)
         let bold = (cell.request.attr & PUTTY_BRIDGE_ATTR_BOLD) != 0
-        let font = fontCache.ctFont(bold: bold, wide: (cell.request.attr & PUTTY_BRIDGE_ATTR_WIDE) != 0)
 
         let originX = CGFloat(cell.request.x) * cellWidth
         let pixelWidth = CGFloat(cell.columnSpan) * cellWidth
 
-        context.setFillColor(colours.bg)
+        context.setFillColor(colours.bg.cgColor)
         context.fill(CGRect(x: originX, y: originY, width: pixelWidth, height: cellHeight))
 
         guard !cell.request.codepoints.isEmpty else { return }
 
         lineScratch.deleteCharacters(in: NSRange(location: 0, length: lineScratch.length))
-        var attrs: [NSAttributedString.Key: Any] = [
-            .font: font,
-            .foregroundColor: colours.fg,
-        ]
-        if (cell.request.attr & PUTTY_BRIDGE_ATTR_UNDER) != 0 {
-            attrs[.underlineStyle] = NSUnderlineStyle.single.rawValue
-        }
-        if (cell.request.attr & PUTTY_BRIDGE_ATTR_STRIKE) != 0 {
-            attrs[.strikethroughStyle] = NSUnderlineStyle.single.rawValue
-        }
+        let attrs = textAttributes(
+            bold: bold, fg: colours.fg, requestAttr: cell.request.attr
+        )
 
         if (cell.request.attr & PUTTY_BRIDGE_ATTR_COMBINING) != 0 {
             var offsetX = originX
             for codepoint in cell.request.codepoints {
                 lineScratch.deleteCharacters(in: NSRange(location: 0, length: lineScratch.length))
                 appendCodepoints([codepoint], to: lineScratch, attributes: attrs)
-                let line = CTLineCreateWithAttributedString(lineScratch)
-                drawCTLine(line, originX: offsetX, originY: originY, context: context)
+                drawAttributedLine(lineScratch, originX: offsetX, originY: originY)
                 offsetX += cellWidth
             }
         } else {
             appendCodepoints(cell.request.codepoints, to: lineScratch, attributes: attrs)
-            let line = CTLineCreateWithAttributedString(lineScratch)
-            drawCTLine(line, originX: originX, originY: originY, context: context)
+            drawAttributedLine(lineScratch, originX: originX, originY: originY)
         }
     }
 
     private func drawBackground(
         for cell: PaintCell, originY: CGFloat, context: CGContext
     ) {
-        let colours = resolvedCGColours(for: cell.request)
+        let colours = resolvedColours(for: cell.request)
         let originX = CGFloat(cell.request.x) * cellWidth
         let pixelWidth = CGFloat(cell.columnSpan) * cellWidth
-        context.setFillColor(colours.bg)
+        context.setFillColor(colours.bg.cgColor)
         context.fill(CGRect(x: originX, y: originY, width: pixelWidth, height: cellHeight))
     }
 
-    private func drawCTLine(
-        _ line: CTLine, originX: CGFloat, originY: CGFloat, context: CGContext
+    private func drawAttributedLine(
+        _ string: NSAttributedString, originX: CGFloat, originY: CGFloat
     ) {
-        context.saveGState()
-        context.translateBy(x: originX, y: originY + cellHeight)
-        context.scaleBy(x: 1, y: -1)
-        CTLineDraw(line, context)
-        context.restoreGState()
+        /*
+         * In a flipped NSView, draw(with:options:.usesLineFragmentOrigin)
+         * treats the rect origin as the top-left of the text box. draw(at:)
+         * baseline placement was clipping glyphs to thin horizontal strips.
+         */
+        let rect = NSRect(
+            x: originX,
+            y: originY,
+            width: max(cellWidth, CGFloat(string.length) * cellWidth + cellWidth),
+            height: max(cellHeight, 1)
+        )
+        string.draw(with: rect, options: [.usesLineFragmentOrigin])
     }
 
     private func drawCursorDecoration(
         for cell: PaintCell, originY: CGFloat, context: CGContext
     ) {
-        let colours = resolvedCGColours(for: cell.request)
+        let colours = resolvedColours(for: cell.request)
         let originX = CGFloat(cell.request.x) * cellWidth
         let pixelWidth = CGFloat(cell.columnSpan) * cellWidth
         let rect = CGRect(x: originX, y: originY, width: pixelWidth, height: cellHeight)
+        let fg = colours.fg.cgColor
 
         switch cursorType {
         case PUTTY_BRIDGE_CURSOR_BLOCK:
             if cell.request.passiveCursor {
-                context.setStrokeColor(colours.fg)
+                context.setStrokeColor(fg)
                 context.setLineWidth(1)
                 context.stroke(rect.insetBy(dx: 0.5, dy: 0.5))
             }
@@ -312,7 +337,7 @@ public final class TerminalTextRenderer {
                 if underlineY >= originY + cellHeight {
                     underlineY = originY + cellHeight - 1
                 }
-                context.setStrokeColor(colours.fg)
+                context.setStrokeColor(fg)
                 context.setLineWidth(1)
                 context.move(to: CGPoint(x: originX, y: underlineY))
                 context.addLine(to: CGPoint(x: originX + pixelWidth, y: underlineY))
@@ -325,7 +350,7 @@ public final class TerminalTextRenderer {
                 if (cell.request.attr & PUTTY_BRIDGE_ATTR_RIGHTCURS) != 0 {
                     xPos += pixelWidth - 1
                 }
-                context.setStrokeColor(colours.fg)
+                context.setStrokeColor(fg)
                 context.setLineWidth(1)
                 context.move(to: CGPoint(x: xPos, y: originY))
                 context.addLine(to: CGPoint(x: xPos, y: originY + cellHeight))
@@ -397,9 +422,9 @@ public final class TerminalTextRenderer {
         return max(1, Int(request.len))
     }
 
-    private func resolvedCGColours(for request: TerminalDrawRequest) -> (fg: CGColor, bg: CGColor) {
+    private func resolvedColours(for request: TerminalDrawRequest) -> (fg: NSColor, bg: NSColor) {
         guard let termWin else {
-            return (CGColor(gray: 1, alpha: 1), CGColor(gray: 0, alpha: 1))
+            return (.white, .black)
         }
 
         var fgIndex = Int((request.attr & PUTTY_BRIDGE_ATTR_FGMASK) >> PUTTY_BRIDGE_ATTR_FGSHIFT)
@@ -412,16 +437,21 @@ public final class TerminalTextRenderer {
             swap(&fgTC, &bgTC)
         }
 
+        /* Match unix/window.c: only brighten when BOLD/BLINK is set. */
         if (boldStyle & PUTTY_BRIDGE_BOLD_STYLE_COLOUR) != 0 {
-            if (request.attr & PUTTY_BRIDGE_ATTR_BOLD) != 0, fgIndex < 16 {
-                fgIndex |= 8
-            } else if fgIndex >= 256 {
-                fgIndex |= 1
+            if (request.attr & PUTTY_BRIDGE_ATTR_BOLD) != 0 {
+                if fgIndex < 16 {
+                    fgIndex |= 8
+                } else if fgIndex >= 256 {
+                    fgIndex |= 1
+                }
             }
-            if (request.attr & PUTTY_BRIDGE_ATTR_BLINK) != 0, bgIndex < 16 {
-                bgIndex |= 8
-            } else if bgIndex >= 256 {
-                bgIndex |= 1
+            if (request.attr & PUTTY_BRIDGE_ATTR_BLINK) != 0 {
+                if bgIndex < 16 {
+                    bgIndex |= 8
+                } else if bgIndex >= 256 {
+                    bgIndex |= 1
+                }
             }
         }
 
@@ -432,14 +462,14 @@ public final class TerminalTextRenderer {
             bgIndex = Int(PUTTY_BRIDGE_OSC4_CURSOR_BG)
         }
 
-        var fg = paletteCache.cgColor(termWin: termWin, index: fgIndex)
-        var bg = paletteCache.cgColor(termWin: termWin, index: bgIndex)
+        var fg = paletteCache.nsColor(termWin: termWin, index: fgIndex)
+        var bg = paletteCache.nsColor(termWin: termWin, index: bgIndex)
 
         if let tc = fgTC {
-            fg = cgColorFromOptionalRgb(tc)
+            fg = nsColorFromOptionalRgb(tc)
         }
         if let tc = bgTC {
-            bg = cgColorFromOptionalRgb(tc)
+            bg = nsColorFromOptionalRgb(tc)
         }
 
         if (request.attr & PUTTY_BRIDGE_ATTR_DIM) != 0 {
@@ -450,9 +480,9 @@ public final class TerminalTextRenderer {
         return (fg, bg)
     }
 
-    private func cgColorFromOptionalRgb(_ rgb: PuttyBridgeOptionalRgb) -> CGColor {
-        CGColor(
-            red: CGFloat(rgb.r) / 255.0,
+    private func nsColorFromOptionalRgb(_ rgb: PuttyBridgeOptionalRgb) -> NSColor {
+        NSColor(
+            srgbRed: CGFloat(rgb.r) / 255.0,
             green: CGFloat(rgb.g) / 255.0,
             blue: CGFloat(rgb.b) / 255.0,
             alpha: 1.0
