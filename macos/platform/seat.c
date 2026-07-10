@@ -3,6 +3,7 @@
  */
 
 #include <assert.h>
+#include <limits.h>
 #include <string.h>
 
 #include "seat.h"
@@ -84,16 +85,87 @@ static void mac_gui_seat_setup_clipboards(MacGuiSeat *seat)
     }
 }
 
+static void mac_gui_seat_mark_inactive(MacGuiSeat *seat)
+{
+    char *title;
+
+    if (!seat)
+        return;
+
+    title = dupprintf("%s (inactive)", appname);
+    win_set_title(mac_termwin_get_termwin(&seat->termwin), title,
+                  DEFAULT_CODEPAGE);
+    win_set_icon_title(mac_termwin_get_termwin(&seat->termwin), title,
+                       DEFAULT_CODEPAGE);
+    sfree(title);
+}
+
+static void mac_gui_seat_request_redraw(MacGuiSeat *seat);
+
+static void mac_gui_seat_print_session_ended(MacGuiSeat *seat)
+{
+    static const char msg[] = "\r\n[session ended]\r\n";
+
+    if (!seat || !seat->term)
+        return;
+
+    term_data(seat->term, msg, sizeof(msg) - 1);
+    /* Do not flush toplevel callbacks here — we are already inside one. */
+    mac_gui_seat_request_redraw(seat);
+}
+
+static bool mac_gui_seat_should_close_on_exit(MacGuiSeat *seat, int exitcode)
+{
+    int close_on_exit;
+
+    (void)exitcode;
+
+    if (!seat || !seat->conf)
+        return false;
+
+    close_on_exit = conf_get_int(seat->conf, CONF_close_on_exit);
+    /*
+     * macOS GUI: only "Always" (FORCE_ON) dismisses the window. Never
+     * and "Only on clean exit" (AUTO) leave it open with "[session ended]"
+     * so a shell exit / Ctrl-D does not also quit the whole app when that
+     * window was the last one. (GTK's AUTO closes on exitcode 0; that
+     * feels wrong here next to quit-after-last-window.)
+     */
+    return close_on_exit == FORCE_ON;
+}
+
 static void mac_gui_seat_exit_callback(void *vctx)
 {
     MacGuiSeat *seat = (MacGuiSeat *)vctx;
-    int exitcode = -1;
+    int exitcode;
+    bool close_window;
 
-    if (seat->backend)
-        exitcode = backend_exitcode(seat->backend);
+    /*
+     * Match GTK: once destroy_connection has set exited, further
+     * notify_remote_exit callbacks are no-ops (SSH can report exit more
+     * than once). Fatal errors set exited before queueing, so they skip
+     * this path entirely.
+     */
+    if (seat->exited || !seat->backend)
+        return;
+    if ((exitcode = backend_exitcode(seat->backend)) < 0)
+        return;
+
+    /*
+     * Destroy after reading the exit code — tearing down the backend in
+     * notify_remote_exit left this callback with exitcode -1 and no
+     * CloseOnExit / session-ended handling.
+     */
+    mac_gui_seat_destroy_connection(seat);
+    close_window = mac_gui_seat_should_close_on_exit(seat, exitcode);
+    if (!close_window) {
+        mac_gui_seat_mark_inactive(seat);
+        mac_gui_seat_print_session_ended(seat);
+    }
 
     if (seat->callbacks.on_remote_exit)
-        seat->callbacks.on_remote_exit(seat->callback_ctx, exitcode);
+        seat->callbacks.on_remote_exit(
+            seat->callback_ctx, exitcode, close_window);
 }
 
 static void mac_gui_seat_queue_exit(MacGuiSeat *seat)
@@ -176,14 +248,10 @@ static SeatPromptResult mac_seat_get_userpass_input(Seat *seat, prompts_t *p)
 static void mac_seat_notify_remote_exit(Seat *seat)
 {
     MacGuiSeat *mgs = seat_from_seat(seat);
-    int exitcode;
 
-    if (!mgs->exited &&
-        mgs->backend &&
-        (exitcode = backend_exitcode(mgs->backend)) >= 0) {
-        mac_gui_seat_destroy_connection(mgs);
-        mac_gui_seat_queue_exit(mgs);
-    }
+    /* Defer to a toplevel callback so CloseOnExit and UI run after
+     * the current network/backend work unwinds (GTK/Windows pattern). */
+    mac_gui_seat_queue_exit(mgs);
 }
 
 static void mac_seat_connection_fatal(Seat *seat, const char *msg)
@@ -468,6 +536,14 @@ void mac_gui_seat_free(MacGuiSeat *seat)
         return;
 
     mac_gui_seat_unlink(seat);
+
+    /*
+     * Drop Swift / bridge callbacks before destroy_connection. That path
+     * calls seat_update_specials_menu; if TerminalView is already in deinit,
+     * the SessionWindowController ctx may already be gone (app_crash_006).
+     */
+    memset(&seat->callbacks, 0, sizeof(seat->callbacks));
+    seat->callback_ctx = NULL;
 
     if (seat->started)
         mac_gui_seat_destroy_connection(seat);

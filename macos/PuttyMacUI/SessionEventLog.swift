@@ -92,8 +92,10 @@ public final class SessionEventLog: NSObject {
 private enum SessionEventLogBridge {
     static let onAppend: @convention(c) (UnsafeMutableRawPointer?) -> Void = { ctx in
         guard let ctx else { return }
-        let controller = Unmanaged<SessionWindowController>.fromOpaque(ctx).takeUnretainedValue()
+        let controller = Unmanaged<SessionWindowController>.fromOpaque(ctx)
+            .takeUnretainedValue()
         MainActor.assumeIsolated {
+            guard SessionWindowController.isOpen(controller) else { return }
             SessionEventLog.shared.sessionDidReceiveEvent(for: controller)
         }
     }

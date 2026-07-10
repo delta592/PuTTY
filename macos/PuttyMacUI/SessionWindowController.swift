@@ -12,25 +12,39 @@ public protocol SessionMenuUpdating: AnyObject {
 public final class SessionWindowController: NSWindowController, NSWindowDelegate {
     private static var openControllers: [SessionWindowController] = []
 
+    /// True while this controller is still in the live session-window list.
+    static func isOpen(_ controller: SessionWindowController) -> Bool {
+        openControllers.contains { $0 === controller }
+    }
+
     private let scrollContainer: TerminalScrollContainer
     private let connectOnOpen: Bool
-    private let sessionConf: PuttyConfHandle?
+    /// Owned until `present()` copies it into the seat; then freed.
+    private var sessionConf: PuttyConfHandle?
 
     /// TermWin handle for menu/specials bridge callbacks (Phase 5.6).
     public var activeTermWin: OpaquePointer? {
         scrollContainer.terminalView.termWin
     }
 
+    /// Takes ownership of `conf` (caller must not `putty_conf_free` it).
     public static func openNew(conf: PuttyConfHandle?, connect: Bool) {
         let controller = SessionWindowController(conf: conf, connect: connect)
         openControllers.append(controller)
-        controller.present()
+        /*
+         * Present on the next run-loop turn. Opening immediately from the
+         * config dialog's Open action races AppKit window-transform
+         * animations and can crash in _NSWindowTransformAnimation dealloc
+         * (macos/app_crash_004.txt).
+         */
+        DispatchQueue.main.async {
+            controller.present()
+        }
     }
 
     public init(conf: PuttyConfHandle?, connect: Bool) {
         self.sessionConf = conf
         self.connectOnOpen = connect
-
         let contentRect = NSRect(x: 0, y: 0, width: 800, height: 600)
         scrollContainer = TerminalScrollContainer(frame: contentRect)
         scrollContainer.autoresizingMask = [.width, .height]
@@ -44,6 +58,7 @@ public final class SessionWindowController: NSWindowController, NSWindowDelegate
         let appName = Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String
             ?? "PuTTY"
         window.title = appName
+        window.animationBehavior = .none
         window.contentView = scrollContainer
         scrollContainer.hostWindow = window
 
@@ -60,7 +75,20 @@ public final class SessionWindowController: NSWindowController, NSWindowDelegate
     private func present() {
         showWindow(nil)
         window?.makeKeyAndOrderFront(nil)
-        scrollContainer.terminalView.openSession(conf: sessionConf, connect: connectOnOpen)
+        /*
+         * Force the scroll container to size TerminalView before openSession
+         * runs font/grid metrics. Without this, the view stays at a zero
+         * frame until the first user resize (blank white window).
+         */
+        window?.layoutIfNeeded()
+        scrollContainer.layoutSubtreeIfNeeded()
+
+        let conf = sessionConf
+        sessionConf = nil
+        scrollContainer.terminalView.openSession(conf: conf, connect: connectOnOpen)
+        if let conf {
+            putty_conf_free(conf)
+        }
         if let termWin = scrollContainer.terminalView.termWin {
             SessionSpecialsMenu.shared.installCallback(for: self, termWin: termWin)
             SessionEventLog.shared.installCallback(for: self, termWin: termWin)
@@ -69,6 +97,8 @@ public final class SessionWindowController: NSWindowController, NSWindowDelegate
         SessionSpecialsMenu.shared.setKeyController(self)
         SessionEventLog.shared.setKeyController(self)
         menuUpdater?.updateSessionActionMenus()
+        scrollContainer.terminalView.setNeedsDisplay(scrollContainer.terminalView.bounds)
+        window?.makeFirstResponder(scrollContainer.terminalView)
     }
 
     private var menuUpdater: SessionMenuUpdating? {
@@ -92,9 +122,13 @@ public final class SessionWindowController: NSWindowController, NSWindowDelegate
             termWin, SessionRemoteExitBridge.onExit, ctx)
     }
 
-    public func sessionDidRemoteExit() {
+    public func sessionDidRemoteExit(closeWindow: Bool) {
         refreshSpecialsMenu()
         menuUpdater?.updateSessionActionMenus()
+        if closeWindow {
+            // Session is already inactive — skip the WarnOnClose prompt.
+            window?.close()
+        }
     }
 
     @objc func closeSession(_ sender: Any?) {
@@ -127,6 +161,20 @@ public final class SessionWindowController: NSWindowController, NSWindowDelegate
 
     public func windowWillClose(_ notification: Notification) {
         _ = notification
+        if let conf = sessionConf {
+            sessionConf = nil
+            putty_conf_free(conf)
+        }
+        /*
+         * Clear C→Swift callbacks while self is still alive. TerminalView
+         * may free the seat later from an autorelease pool, after this
+         * controller is gone (app_crash_006).
+         */
+        if let termWin = scrollContainer.terminalView.termWin {
+            putty_bridge_termwin_set_specials_menu_callback(termWin, nil, nil)
+            putty_bridge_termwin_set_eventlog_callback(termWin, nil, nil)
+            putty_bridge_termwin_set_remote_exit_callback(termWin, nil, nil)
+        }
         SessionSpecialsMenu.shared.resignKeyController(self)
         SessionEventLog.shared.sessionWillClose(self)
         Self.openControllers.removeAll { $0 === self }
@@ -136,11 +184,13 @@ public final class SessionWindowController: NSWindowController, NSWindowDelegate
 }
 
 private enum SessionRemoteExitBridge {
-    static let onExit: @convention(c) (UnsafeMutableRawPointer?, Int32) -> Void = { ctx, _ in
+    static let onExit: @convention(c) (
+        UnsafeMutableRawPointer?, Int32, Bool
+    ) -> Void = { ctx, _, closeWindow in
         guard let ctx else { return }
         let controller = Unmanaged<SessionWindowController>.fromOpaque(ctx).takeUnretainedValue()
         MainActor.assumeIsolated {
-            controller.sessionDidRemoteExit()
+            controller.sessionDidRemoteExit(closeWindow: closeWindow)
         }
     }
 }

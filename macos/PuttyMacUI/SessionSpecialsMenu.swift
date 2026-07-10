@@ -163,8 +163,10 @@ public final class SessionSpecialsMenu {
 private enum SessionSpecialsBridge {
     static let updateMenu: @convention(c) (UnsafeMutableRawPointer?) -> Void = { ctx in
         guard let ctx else { return }
-        let controller = Unmanaged<SessionWindowController>.fromOpaque(ctx).takeUnretainedValue()
+        let controller = Unmanaged<SessionWindowController>.fromOpaque(ctx)
+            .takeUnretainedValue()
         MainActor.assumeIsolated {
+            guard SessionWindowController.isOpen(controller) else { return }
             controller.refreshSpecialsMenu()
         }
     }

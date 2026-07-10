@@ -23,7 +23,8 @@ extern "C" {
  * MacTermWin view callbacks are configured separately on the embedded termwin.
  */
 typedef struct MacGuiSeatCallbacks {
-    void (*on_remote_exit)(void *ctx, int exitcode);
+    /** close_window is true when CONF_close_on_exit says to dismiss the window. */
+    void (*on_remote_exit)(void *ctx, int exitcode, bool close_window);
     void (*on_connection_fatal)(void *ctx, const char *msg);
     void (*on_nonfatal)(void *ctx, const char *msg);
     void (*on_update_specials_menu)(void *ctx);

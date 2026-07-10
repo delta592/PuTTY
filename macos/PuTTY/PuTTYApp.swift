@@ -135,8 +135,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SessionMenuUpdating {
             NSApp.terminate(nil)
             return
         }
+        // openNew takes ownership of conf.
         SessionWindowController.openNew(conf: conf, connect: connect)
-        putty_conf_free(conf)
         putty_bridge_session_window_opened()
     }
 
@@ -152,8 +152,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SessionMenuUpdating {
         }
         let connect = putty_conf_launchable(conf)
         if connect {
+            // openNew takes ownership of conf.
             SessionWindowController.openNew(conf: conf, connect: true)
-            putty_conf_free(conf)
             putty_bridge_session_window_opened()
         } else {
             // Incomplete saved session: hand to start_app-style config box.

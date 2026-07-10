@@ -85,8 +85,8 @@ final class PtermAppDelegate: NSObject, NSApplicationDelegate, SessionMenuUpdati
             NSApp.terminate(nil)
             return
         }
+        // openNew takes ownership of conf.
         SessionWindowController.openNew(conf: conf, connect: true)
-        putty_conf_free(conf)
         putty_bridge_session_window_opened()
     }
 

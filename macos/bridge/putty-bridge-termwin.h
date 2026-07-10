@@ -401,9 +401,11 @@ bool putty_bridge_termwin_restart_session(PuttyBridgeTermWin *btw);
 
 /**
  * Called when the remote session exits (or connection is destroyed) so
- * Swift can enable Session → Restart Session.
+ * Swift can enable Session → Restart Session, and optionally close the
+ * window when CloseOnExit says so.
  */
-typedef void (*PuttyBridgeRemoteExitCallback)(void *ctx, int exitcode);
+typedef void (*PuttyBridgeRemoteExitCallback)(
+    void *ctx, int exitcode, bool close_window);
 
 void putty_bridge_termwin_set_remote_exit_callback(
     PuttyBridgeTermWin *btw,

@@ -24,7 +24,14 @@ bool platform_default_b(const char *name, bool def)
 
 int platform_default_i(const char *name, int def)
 {
-    (void)name;
+    /*
+     * CloseOnExit uses STORAGE_ENUM(off_auto_on): 0=Never/FORCE_OFF,
+     * 1=Only on clean exit/AUTO, 2=Always/FORCE_ON. Prefer Never so a
+     * finished shell leaves the window up with a session-ended message
+     * (user preference for the macOS GUI).
+     */
+    if (!strcmp(name, "CloseOnExit"))
+        return 0; /* FORCE_OFF */
     return def;
 }
 

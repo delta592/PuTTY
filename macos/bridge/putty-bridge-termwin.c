@@ -346,6 +346,20 @@ void putty_bridge_termwin_free(PuttyBridgeTermWin *btw)
     if (!btw)
         return;
 
+    /*
+     * Detach Swift callbacks before freeing the seat. mac_gui_seat_free →
+     * destroy_connection → seat_update_specials_menu must not call into a
+     * SessionWindowController that has already been released (app_crash_006).
+     */
+    btw->specials_menu_callback = NULL;
+    btw->specials_menu_ctx = NULL;
+    btw->eventlog_callback = NULL;
+    btw->eventlog_ctx = NULL;
+    btw->remote_exit_callback = NULL;
+    btw->remote_exit_ctx = NULL;
+    memset(&btw->swift_callbacks, 0, sizeof(btw->swift_callbacks));
+    btw->swift_view_ctx = NULL;
+
     if (btw->seat) {
         mac_gui_seat_free(btw->seat);
         btw->seat = NULL;
@@ -462,12 +476,13 @@ static void bridge_on_eventlog(void *ctx, const char *event)
     bridge_eventlog_append((PuttyBridgeTermWin *)ctx, event);
 }
 
-static void bridge_on_remote_exit(void *ctx, int exitcode)
+static void bridge_on_remote_exit(void *ctx, int exitcode, bool close_window)
 {
     PuttyBridgeTermWin *btw = (PuttyBridgeTermWin *)ctx;
 
     if (btw->remote_exit_callback)
-        btw->remote_exit_callback(btw->remote_exit_ctx, exitcode);
+        btw->remote_exit_callback(
+            btw->remote_exit_ctx, exitcode, close_window);
 }
 
 static void bridge_install_seat_callbacks(PuttyBridgeTermWin *btw)

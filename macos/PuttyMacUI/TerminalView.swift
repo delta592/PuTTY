@@ -192,7 +192,15 @@ final class TerminalView: NSView {
 
     deinit {
         if let termWin {
+            /*
+             * Clear C→Swift hooks before freeing: seat teardown may still
+             * call seat_update_specials_menu (app_crash_006).
+             */
+            putty_bridge_termwin_set_specials_menu_callback(termWin, nil, nil)
+            putty_bridge_termwin_set_eventlog_callback(termWin, nil, nil)
+            putty_bridge_termwin_set_remote_exit_callback(termWin, nil, nil)
             putty_bridge_termwin_free(termWin)
+            self.termWin = nil
         }
     }
 
