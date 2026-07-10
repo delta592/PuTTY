@@ -317,8 +317,10 @@ static void argon2_internal(uint32_t p, uint32_t T, uint32_t m, uint32_t t,
                          * Data-dependent: grab the first 64 bits of the block
                          * to the left of this one.
                          */
-                        J1 = GET_32BIT_LSB_FIRST(B[i + p * jm1].data);
-                        J2 = GET_32BIT_LSB_FIRST(B[i + p * jm1].data + 4);
+                        J1 = GET_32BIT_LSB_FIRST(
+                            B[i + (size_t)p * jm1].data);
+                        J2 = GET_32BIT_LSB_FIRST(
+                            B[i + (size_t)p * jm1].data + 4);
                     } else {
                         /*
                          * Data-independent: generate pseudorandom data by
@@ -464,8 +466,9 @@ static void argon2_internal(uint32_t p, uint32_t T, uint32_t m, uint32_t t,
                     /* Phew! Combine that block with the one immediately to
                      * our left, and XOR over the top of whatever is already
                      * in our current output block. */
-                    G_xor(B[i + p * j].data, B[i + p * jm1].data,
-                          B[index_l + p * index_z].data);
+                    G_xor(B[i + (size_t)p * j].data,
+                          B[i + (size_t)p * jm1].data,
+                          B[index_l + (size_t)p * index_z].data);
                 }
             }
 
@@ -484,9 +487,9 @@ static void argon2_internal(uint32_t p, uint32_t T, uint32_t m, uint32_t t,
      * deliver to the caller.
      */
 
-    struct blk C = B[p * (q-1)];
+    struct blk C = B[(size_t)p * (q - 1)];
     for (size_t i = 1; i < p; i++)
-        memxor(C.data, C.data, B[i + p * (q-1)].data, 1024);
+        memxor(C.data, C.data, B[i + (size_t)p * (q - 1)].data, 1024);
 
     {
         ssh_hash *h = hprime_new(T);

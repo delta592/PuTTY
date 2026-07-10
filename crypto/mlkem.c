@@ -232,7 +232,7 @@ static void mlkem_matrix_alloc(mlkem_matrix_storage *storage, ...)
     va_start(ap, storage);
     while ((m = va_arg(ap, mlkem_matrix *)) != NULL) {
         int nrows = va_arg(ap, int), ncols = va_arg(ap, int);
-        storage->n += nrows * ncols;
+        storage->n += (size_t)nrows * (size_t)ncols;
     }
     va_end(ap);
 
@@ -244,7 +244,7 @@ static void mlkem_matrix_alloc(mlkem_matrix_storage *storage, ...)
         m->nrows = nrows;
         m->ncols = ncols;
         m->data = storage->data + 256 * pos;
-        pos += nrows * ncols;
+        pos += (size_t)nrows * (size_t)ncols;
     }
     va_end(ap);
 }
@@ -303,14 +303,14 @@ static void mlkem_matrix_sub(mlkem_matrix *out, const mlkem_matrix *left,
 /* Convert every element of a matrix into NTT representation. */
 static void mlkem_matrix_ntt(mlkem_matrix *m)
 {
-    for (size_t i = 0; i < m->nrows * m->ncols; i++)
+    for (size_t i = 0; i < (size_t)m->nrows * m->ncols; i++)
         mlkem_ntt(m->data + i * 256);
 }
 
 /* Convert every element of a matrix out of NTT representation. */
 static void mlkem_matrix_inverse_ntt(mlkem_matrix *m)
 {
-    for (size_t i = 0; i < m->nrows * m->ncols; i++)
+    for (size_t i = 0; i < (size_t)m->nrows * m->ncols; i++)
         mlkem_inverse_ntt(m->data + i * 256);
 }
 
