@@ -604,15 +604,23 @@ final class TerminalView: NSView {
 
     /// Reload font after Change Settings Apply.
     fileprivate func applySettingsFromConf() {
-        applyFontSpecFromConf()
-        updateFontMetrics()
-        if let resizeScrollHost {
-            resizeScrollHost.sizeWindowToConfiguredGrid()
-        } else {
-            syncTerminalGridSize()
+        /*
+         * Defer past the current run-loop turn. Apply runs from dlg_end while
+         * SSH I/O callbacks may still be draining; resizing/redrawing
+         * synchronously nested inside that path has crashed in
+         * ssh2_connection_filter_queue (app_crash_007.txt).
+         */
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.applyFontSpecFromConf()
+            self.updateFontMetrics()
+            if let resizeScrollHost = self.resizeScrollHost {
+                resizeScrollHost.sizeWindowToConfiguredGrid()
+            } else {
+                self.syncTerminalGridSize()
+            }
+            self.setNeedsDisplay(self.bounds)
         }
-        setNeedsDisplay(bounds)
-        window?.displayIfNeeded()
     }
 
     private func updateFontMetrics() {

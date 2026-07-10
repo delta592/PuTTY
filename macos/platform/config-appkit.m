@@ -710,13 +710,52 @@ doCommandBySelector:(SEL)commandSelector
     }
 }
 
-- (void)applySelectedFontToPendingControl
+/*
+ * NSFontPanel is modeless. After Apply/Cancel we free MacUCtrl, but the
+ * panel can keep calling changeFont: with a dangling pendingFontUCtrl
+ * (heap corruption → later crash in SSH I/O; see app_crash_007.txt).
+ */
+- (void)releaseFontPanel
+{
+    NSFontManager *fm = [NSFontManager sharedFontManager];
+    if (fm.target == self)
+        fm.target = nil;
+    self.pendingFontUCtrl = NULL;
+    NSFontPanel *panel = [NSFontPanel sharedFontPanel];
+    if (panel.visible)
+        [panel orderOut:nil];
+}
+
+- (BOOL)pendingFontControlIsLive
 {
     struct MacUCtrl *uc = self.pendingFontUCtrl;
-    if (!uc || !uc->ctrl || uc->ctrl->type != CTRL_FONTSELECT)
-        return;
+    int i;
+
+    if (!uc || !self.dp || !self.dp->byctrl || self.dp->ended)
+        return NO;
+    if (!uc->ctrl || uc->ctrl->type != CTRL_FONTSELECT)
+        return NO;
     if (!uc->widget || ![uc->widget isKindOfClass:[NSTextField class]])
+        return NO;
+    for (i = 0;; i++) {
+        struct MacUCtrl *cand = index234(self.dp->byctrl, i);
+        if (!cand)
+            break;
+        if (cand == uc)
+            return YES;
+    }
+    return NO;
+}
+
+- (void)applySelectedFontToPendingControl
+{
+    struct MacUCtrl *uc;
+
+    if (![self pendingFontControlIsLive]) {
+        [self releaseFontPanel];
         return;
+    }
+    uc = self.pendingFontUCtrl;
 
     NSFontManager *fm = [NSFontManager sharedFontManager];
     NSFont *base = [fm selectedFont];
@@ -748,6 +787,8 @@ doCommandBySelector:(SEL)commandSelector
 {
     struct MacUCtrl *uc = mac_uctrl_from_sender(sender);
     if (!uc || uc->ctrl->type != CTRL_FONTSELECT)
+        return;
+    if (!self.dp || self.dp->ended)
         return;
 
     NSFontManager *fm = [NSFontManager sharedFontManager];
@@ -1700,6 +1741,8 @@ static void mac_ca_config_dlg_ended(dlgparam *dp);
 
 void dlg_end(dlgparam *dp, int value)
 {
+    MacConfigActions *actions;
+
     if (dp->ended)
         return;
     dp->ended = true;
@@ -1708,6 +1751,13 @@ void dlg_end(dlgparam *dp, int value)
     void *afterctx = dp->afterctx;
     NSWindow *window = dp->window;
     MacConfigBox *owner = dp->owner;
+
+    /*
+     * Detach the modeless font panel before any Conf/control teardown.
+     * Otherwise changeFont: can touch freed MacUCtrl (app_crash_007.txt).
+     */
+    actions = window ? objc_getAssociatedObject(window, &mac_actions_key) : nil;
+    [actions releaseFontPanel];
 
     /*
      * On Cancel, restore Conf from the backup taken at open (Windows
@@ -2258,9 +2308,13 @@ MacConfigBox *mac_config_create_box(
 
 void mac_config_box_free(MacConfigBox *box)
 {
+    MacConfigActions *actions;
+
     if (!box)
         return;
     if (box->dp.window) {
+        actions = objc_getAssociatedObject(box->dp.window, &mac_actions_key);
+        [actions releaseFontPanel];
         box->dp.window.animationBehavior = NSWindowAnimationBehaviorNone;
         [box->dp.window setDelegate:nil];
         [box->dp.window orderOut:nil];
