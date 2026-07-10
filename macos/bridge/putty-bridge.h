@@ -64,7 +64,10 @@ const char *putty_bridge_buildinfo_platform(void);
 /* Opaque handles */
 
 typedef struct PuttySession PuttySession;
+#ifndef PUTTY_CONF_TYPEDEF_DEFINED
+#define PUTTY_CONF_TYPEDEF_DEFINED
 typedef struct PuttyConf PuttyConf;
+#endif
 
 /** Opaque PuTTY backend handle (see putty.h in C bridge code). */
 struct Backend;

@@ -40,8 +40,10 @@ target_link_libraries(putty-macos-bridge PRIVATE
   network
   crypto
   utils
-  charset
-  ${platform_libraries})
+  charset)
+# PUBLIC so smoke/app consumers get -lm/-ldl/frameworks without directory-wide
+# link_libraries() (which duplicated them via static-lib INTERFACE).
+target_link_libraries(putty-macos-bridge PUBLIC ${platform_libraries})
 
 # Shared main() for C smoke / exit harnesses (one source, many executables).
 function(putty_add_bridge_smoke target)

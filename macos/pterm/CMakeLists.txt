@@ -35,10 +35,15 @@ add_library(pterm-macos-bridge STATIC
   ${CMAKE_SOURCE_DIR}/stubs/no-print.c
   ${CMAKE_SOURCE_DIR}/stubs/no-gss.c
   ${CMAKE_SOURCE_DIR}/stubs/no-ca-config.c
-  ${CMAKE_SOURCE_DIR}/stubs/no-dit.c
   ${CMAKE_SOURCE_DIR}/proxy/nosshproxy.c
   ${CMAKE_CURRENT_SOURCE_DIR}/../platform/no-gtk.c
   ${CMAKE_CURRENT_SOURCE_DIR}/../platform/unicode.c)
+# no-dit.c is empty when HAVE_ARM_DIT is off (enable_dit is a macro); linking
+# an empty .o makes Apple libtool warn "has no symbols".
+if(HAVE_ARM_DIT)
+  target_sources(pterm-macos-bridge PRIVATE
+    ${CMAKE_SOURCE_DIR}/stubs/no-dit.c)
+endif()
 
 target_include_directories(pterm-macos-bridge PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/../bridge)
@@ -57,8 +62,8 @@ target_link_libraries(pterm-macos-bridge PRIVATE
   settings
   network
   utils
-  charset
-  ${platform_libraries})
+  charset)
+target_link_libraries(pterm-macos-bridge PUBLIC ${platform_libraries})
 
 # ---------------------------------------------------------------------------
 # pterm.app

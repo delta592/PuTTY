@@ -11,7 +11,15 @@ if(PUTTY_MACOS_GUI)
   include(cmake/macos_early.cmake)
   cmake_policy(SET CMP0157 NEW)
   project(putty LANGUAGES C OBJC OBJCXX Swift)
-  set(CMAKE_Swift_LANGUAGE_VERSION 6)
+  # Ninja needs -swift-version on the compile line. The Xcode generator also
+  # maps CMAKE_Swift_LANGUAGE_VERSION into OTHER_SWIFT_FLAGS while setting
+  # SWIFT_VERSION, which triggers "language mode was overridden by extra
+  # Swift flags". Prefer SWIFT_VERSION alone under Xcode.
+  if(CMAKE_GENERATOR STREQUAL "Xcode")
+    set(CMAKE_XCODE_ATTRIBUTE_SWIFT_VERSION "6")
+  else()
+    set(CMAKE_Swift_LANGUAGE_VERSION 6)
+  endif()
 else()
   project(putty LANGUAGES C)
 endif()

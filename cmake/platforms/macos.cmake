@@ -13,6 +13,15 @@ set(PUTTY_MACOS_APPKIT 1)
 add_compile_options($<$<COMPILE_LANGUAGE:OBJC>:-fobjc-arc>)
 set(CMAKE_XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC YES)
 
+# Xcode's default warning set enables -Wshorten-64-to-32; PuTTY's portable C
+# intentionally uses size_t/int mixes that are safe on LP64. Ninja does not
+# enable this warning. Disable it for the Xcode (universal) generator.
+if(CMAKE_GENERATOR STREQUAL "Xcode")
+  set(CMAKE_XCODE_ATTRIBUTE_GCC_WARN_64_TO_32_BIT_CONVERSION NO)
+  add_compile_options(
+    $<$<COMPILE_LANGUAGE:C,OBJC,OBJCXX>:-Wno-shorten-64-to-32>)
+endif()
+
 if(PUTTY_MACOS_UNIVERSAL_ACTIVE)
   set(PUTTY_MACOS_UNIVERSAL_BUILD 1)
 else()
@@ -118,11 +127,18 @@ include_directories(${CMAKE_SOURCE_DIR}/unix)
 
 set(extra_dirs charset)
 
+# Collect -lm / -ldl into PUTTY_OPTIONAL_SYSTEM_LIBS and attach them only via
+# platform_libraries. Directory-wide link_libraries() also stamps those flags
+# onto every static library's INTERFACE, so final links see -lm/-ldl twice and
+# Apple ld warns "ignoring duplicate libraries".
+set(PUTTY_OPTIONAL_SYSTEM_LIBS)
 function(add_optional_system_lib library testfn)
   check_library_exists(${library} ${testfn} "" HAVE_LIB${library})
   if (HAVE_LIB${library})
-    set(CMAKE_REQUIRED_LIBRARIES ${CMAKE_REQUIRED_LIBRARIES};-l${library})
-    link_libraries(-l${library})
+    set(CMAKE_REQUIRED_LIBRARIES ${CMAKE_REQUIRED_LIBRARIES};-l${library}
+      PARENT_SCOPE)
+    set(PUTTY_OPTIONAL_SYSTEM_LIBS ${PUTTY_OPTIONAL_SYSTEM_LIBS} -l${library}
+      PARENT_SCOPE)
   endif()
 endfunction()
 
@@ -212,6 +228,7 @@ find_library(MACOS_IOKIT_FRAMEWORK IOKit REQUIRED)
 find_library(MACOS_SYSTEMCONFIGURATION_FRAMEWORK SystemConfiguration REQUIRED)
 
 set(platform_libraries
+  ${PUTTY_OPTIONAL_SYSTEM_LIBS}
   ${MACOS_SECURITY_FRAMEWORK}
   ${MACOS_COREFOUNDATION_FRAMEWORK}
   ${MACOS_IOKIT_FRAMEWORK}

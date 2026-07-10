@@ -65,6 +65,7 @@ target_link_libraries(puttygen-app PRIVATE
   "-framework UniformTypeIdentifiers"
   puttygen-macos-bridge)
 
+putty_macos_configure_swift_target(puttygen-app)
 putty_macos_add_app_resources(puttygen-app Puttygen.icns)
 putty_macos_register_gui_app(puttygen-app)
 installed_program(puttygen-app)

@@ -7,11 +7,9 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/icons.cmake)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/bundle_version.cmake)
 
-# Swift language version is set once in the root CMakeLists.txt via
-# CMAKE_Swift_LANGUAGE_VERSION (before/at project()). Do not also set the
-# per-target Swift_LANGUAGE_VERSION property: with the Xcode generator that
-# injects a redundant -swift-version into OTHER_SWIFT_FLAGS and triggers
-# "language mode was overridden by extra Swift flags".
+# Swift language version is set once in the root CMakeLists.txt (Ninja:
+# CMAKE_Swift_LANGUAGE_VERSION; Xcode: CMAKE_XCODE_ATTRIBUTE_SWIFT_VERSION).
+# Do not also set the per-target Swift_LANGUAGE_VERSION property.
 
 set(PUTTY_MACOS_PUTTYBRIDGE_MODULE_DIR
   ${CMAKE_CURRENT_SOURCE_DIR}/bridge
@@ -26,10 +24,34 @@ function(putty_macos_configure_swift_target target)
     target_include_directories(${target} PRIVATE
       ${PUTTY_MACOS_PUTTYMACUI_MODULE_DIR})
   endif()
+  if(CMAKE_GENERATOR STREQUAL "Xcode")
+    # Xcode always schedules ExtractAppIntentsMetadata for Swift targets.
+    # --force makes the tool skip the "no AppIntents.framework" warning when
+    # the target does not use App Intents (same path as static Swift libs).
+    set_property(TARGET ${target} PROPERTY
+      XCODE_ATTRIBUTE_ENABLE_APP_INTENTS_METADATA_GENERATION NO)
+    set_property(TARGET ${target} PROPERTY
+      XCODE_ATTRIBUTE_LM_FORCE_LINK_GENERATION YES)
+    target_compile_options(${target} PRIVATE
+      "$<$<COMPILE_LANGUAGE:Swift>:SHELL:-Xfrontend -disable-autolink-framework -Xfrontend AppIntents>")
+  endif()
 endfunction()
 
 function(putty_macos_register_gui_app target)
   set_property(GLOBAL APPEND PROPERTY PUTTY_MACOS_GUI_APP_TARGETS ${target})
+  # Keep PRODUCT_BUNDLE_IDENTIFIER in sync with the Info.plist CFBundleIdentifier
+  # (MACOSX_BUNDLE_GUI_IDENTIFIER). Xcode warns when the build setting is empty.
+  get_target_property(_putty_bundle_id ${target} MACOSX_BUNDLE_GUI_IDENTIFIER)
+  if(_putty_bundle_id AND NOT _putty_bundle_id STREQUAL "_putty_bundle_id-NOTFOUND")
+    set_property(TARGET ${target} PROPERTY
+      XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "${_putty_bundle_id}")
+  endif()
+  if(CMAKE_GENERATOR STREQUAL "Xcode")
+    set_property(TARGET ${target} PROPERTY
+      XCODE_ATTRIBUTE_ENABLE_APP_INTENTS_METADATA_GENERATION NO)
+    set_property(TARGET ${target} PROPERTY
+      XCODE_ATTRIBUTE_LM_FORCE_LINK_GENERATION YES)
+  endif()
 endfunction()
 
 # ---------------------------------------------------------------------------
@@ -143,8 +165,9 @@ add_executable(putty-mac-termwin-smoke-c
   platform/unicode.c
   platform/no-gtk.c)
 be_list(putty-mac-termwin-smoke-c PuTTY)
+# charset comes via macguifrontend; listing it again makes Apple ld warn.
 target_link_libraries(putty-mac-termwin-smoke-c
-  macguifrontend eventloop charset settings utils)
+  macguifrontend eventloop settings utils ${platform_libraries})
 
 add_executable(putty-mac-seat-smoke-c
   platform/seat-smoke-main.c
@@ -156,7 +179,8 @@ add_executable(putty-mac-seat-smoke-c
   platform/no-gtk.c)
 be_list(putty-mac-seat-smoke-c PuTTY SSH SERIAL OTHERBACKENDS)
 target_link_libraries(putty-mac-seat-smoke-c
-  macguifrontend eventloop charset settings utils network crypto sshclient otherbackends)
+  macguifrontend eventloop settings utils network crypto sshclient otherbackends
+  ${platform_libraries})
 
 add_executable(putty-mac-seat-output-smoke-c
   platform/seat-output-smoke-main.c
@@ -168,7 +192,8 @@ add_executable(putty-mac-seat-output-smoke-c
   platform/no-gtk.c)
 be_list(putty-mac-seat-output-smoke-c PuTTY SSH SERIAL OTHERBACKENDS)
 target_link_libraries(putty-mac-seat-output-smoke-c
-  macguifrontend eventloop charset settings utils network crypto sshclient otherbackends)
+  macguifrontend eventloop settings utils network crypto sshclient otherbackends
+  ${platform_libraries})
 
 add_executable(putty-mac-seat-dialogs-smoke-c
   platform/seat-dialogs-smoke-main.c
@@ -180,7 +205,8 @@ add_executable(putty-mac-seat-dialogs-smoke-c
   platform/no-gtk.c)
 be_list(putty-mac-seat-dialogs-smoke-c PuTTY SSH SERIAL OTHERBACKENDS)
 target_link_libraries(putty-mac-seat-dialogs-smoke-c
-  macguifrontend eventloop charset settings utils network crypto sshclient otherbackends)
+  macguifrontend eventloop settings utils network crypto sshclient otherbackends
+  ${platform_libraries})
 
 add_executable(putty-mac-config-smoke-c
   platform/config-smoke-main.c
@@ -192,7 +218,8 @@ add_executable(putty-mac-config-smoke-c
   platform/no-gtk.c)
 be_list(putty-mac-config-smoke-c PuTTY SSH SERIAL OTHERBACKENDS)
 target_link_libraries(putty-mac-config-smoke-c
-  macguifrontend eventloop charset settings utils network crypto sshclient otherbackends)
+  macguifrontend eventloop settings utils network crypto sshclient otherbackends
+  ${platform_libraries})
 
 add_executable(test_lineedit
   ${CMAKE_SOURCE_DIR}/test/test_lineedit.c
@@ -204,7 +231,7 @@ add_executable(test_lineedit
   platform/unicode.c
   platform/no-gtk.c)
 target_link_libraries(test_lineedit
-  guiterminal settings eventloop utils)
+  guiterminal settings eventloop utils ${platform_libraries})
 
 add_executable(test_terminal
   ${CMAKE_SOURCE_DIR}/test/test_terminal.c
@@ -215,7 +242,7 @@ add_executable(test_terminal
   platform/unicode.c
   platform/no-gtk.c)
 target_link_libraries(test_terminal
-  guiterminal settings eventloop utils)
+  guiterminal settings eventloop utils ${platform_libraries})
 
 add_executable(fuzzterm
   ${CMAKE_SOURCE_DIR}/test/fuzzterm.c
@@ -225,8 +252,9 @@ add_executable(fuzzterm
   $<TARGET_OBJECTS:logging>)
 be_list(fuzzterm FuZZterm)
 add_dependencies(fuzzterm generated_licence_h)
+# charset comes via utils; listing it again makes Apple ld warn.
 target_link_libraries(fuzzterm
-  guiterminal eventloop charset settings utils)
+  guiterminal eventloop settings utils ${platform_libraries})
 
 add_executable(osxlaunch
   platform/osxlaunch.c)
@@ -244,13 +272,13 @@ add_library(puttygen-common OBJECT
 add_executable(puttygen
   ${CMAKE_SOURCE_DIR}/cmdgen.c
   $<TARGET_OBJECTS:puttygen-common>)
-target_link_libraries(puttygen keygen console crypto utils)
+target_link_libraries(puttygen keygen console crypto utils ${platform_libraries})
 installed_program(puttygen)
 
 add_executable(cgtest
   ${CMAKE_SOURCE_DIR}/cgtest.c
   $<TARGET_OBJECTS:puttygen-common>)
-target_link_libraries(cgtest keygen console crypto utils)
+target_link_libraries(cgtest keygen console crypto utils ${platform_libraries})
 
 if(HAVE_ALIGNED_ALLOC)
   add_library(overaligned_alloc OBJECT
@@ -259,13 +287,13 @@ if(HAVE_ALIGNED_ALLOC)
   add_executable(testsc
     ${CMAKE_SOURCE_DIR}/test/testsc.c
     $<TARGET_OBJECTS:overaligned_alloc>)
-  target_link_libraries(testsc keygen crypto utils)
+  target_link_libraries(testsc keygen crypto utils ${platform_libraries})
 endif()
 
 add_executable(testzlib
   ${CMAKE_SOURCE_DIR}/test/testzlib.c
   ${CMAKE_SOURCE_DIR}/ssh/zlib.c)
-target_link_libraries(testzlib utils)
+target_link_libraries(testzlib utils ${platform_libraries})
 
 add_executable(psusan
   platform/psusan.c
@@ -276,7 +304,7 @@ add_executable(psusan
   platform/pty.c)
 be_list(psusan psusan)
 target_link_libraries(psusan
-  eventloop sshserver keygen settings network crypto utils)
+  eventloop sshserver keygen settings network crypto utils ${platform_libraries})
 installed_program(psusan)
 
 add_executable(uppity
@@ -288,7 +316,7 @@ add_executable(uppity
   ${CMAKE_SOURCE_DIR}/stubs/no-gss.c)
 be_list(uppity Uppity)
 target_link_libraries(uppity
-  eventloop sshserver keygen settings network crypto utils)
+  eventloop sshserver keygen settings network crypto utils ${platform_libraries})
 
 add_executable(pageant
   platform/pageant.c
@@ -302,7 +330,8 @@ add_executable(pageant
 be_list(pageant Pageant)
 target_link_libraries(pageant
   eventloop console agent settings network crypto utils
-  "-framework AppKit" "-framework Foundation")
+  "-framework AppKit" "-framework Foundation"
+  ${platform_libraries})
 set_source_files_properties(platform/askpass-appkit.m PROPERTIES
   COMPILE_FLAGS "-fobjc-arc"
   XCODE_EXPLICIT_ENABLE_OBJC_ARC YES)
@@ -318,7 +347,8 @@ add_executable(putty-mac-askpass-smoke-c
   platform/no-gtk.c)
 target_link_libraries(putty-mac-askpass-smoke-c
   utils
-  "-framework AppKit" "-framework Foundation")
+  "-framework AppKit" "-framework Foundation"
+  ${platform_libraries})
 set_target_properties(putty-mac-askpass-smoke-c PROPERTIES
   XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC YES)
 

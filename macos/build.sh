@@ -462,9 +462,15 @@ run_configure() {
     -S "${ROOT_DIR}"
     -B "${BUILD_DIR}"
     -G "${GENERATOR}"
-    -DCMAKE_BUILD_TYPE="${BUILD_TYPE}"
     -DCMAKE_OSX_DEPLOYMENT_TARGET="${DEPLOYMENT_TARGET}"
   )
+
+  # CMAKE_BUILD_TYPE is for single-config generators (Ninja). Xcode is
+  # multi-config and selects Release/Debug via --config / XCODE_CONFIG;
+  # passing CMAKE_BUILD_TYPE there only triggers an unused-variable warning.
+  if [[ ${GENERATOR} != Xcode ]]; then
+    args+=(-DCMAKE_BUILD_TYPE="${BUILD_TYPE}")
+  fi
 
   if [[ ${GUI} == ON ]]; then
     args+=(-DPUTTY_MACOS_GUI=ON -DPUTTY_MACOS_UNIVERSAL="${UNIVERSAL}")

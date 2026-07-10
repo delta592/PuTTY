@@ -60,6 +60,7 @@ static inline SysctlResult test_sysctl_flag(const char *flagname)
         size == sizeof(value)) {
         return value != 0 ? SYSCTL_ON : SYSCTL_OFF;
     }
+    return SYSCTL_MISSING;
 #else /* HAVE_SYSCTLBYNAME */
     return SYSCTL_MISSING;
 #endif /* HAVE_SYSCTLBYNAME */

@@ -21,7 +21,10 @@ extern "C" {
  * not include putty-bridge.h here (circular). Standalone includers (e.g. the
  * termwin perf driver) need PuttyConf for putty_bridge_termwin_open().
  */
+#ifndef PUTTY_CONF_TYPEDEF_DEFINED
+#define PUTTY_CONF_TYPEDEF_DEFINED
 typedef struct PuttyConf PuttyConf;
+#endif
 typedef struct PuttyBridgeTermWin PuttyBridgeTermWin;
 
 typedef struct PuttyBridgeTermWinRect {

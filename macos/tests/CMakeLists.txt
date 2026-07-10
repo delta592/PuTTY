@@ -165,9 +165,18 @@ set_target_properties(PuttyMacUITests PROPERTIES
   XCODE_ATTRIBUTE_PRODUCT_MODULE_NAME PuttyMacUITests
   XCODE_ATTRIBUTE_GENERATE_INFOPLIST_FILE YES
   XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC YES
-  XCODE_ATTRIBUTE_ENABLE_TESTING_SEARCH_PATHS YES
-  XCODE_ATTRIBUTE_LD_RUNPATH_SEARCH_PATHS
+  XCODE_ATTRIBUTE_ENABLE_TESTING_SEARCH_PATHS YES)
+
+# Embed XCTest rpaths once. Xcode uses LD_RUNPATH_SEARCH_PATHS; Ninja uses
+# BUILD_RPATH. Do not also pass -Xlinker -rpath (duplicate -rpath warning).
+if(CMAKE_GENERATOR STREQUAL "Xcode")
+  set_property(TARGET PuttyMacUITests PROPERTY
+    XCODE_ATTRIBUTE_LD_RUNPATH_SEARCH_PATHS
     "@loader_path/Frameworks ${_putty_xctest_fw} ${_putty_xctest_lib}")
+else()
+  set_property(TARGET PuttyMacUITests PROPERTY
+    BUILD_RPATH "${_putty_xctest_fw};${_putty_xctest_lib}")
+endif()
 
 target_compile_options(PuttyMacUITests PRIVATE
   "$<$<COMPILE_LANGUAGE:Swift>:-parse-as-library>"
@@ -178,12 +187,11 @@ target_compile_options(PuttyMacUITests PRIVATE
 target_link_options(PuttyMacUITests PRIVATE
   "SHELL:-F ${_putty_xctest_fw}"
   "SHELL:-L ${_putty_xctest_lib}"
-  "SHELL:-lXCTestSwiftSupport"
-  "SHELL:-Xlinker -rpath -Xlinker ${_putty_xctest_fw}"
-  "SHELL:-Xlinker -rpath -Xlinker ${_putty_xctest_lib}")
+  "SHELL:-lXCTestSwiftSupport")
 
+# putty-macui is already linked by xctest_add_bundle(<bundle> putty-macui ...);
+# listing it again makes Apple ld warn about a duplicate static archive.
 target_link_libraries(PuttyMacUITests PRIVATE
-  putty-macui
   putty-macos-bridge
   "-framework AppKit"
   "-framework Foundation")
