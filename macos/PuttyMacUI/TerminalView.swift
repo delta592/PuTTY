@@ -320,9 +320,27 @@ final class TerminalView: NSView {
         )
         guard right >= left, bottom >= top else { return }
 
+        /*
+         * AppKit clips to dirtyRect, which can be a sub-cell strip after
+         * selection updates. Reset the clip to the full cell-aligned rect
+         * so highlight backgrounds are not left as thin leftover bands.
+         */
+        let cellRect = CGRect(
+            x: CGFloat(left) * cellW,
+            y: CGFloat(top) * cellH,
+            width: CGFloat(right - left + 1) * cellW,
+            height: CGFloat(bottom - top + 1) * cellH
+        )
+        let cg = NSGraphicsContext.current?.cgContext
+        cg?.saveGState()
+        cg?.resetClip()
+        cg?.clip(to: cellRect)
+
         isPainting = true
         putty_bridge_termwin_paint(termWin, left, top, right, bottom)
         isPainting = false
+
+        cg?.restoreGState()
     }
 
     // MARK: - Keyboard (Phase 4.5)
@@ -514,7 +532,7 @@ final class TerminalView: NSView {
         putty_bridge_termwin_set_font_metrics(
             termWin, charWidth, cellHeight, font.ascender, -font.descender
         )
-        renderer.refreshMetrics()
+        renderer.refreshMetrics(pointSize: fontPointSize)
     }
 
     /// Resize the font to keep a fixed terminal grid when Conf uses RESIZE_FONT.

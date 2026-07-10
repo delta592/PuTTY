@@ -1254,6 +1254,13 @@ void putty_bridge_termwin_mouse(
     ma = (Mouse_Action)action;
 
     term_mouse(btw->term, braw, bcooked, ma, cell_x, cell_y, shift, ctrl, alt);
+    /*
+     * term_mouse schedules term_update via a toplevel callback. Flush it
+     * now so mac_tw_setup_draw_ctx can request a deferred AppKit redraw
+     * before the next mouse-drag event (keeps selection highlight live).
+     */
+    while (run_toplevel_callbacks())
+        ;
 }
 
 void putty_bridge_termwin_scroll_lines(PuttyBridgeTermWin *btw, int32_t lines)

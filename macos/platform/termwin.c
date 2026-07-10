@@ -98,12 +98,23 @@ static bool mac_tw_setup_draw_ctx(TermWin *tw)
 
     /*
      * AppKit only has a live NSGraphicsContext inside draw(_:). When
-     * term_update runs from SSH I/O, setup fails and we rely on
-     * win_refresh → setNeedsDisplay → TerminalView.draw → term_paint.
+     * term_update runs outside a paint (mouse selection, scroll, SSH
+     * I/O, …), setup fails and do_paint is skipped. Request a deferred
+     * redraw so TerminalView.draw can call term_paint with a real
+     * graphics context. Without this, selection/highlight never appears
+     * because only the SSH output path used to call win_refresh.
      */
     if (mtw->callbacks.setup_draw_ctx &&
-        !mtw->callbacks.setup_draw_ctx(mtw->view_ctx))
+        !mtw->callbacks.setup_draw_ctx(mtw->view_ctx)) {
+        /*
+         * do_paint never ran, so ATTR_INVALID does not reflect the
+         * pending change (e.g. selection reverse-video). Invalidate
+         * the whole view; draw(_:) will term_paint with a live context.
+         */
+        if (mtw->term)
+            mtw_request_redraw(mtw, mtw_full_view_dirty(mtw));
         return false;
+    }
 
     mtw->draw_ctx_active = true;
     return true;
