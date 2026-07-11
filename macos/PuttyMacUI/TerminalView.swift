@@ -196,18 +196,49 @@ final class TerminalView: NSView {
         commonInit()
     }
 
+    /*
+     * Free the C TermWin on the main thread. Call from windowWillClose /
+     * session teardown — @MainActor deinit is nonisolated and must not
+     * call PuttyBridge (agents.mdc §3 / AUDIT P1.3).
+     */
+    func destroyTermWin() {
+        guard let handle = termWin else { return }
+        termWin = nil
+        clipboard?.detach()
+        clipboard = nil
+        /*
+         * Clear C→Swift hooks before freeing: seat teardown may still
+         * call seat_update_specials_menu (app_crash_006).
+         */
+        putty_bridge_termwin_set_specials_menu_callback(handle, nil, nil)
+        putty_bridge_termwin_set_eventlog_callback(handle, nil, nil)
+        putty_bridge_termwin_set_remote_exit_callback(handle, nil, nil)
+        putty_bridge_termwin_free(handle)
+    }
+
     deinit {
-        if let termWin {
-            /*
-             * Clear C→Swift hooks before freeing: seat teardown may still
-             * call seat_update_specials_menu (app_crash_006).
-             */
-            putty_bridge_termwin_set_specials_menu_callback(termWin, nil, nil)
-            putty_bridge_termwin_set_eventlog_callback(termWin, nil, nil)
-            putty_bridge_termwin_set_remote_exit_callback(termWin, nil, nil)
-            putty_bridge_termwin_free(termWin)
-            self.termWin = nil
+        /*
+         * Bridge free belongs in destroyTermWin() on the main thread.
+         * Safety net: if a caller skipped teardown, free only after hopping
+         * to main (never call PuttyBridge from an arbitrary deinit thread).
+         */
+        guard let handle = termWin else { return }
+        termWin = nil
+        if Thread.isMainThread {
+            Self.freeTermWinHandle(handle)
+        } else {
+            DispatchQueue.main.sync {
+                Self.freeTermWinHandle(handle)
+            }
         }
+    }
+
+    /// Nonisolated free helper for the deinit safety net only.
+    nonisolated private static func freeTermWinHandle(_ handle: OpaquePointer) {
+        putty_bridge_termwin_set_specials_menu_callback(handle, nil, nil)
+        putty_bridge_termwin_set_eventlog_callback(handle, nil, nil)
+        putty_bridge_termwin_set_remote_exit_callback(handle, nil, nil)
+        putty_bridge_termwin_free(handle)
     }
 
     private func commonInit() {

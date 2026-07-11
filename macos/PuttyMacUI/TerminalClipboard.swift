@@ -27,6 +27,16 @@ final class TerminalClipboard {
     }
   }
 
+  /// Drop the TermWin handle and pasteboard observer (session teardown).
+  func detach() {
+    termWin = nil
+    trackingGeneralOwnership = false
+    if let pasteboardObserver {
+      NotificationCenter.default.removeObserver(pasteboardObserver)
+      self.pasteboardObserver = nil
+    }
+  }
+
   func write(text: String, clipboard: Int32, mustDeselect: Bool) {
     guard let pasteboard = pasteboard(for: clipboard) else { return }
 
@@ -59,12 +69,15 @@ final class TerminalClipboard {
     let pasteboardName = pasteboard.name
 
     // Read off the main thread; inject on MainActor (ldisc path via term_do_paste).
-    Task {
+    Task { [weak self] in
       let string = await Task.detached {
         NSPasteboard(name: pasteboardName).string(forType: .string)
       }.value
       guard let string, !string.isEmpty else { return }
-      pasteString(string, termWin: termWin)
+      await MainActor.run {
+        guard let self, let termWin = self.termWin else { return }
+        self.pasteString(string, termWin: termWin)
+      }
     }
   }
 

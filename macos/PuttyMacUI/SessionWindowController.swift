@@ -178,15 +178,12 @@ public final class SessionWindowController: NSWindowController, NSWindowDelegate
             putty_conf_free(conf)
         }
         /*
-         * Clear C→Swift callbacks while self is still alive. TerminalView
-         * may free the seat later from an autorelease pool, after this
-         * controller is gone (app_crash_006).
+         * Destroy the TermWin on the main thread while this controller (and
+         * TerminalView) are still alive. Do not rely on TerminalView.deinit:
+         * it is nonisolated and may run off the main thread (AUDIT P1.3 /
+         * app_crash_006 callback teardown).
          */
-        if let termWin = scrollContainer.terminalView.termWin {
-            putty_bridge_termwin_set_specials_menu_callback(termWin, nil, nil)
-            putty_bridge_termwin_set_eventlog_callback(termWin, nil, nil)
-            putty_bridge_termwin_set_remote_exit_callback(termWin, nil, nil)
-        }
+        scrollContainer.terminalView.destroyTermWin()
         SessionSpecialsMenu.shared.resignKeyController(self)
         SessionEventLog.shared.sessionWillClose(self)
         Self.openControllers.removeAll { $0 === self }
