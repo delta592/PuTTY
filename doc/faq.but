@@ -235,7 +235,10 @@ Yes. This source tree includes a native AppKit GUI for macOS 15 and later
 (\c{PuTTY.app}, \c{pterm.app}, and \c{PuTTYgen.app}). See
 \c{macos/README.md} and \c{MACOS_GUI_PLAN.md} for build instructions and
 status. The in-app \e{Help} menu opens the same Halibut HTML user manual
-as the Windows CHM help.
+as the Windows CHM help. Known gaps relative to the Windows/Unix ports
+(X11 display integration, GSSAPI against Apple Kerberos, USB-serial
+verification) are listed in \c{macos/PARITY.md}; they are documented
+rather than fully implemented at present.
 
 Historically, the core PuTTY team tried more than once and did not ship a
 release-quality Mac port of their own. Around 2005 there was an attempt in

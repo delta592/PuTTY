@@ -7,7 +7,8 @@ For a short overview from the repository root, see the “Building on
 macOS (native GUI)” section of [`../README`](../README). Architecture
 and phase status live in [`../MACOS_GUI_PLAN.md`](../MACOS_GUI_PLAN.md).
 SSH agent behaviour is documented in [`AGENT.md`](AGENT.md).
-In-app help is documented in [`HELP.md`](HELP.md).
+In-app help is documented in [`HELP.md`](HELP.md). Known feature
+parity gaps (X11, GSSAPI, serial) are in [`PARITY.md`](PARITY.md).
 
 ## Prerequisites
 
@@ -232,5 +233,6 @@ seat, clipboard, and related paths. See `macos/CMakeLists.txt` and
 | [`INTEGRATION.md`](INTEGRATION.md) | Phase 9.3 Settings / accent / scroll / Edit menu |
 | [`PRINTING.md`](PRINTING.md) | Phase 9.4 ANSI printer + File → Print |
 | [`HELP.md`](HELP.md) | Phase 9.5 bundled Halibut HTML / Help menu |
+| [`PARITY.md`](PARITY.md) | Phase 9.6 known gaps (X11 / GSSAPI / serial) |
 | [`TESTING.md`](TESTING.md) | Phase 9.1 CTest / XCTest / manual matrix |
 | [`PuTTY/TERMINAL_PERFORMANCE.md`](PuTTY/TERMINAL_PERFORMANCE.md) | Terminal paint performance notes |

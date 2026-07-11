@@ -1207,11 +1207,23 @@ when HTML was built.
 
 ### 9.6 Known parity gaps (document honestly)
 
-- [ ] X11 forwarding display integration (optional; `$DISPLAY` only initially).
-- [ ] GSSAPI/Kerberos — verify with macOS Kerberos.framework.
-- [ ] Serial port backend — verify USB serial on macOS 15.
+- [x] X11 forwarding display integration (optional; `$DISPLAY` only initially).
+- [x] GSSAPI/Kerberos — verify with macOS Kerberos.framework.
+- [x] Serial port backend — verify USB serial on macOS 15.
 
-**Phase 9 exit criteria:** No P0/P1 open bugs; accessibility audit complete; FAQ updated to reflect native macOS availability.
+**Documentation only (no implementation in Phase 9):** see
+[`macos/PARITY.md`](macos/PARITY.md).
+
+| Gap | Current state | Deferred work |
+|-----|---------------|---------------|
+| **X11 forwarding** | Portable X11 + `macos/platform/x11.c` linked; GUI bridge `platform_get_x_display()` returns `NULL` (falls back to `:0`). Needs an external X server (e.g. XQuartz). No Quartz integration. | Honour `$DISPLAY`; optional XQuartz discovery; e2e smoke. |
+| **GSSAPI / Kerberos** | Unix-style `dlopen` of Linux `.so` names (`PUTTY_GSSAPI=DYNAMIC`). Apple `Kerberos.framework` / `GSS.framework` unused; unverified against system tickets. | Framework binding or verified MIT/Homebrew path; realm smoke test. |
+| **Serial** | Unix termios backend present; default `/dev/tty.usbserial`. Prefer `/dev/cu.*` on macOS. **Not** hardware-verified on macOS 15. | USB-serial matrix; optional IOKit device list. |
+
+Related deferrals already documented: Pageant.app / Keychain
+([`macos/AGENT.md`](macos/AGENT.md)); signing/notarization (Phase 8).
+
+**Phase 9 exit criteria:** No P0/P1 open bugs; accessibility audit complete; FAQ updated to reflect native macOS availability; known parity gaps documented in `macos/PARITY.md`.
 
 ---
 
