@@ -80,6 +80,7 @@ enum PuTTYMain {
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, SessionMenuUpdating {
+    /// Owned until first session open / config cancel; then transferred or freed.
     private var pendingConf: PuttyConfHandle?
     private let pendingConnect: Bool
     private let hostCaOnly: Bool

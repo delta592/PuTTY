@@ -148,7 +148,7 @@ This audit does **not** demand reformatting upstream `unix/` / `windows/` / port
   - **Issue:** Failures → `fputs` / beep / ad hoc strings; Puttygen has a local good pattern.  
   - **Fix:** Map C codes to a Swift `Error` enum at first Swift touch.
 
-- [ ] **P2.17** Sparse ownership comments on `OpaquePointer` fields  
+- [x] **P2.17** Sparse ownership comments on `OpaquePointer` fields  
   - **Fix:** Comment each handle (borrowed vs owned) and free site.
 
 - [ ] **P2.18** Keyboard shim in Swift (`OsxKeys.swift` US-QWERTY control-letter fallback)  

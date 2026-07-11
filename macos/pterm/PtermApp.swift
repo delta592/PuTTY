@@ -40,6 +40,7 @@ enum PtermMain {
 
 @MainActor
 final class PtermAppDelegate: NSObject, NSApplicationDelegate, SessionMenuUpdating {
+    /// Owned until first session open / config cancel; then transferred or freed.
     private var pendingConf: PuttyConfHandle?
     private let pendingConnect: Bool
     private var openSessionBox: OpenSessionBox?

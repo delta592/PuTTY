@@ -4,6 +4,7 @@ import PuttyBridge
 /// Event Log viewer for one session (Phase 6.4). Searchable NSTextView.
 @MainActor
 final class EventLogWindowController: NSWindowController, NSWindowDelegate, NSSearchFieldDelegate {
+    /// Borrowed TermWin; must outlive this window (session controller owns free).
     private let termWin: OpaquePointer
     private let textView: NSTextView
     private let searchField: NSSearchField

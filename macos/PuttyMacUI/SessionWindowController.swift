@@ -19,10 +19,13 @@ public final class SessionWindowController: NSWindowController, NSWindowDelegate
 
     private let scrollContainer: TerminalScrollContainer
     private let connectOnOpen: Bool
-    /// Owned until `present()` copies it into the seat; then freed.
+    /// Owned `PuttyConf *` until `present()`; then passed to TermWin open and freed.
     private var sessionConf: PuttyConfHandle?
 
-    /// TermWin handle for menu/specials bridge callbacks (Phase 5.6).
+    /**
+     * Borrowed `PuttyBridgeTermWin *` from `TerminalView` (same lifetime as
+     * the session window). Do not free; valid until `windowWillClose`.
+     */
     public var activeTermWin: OpaquePointer? {
         scrollContainer.terminalView.termWin
     }

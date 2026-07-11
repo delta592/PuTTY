@@ -180,6 +180,13 @@ private enum TerminalViewBridge {
 /// AppKit terminal surface wired to MacTermWin (Phase 4.2–4.8).
 @MainActor
 final class TerminalView: NSView {
+    /**
+     * Owned `PuttyBridgeTermWin *`. Created in `commonInit` via
+     * `putty_bridge_termwin_new`; freed only by `destroyTermWin()` /
+     * `windowWillClose` (deinit is a safety net). Borrowed by clipboard,
+     * specials, and event-log helpers — they must `detach` / stop using
+     * before free.
+     */
     nonisolated(unsafe) private(set) var termWin: OpaquePointer?
     weak var resizeScrollHost: TerminalResizeScrolling?
     weak var windowChromeHost: TerminalWindowChrome?

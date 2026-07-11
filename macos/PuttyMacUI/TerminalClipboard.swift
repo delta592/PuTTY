@@ -5,6 +5,7 @@ import PuttyBridge
 /// NSPasteboard integration for MacTermWin clip_write / clip_request_paste (Phase 4.6).
 @MainActor
 final class TerminalClipboard {
+  /// Borrowed TermWin; cleared by `detach()` before the owner frees it.
   private var termWin: OpaquePointer?
   private var ignorePasteboardChanges = 0
   private var lastGeneralChangeCount = -1
