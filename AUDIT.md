@@ -159,7 +159,7 @@ This audit does **not** demand reformatting upstream `unix/` / `windows/` / port
 - [x] **P2.19** CMake ≥ 3.28 docs vs root `CMakeLists.txt` `3.7...3.28`  
   - **Fix:** Raise floor for GUI builds or document upstream exception.
 
-- [ ] **P2.20** Plan file inventory drift (`PuTTY/` vs `PuttyMacUI/`; entitlements listed but absent)  
+- [x] **P2.20** Plan file inventory drift (`PuTTY/` vs `PuttyMacUI/`; entitlements listed but absent)  
   - **Fix:** Update inventory + Phase 8 status banner.
 
 - [ ] **P2.21** Phase 8 release path open (signing / notarization / DMG)  

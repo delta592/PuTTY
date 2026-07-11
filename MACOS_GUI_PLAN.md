@@ -151,9 +151,11 @@ cmake --build build-macos-cli
 cmake/platforms/macos.cmake          # Platform probes, frameworks, Swift flags
 macos/CMakeLists.txt                 # C platform libs, bridge, Swift targets
 macos/bridge/CMakeLists.txt          # putty-macos-bridge static library
+macos/PuttyMacUI/CMakeLists.txt      # shared putty-macui Swift static library
 macos/PuTTY/CMakeLists.txt           # PuTTY.app Swift target
 macos/pterm/CMakeLists.txt           # pterm.app (Phase 7)
 macos/puttygen/CMakeLists.txt        # PuTTYgen.app (Phase 7)
+macos/tests/CMakeLists.txt           # CTest / XCTest (Phase 9.1)
 ```
 
 Key CMake settings for all GUI targets:
@@ -195,11 +197,14 @@ All static libraries linked into GUI `.app` targets inherit `CMAKE_OSX_ARCHITECT
 - [x] Create subdirectories:
   - `macos/bridge/` — C headers and glue for Swift
   - `macos/platform/` — C files adapted from `unix/` (non-GTK)
-  - `macos/PuTTY/` — PuTTY.app Swift sources, assets, `Info.plist`
-  - `macos/pterm/` — placeholder for Phase 7
-  - `macos/puttygen/` — placeholder for Phase 7
+  - `macos/PuttyMacUI/` — shared Swift/AppKit UI (`putty-macui`)
+  - `macos/PuTTY/` — PuTTY.app Swift entry / Info.plist / assets
+  - `macos/pterm/` — pterm.app (Phase 7)
+  - `macos/puttygen/` — PuTTYgen.app (Phase 7)
+  - `macos/tests/` — XCTest + CTest helpers
   - `macos/Resources/` — shared `.xcassets`, localizable strings
 - [x] Add `cmake/platforms/macos.cmake` parallel to `unix.cmake` / `windows.cmake`.
+  - Entitlements plists (`*.entitlements`) are **not** in-tree yet; deferred to Phase 8.2.
 
 ### 1.2 CMake platform selection
 
@@ -1281,46 +1286,22 @@ Phases 4 and 2 can partially overlap once Phase 1 completes, but **Phase 5 must 
 
 ---
 
-## File inventory (expected final state)
+## File inventory (current layout)
 
 ```
 macos/
   CMakeLists.txt
+  README.md, TESTING.md, PARITY.md, AGENT.md, HELP.md, INTEGRATION.md
   platform.h
-  platform/
-    storage.c
-    network.c
-    fd-socket.c
-    pty.c
-    noise.c
-    unicode.c
-    seat.c
-    termwin.c
-    config-macos.c
-    config-appkit.m
-    config-appkit.h
-    cliloop.c
-    uxsel.c
-    …
-  bridge/
-    CMakeLists.txt
-    putty-bridge.h
-    putty-bridge.c
-    module.modulemap
-  PuTTY/
-    CMakeLists.txt
-    PuTTYApp.swift
-    AppDelegate.swift
-    SessionWindowController.swift
-    TerminalView.swift
-    Info.plist
-    PuTTY.entitlements
-  pterm/
-    …
-  puttygen/
-    …
-  Resources/
-    Assets.xcassets/
+  platform/                  # Darwin C (many files symlink to unix/)
+  bridge/                    # putty-bridge.h + C session/conf/eventloop API
+  PuttyMacUI/                # shared Swift/AppKit UI (putty-macui)
+  PuTTY/                     # PuTTY.app entry (PuTTYApp.swift, Info.plist.in)
+  pterm/                     # pterm.app
+  puttygen/                  # puttygen.app
+  tests/                     # XCTest + smoke helpers
+  Resources/                 # shared icons / assets staging
+  # *.entitlements — not present; Phase 8.2 (signing) deferred
 cmake/
   platforms/
     macos.cmake
