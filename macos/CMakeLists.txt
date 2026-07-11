@@ -355,6 +355,15 @@ target_link_libraries(putty-mac-askpass-smoke-c
 set_target_properties(putty-mac-askpass-smoke-c PROPERTIES
   XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC YES)
 
+# Phase 9.4: remote-controlled printing pipe (CONF_printer → popen).
+add_executable(putty-mac-printing-smoke-c
+  platform/printing-smoke-main.c
+  platform/printing.c
+  platform/no-gtk.c)
+target_link_libraries(putty-mac-printing-smoke-c
+  utils
+  ${platform_libraries})
+
 # ---------------------------------------------------------------------------
 # Swift / AppKit GUI (Phase 1+)
 # ---------------------------------------------------------------------------

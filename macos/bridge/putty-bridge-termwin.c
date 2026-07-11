@@ -38,6 +38,10 @@ struct PuttyBridgeTermWin {
     void *eventlog_ctx;
     PuttyBridgeRemoteExitCallback remote_exit_callback;
     void *remote_exit_ctx;
+    wchar_t *transcript_capture;
+    size_t transcript_capture_len;
+    size_t transcript_capture_size;
+    bool capturing_transcript;
     char **events_initial;
     char **events_circular;
     int ninitial, ncircular, circular_first;
@@ -185,6 +189,24 @@ static void bridge_clip_write(
 
     (void)attrs;
     (void)colours;
+    if (btw->capturing_transcript) {
+        int copy_len = len;
+        if (copy_len > 0 && text && text[copy_len - 1] == L'\0')
+            copy_len--;
+        if (copy_len > 0 && text) {
+            size_t need = (size_t)copy_len;
+            if (btw->transcript_capture_len + need >
+                btw->transcript_capture_size) {
+                sgrowarrayn(btw->transcript_capture,
+                            btw->transcript_capture_size,
+                            btw->transcript_capture_len, need);
+            }
+            memcpy(btw->transcript_capture + btw->transcript_capture_len,
+                   text, need * sizeof(wchar_t));
+            btw->transcript_capture_len += need;
+        }
+        return;
+    }
     if (!btw->swift_callbacks.clip_write)
         return;
     btw->swift_callbacks.clip_write(
@@ -397,6 +419,8 @@ void putty_bridge_termwin_free(PuttyBridgeTermWin *btw)
             btw->mtw = NULL;
         }
     }
+    sfree(btw->transcript_capture);
+    btw->transcript_capture = NULL;
     bridge_eventlog_free_lines(btw);
     sfree(btw);
 }
@@ -1469,6 +1493,38 @@ void putty_bridge_termwin_copy_all(PuttyBridgeTermWin *btw)
     term_copyall(btw->term, clips, lenof(clips));
 }
 
+char *putty_bridge_termwin_get_all_text(PuttyBridgeTermWin *btw)
+{
+    static const int clips[] = { CLIP_CLIPBOARD };
+    char *utf8;
+
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
+    if (!btw || !btw->term)
+        return dupstr("");
+
+    sfree(btw->transcript_capture);
+    btw->transcript_capture = NULL;
+    btw->transcript_capture_len = 0;
+    btw->transcript_capture_size = 0;
+    btw->capturing_transcript = true;
+    term_copyall(btw->term, clips, lenof(clips));
+    btw->capturing_transcript = false;
+
+    if (btw->transcript_capture_len == 0) {
+        sfree(btw->transcript_capture);
+        btw->transcript_capture = NULL;
+        return dupstr("");
+    }
+
+    utf8 = dup_wc_to_mb_c(CS_UTF8, btw->transcript_capture,
+                          btw->transcript_capture_len, "", NULL);
+    sfree(btw->transcript_capture);
+    btw->transcript_capture = NULL;
+    btw->transcript_capture_len = 0;
+    btw->transcript_capture_size = 0;
+    return utf8 ? utf8 : dupstr("");
+}
+
 void putty_bridge_termwin_select_all(PuttyBridgeTermWin *btw)
 {
     Terminal *term;
@@ -1624,6 +1680,17 @@ int putty_bridge_termwin_clipboard_smoke(void)
     if (btw->term->mouse_select_clipboards[2] != CLIP_CLIPBOARD) {
         putty_bridge_termwin_free(btw);
         return 7;
+    }
+
+    putty_bridge_termwin_feed(btw, "print-smoke-line\r\n", 17);
+    {
+        char *text = putty_bridge_termwin_get_all_text(btw);
+        if (!text || !strstr(text, "print-smoke-line")) {
+            sfree(text);
+            putty_bridge_termwin_free(btw);
+            return 9;
+        }
+        putty_bridge_free_string(text);
     }
 
     putty_bridge_termwin_free(btw);

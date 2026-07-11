@@ -1,12 +1,14 @@
 import AppKit
 
-/// Shared AppKit menu construction for PuTTY / pterm (Phase 9.3).
+/// Shared AppKit menu construction for PuTTY / pterm (Phase 9.3–9.4).
 @MainActor
 public enum PuttyStandardMenus {
     /// Edit → Paste Special (nil-target; handled by `TerminalView`).
     public static let pasteSpecialSelector = #selector(TerminalView.pasteSpecial(_:))
     /// Edit → Copy All (nil-target; handled by `TerminalView`).
     public static let copyAllSelector = #selector(TerminalView.copyAll(_:))
+    /// File → Print… (nil-target; `TerminalView.printView` / ObjC `print:`).
+    public static let printSelector = #selector(NSView.printView(_:))
 
     /// About + Settings… (⌘,) + Hide (⌘H) in the application menu.
     public static func installAppMenuChrome(
@@ -75,6 +77,45 @@ public enum PuttyStandardMenus {
         appMenu.insertItem(hideOthers, at: insertAt + 1)
         appMenu.insertItem(showAll, at: insertAt + 2)
         appMenu.insertItem(NSMenuItem.separator(), at: insertAt + 3)
+    }
+
+    /// File menu with Print… (⌘P) and Page Setup… (⇧⌘P).
+    @discardableResult
+    public static func installFileMenu(into mainMenu: NSMenu) -> NSMenu {
+        let fileItem = NSMenuItem(title: "File", action: nil, keyEquivalent: "")
+        let fileMenu = NSMenu(title: "File")
+
+        fileMenu.addItem(
+            withTitle: "Print…",
+            action: printSelector,
+            keyEquivalent: "p")
+
+        let pageSetup = fileMenu.addItem(
+            withTitle: "Page Setup…",
+            action: #selector(NSApplication.runPageLayout(_:)),
+            keyEquivalent: "p")
+        pageSetup.keyEquivalentModifierMask = [.command, .shift]
+        pageSetup.target = NSApp
+
+        fileItem.submenu = fileMenu
+
+        /*
+         * Insert after the application menu when present so the bar reads
+         * App | File | Session | Edit | Window (HIG order).
+         */
+        var insertAt = 0
+        if mainMenu.numberOfItems > 0 {
+            insertAt = 1
+        }
+        for i in 0..<mainMenu.numberOfItems {
+            let title = mainMenu.item(at: i)?.title ?? ""
+            if title == "Session" || title == "Edit" || title == "Window" {
+                insertAt = i
+                break
+            }
+        }
+        mainMenu.insertItem(fileItem, at: insertAt)
+        return fileMenu
     }
 
     /// Edit menu with Copy / Paste / Paste Special / Select All (nil target → responder chain).

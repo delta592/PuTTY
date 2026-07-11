@@ -114,9 +114,16 @@ final class IntegrationTests: XCTestCase {
         XCTAssertEqual(appMenu.item(withTitle: "Quit")?.keyEquivalent, "q")
 
         main.addItem(NSMenuItem(title: "Window", action: nil, keyEquivalent: ""))
+        PuttyStandardMenus.installFileMenu(into: main)
         PuttyStandardMenus.installEditMenu(into: main)
-        XCTAssertEqual(main.item(at: 1)?.title, "Edit")
-        let edit = main.item(at: 1)?.submenu
+        XCTAssertEqual(main.item(at: 1)?.title, "File")
+        XCTAssertEqual(main.item(at: 2)?.title, "Edit")
+        let file = main.item(at: 1)?.submenu
+        XCTAssertEqual(file?.item(withTitle: "Print…")?.keyEquivalent, "p")
+        XCTAssertEqual(
+            file?.item(withTitle: "Print…")?.action,
+            PuttyStandardMenus.printSelector)
+        let edit = main.item(at: 2)?.submenu
         XCTAssertEqual(edit?.item(withTitle: "Copy")?.keyEquivalent, "c")
         XCTAssertEqual(edit?.item(withTitle: "Paste")?.keyEquivalent, "v")
         XCTAssertEqual(edit?.item(withTitle: "Select All")?.keyEquivalent, "a")

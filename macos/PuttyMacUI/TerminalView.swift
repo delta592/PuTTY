@@ -602,6 +602,28 @@ final class TerminalView: NSView {
         putty_bridge_termwin_copy_all(termWin)
     }
 
+    /// File → Print… (nil-target); prints scrollback + screen as monospaced text.
+    /// Overrides NSView's ObjC `print:` (Swift name `printView`).
+    @objc override func printView(_ sender: Any?) {
+        _ = sender
+        guard let termWin else { return }
+        guard let cText = putty_bridge_termwin_get_all_text(termWin) else {
+            NSSound.beep()
+            return
+        }
+        let text = String(cString: cText)
+        putty_bridge_free_string(cText)
+
+        let font = renderer.measureCellFont()
+        let title = window?.title ?? "PuTTY"
+        TerminalPrint.runPrintOperation(
+            text: text,
+            font: font,
+            jobTitle: title,
+            from: window
+        )
+    }
+
     // MARK: - Layout / metrics
 
     private func updateBackingScale() {
@@ -932,7 +954,7 @@ extension TerminalView: NSMenuItemValidation {
         guard termWin != nil else { return false }
         switch menuItem.action {
         case #selector(copy(_:)), #selector(selectAll(_:)), #selector(copyAll(_:)),
-             #selector(pasteSpecial(_:)):
+             #selector(pasteSpecial(_:)), #selector(printView(_:)):
             return true
         case #selector(paste(_:)):
             return NSPasteboard.general.canReadObject(

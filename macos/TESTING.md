@@ -131,3 +131,9 @@ Motion / Increase Contrast checklist: [`ACCESSIBILITY.md`](ACCESSIBILITY.md).
 Automated: `IntegrationTests` (scroll delta math, Edit menu selectors,
 Settings menu placement, accent colour). Manual Settings / accent /
 trackpad / Edit checklist: [`INTEGRATION.md`](INTEGRATION.md).
+
+## Printing (Phase 9.4)
+
+Automated: `putty-mac-printing-smoke-c` (pipe job) and `PrintingTests`
+(File menu, transcript extraction, printable view). Manual Print /
+ANSI printer checklist: [`PRINTING.md`](PRINTING.md).

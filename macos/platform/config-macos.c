@@ -152,7 +152,8 @@ void macos_setup_config_box(struct controlbox *b, bool midsession, int protocol)
      */
 
     /*
-     * macOS has no printer drop-down list (same as Unix GTK).
+     * macOS has no printer drop-down list (same as Unix GTK). The edit
+     * box is a print command (typically lpr); see macos/PRINTING.md.
      */
     s = ctrl_getset(b, "Terminal", "printing", "Remote-controlled printing");
     assert(s->ncontrols == 1 && s->ctrls[0]->type == CTRL_EDITBOX);

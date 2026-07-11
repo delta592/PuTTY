@@ -32,7 +32,7 @@ add_library(pterm-macos-bridge STATIC
   ${CMAKE_CURRENT_SOURCE_DIR}/../platform/pty.c
   ${CMAKE_SOURCE_DIR}/otherbackends/testback.c
   ${CMAKE_SOURCE_DIR}/stubs/no-console.c
-  ${CMAKE_SOURCE_DIR}/stubs/no-print.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/../platform/printing.c
   ${CMAKE_SOURCE_DIR}/stubs/no-gss.c
   ${CMAKE_SOURCE_DIR}/stubs/no-ca-config.c
   ${CMAKE_SOURCE_DIR}/proxy/nosshproxy.c

@@ -1176,7 +1176,18 @@ XCTest: `IntegrationTests`.
 
 ### 9.4 Printing
 
-- [ ] Port `unix/printing.c` or implement via `NSPrintOperation` for session transcript printing.
+- [x] Port `unix/printing.c` or implement via `NSPrintOperation` for session transcript printing.
+
+**Implementation:** Both paths. Remote-controlled ANSI printing uses
+`macos/platform/printing.c` (Unix-style `popen` of `CONF_printer`, typically
+`lpr`); GUI bridges link it instead of `stubs/no-print.c`. Config keeps a
+free-text printer command (no drop-down), matching Unix GTK. Session
+transcript printing: **File → Print…** (⌘P) / **Page Setup…** (⇧⌘P) via
+`PuttyStandardMenus.installFileMenu`; `putty_bridge_termwin_get_all_text`
+captures Copy-All extent without touching the pasteboard;
+`TerminalView.printView(_:)` + `TerminalPrint` run `NSPrintOperation` on a
+monospaced text view. Docs: [`macos/PRINTING.md`](macos/PRINTING.md).
+Smoke: `putty-mac-printing-smoke-c`; XCTest: `PrintingTests`.
 
 ### 9.5 Help
 

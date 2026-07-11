@@ -21,7 +21,8 @@ add_library(putty-macui STATIC
   TerminalClipboard.swift
   TerminalScrollContainer.swift
   TerminalScrollInput.swift
-  TerminalWindowChrome.swift)
+  TerminalWindowChrome.swift
+  TerminalPrint.swift)
 
 set_target_properties(putty-macui PROPERTIES
   Swift_MODULE_NAME PuttyMacUI

@@ -16,7 +16,7 @@ add_library(putty-macos-bridge STATIC
   putty-bridge-app.c
   putty-bridge-termwin.c
   ${CMAKE_SOURCE_DIR}/stubs/no-console.c
-  ${CMAKE_SOURCE_DIR}/stubs/no-print.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/../platform/printing.c
   ${CMAKE_CURRENT_SOURCE_DIR}/../platform/no-gtk.c
   ${CMAKE_CURRENT_SOURCE_DIR}/../platform/unicode.c)
 

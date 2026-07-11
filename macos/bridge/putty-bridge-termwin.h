@@ -343,6 +343,11 @@ void putty_bridge_termwin_cancel_selection_drag(PuttyBridgeTermWin *btw);
 
 void putty_bridge_termwin_copy_selection(PuttyBridgeTermWin *btw);
 void putty_bridge_termwin_copy_all(PuttyBridgeTermWin *btw);
+/**
+ * UTF-8 transcript of scrollback + screen (same extent as Copy All).
+ * Caller must free with putty_bridge_free_string(). Never returns NULL.
+ */
+char *putty_bridge_termwin_get_all_text(PuttyBridgeTermWin *btw);
 void putty_bridge_termwin_select_all(PuttyBridgeTermWin *btw);
 void putty_bridge_termwin_request_paste(
     PuttyBridgeTermWin *btw, int32_t clipboard);

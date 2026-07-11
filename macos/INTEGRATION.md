@@ -51,6 +51,12 @@ target so AppKit sends actions down the responder chain to `TerminalView`
 (`copy:`, `paste:`, `pasteSpecial:`, `selectAll:`, `copyAll:`). ⌘C / ⌘V /
 ⌘A / ⌥⌘V also work via `performKeyEquivalent`.
 
+## File menu (printing)
+
+**File → Print…** (⌘P) and **Page Setup…** (⇧⌘P) are installed by
+`PuttyStandardMenus.installFileMenu`. Print uses the session transcript
+path documented in [`PRINTING.md`](PRINTING.md).
+
 ## Manual checklist
 
 - [ ] App menu **Settings…** (⌘,) opens mid-session settings for the key window
@@ -58,10 +64,12 @@ target so AppKit sends actions down the responder chain to `TerminalView`
 - [ ] System Settings → Appearance → Accent Colour changes config chrome tint
 - [ ] Trackpad flick scrolls scrollback with inertia; mouse wheel still ticks
 - [ ] Edit → Copy / Paste with a selection and clipboard text
+- [ ] File → Print… opens the print panel with session text
 - [ ] Terminal palette unchanged when accent colour changes
 
 ## Related
 
 - [`ACCESSIBILITY.md`](ACCESSIBILITY.md) — VoiceOver / Reduce Motion / Increase Contrast
+- [`PRINTING.md`](PRINTING.md) — ANSI printer + File → Print
 - [`TESTING.md`](TESTING.md) — CTest / XCTest
 - `PuttyMacUI/PuttyStandardMenus.swift`, `PuttyChrome.swift`, `TerminalScrollInput.swift`

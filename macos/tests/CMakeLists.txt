@@ -32,6 +32,7 @@ set(_putty_macos_ctest_binaries
   putty-mac-seat-dialogs-smoke-c
   putty-mac-config-smoke-c
   putty-mac-askpass-smoke-c
+  putty-mac-printing-smoke-c
   putty-bridge-conf-smoke-c
   putty-bridge-session-smoke-c
   putty-bridge-eventloop-smoke-c
@@ -186,6 +187,7 @@ xctest_add_bundle(PuttyMacUITests putty-macui
   PuttyMacUITests/MockConnectTests.swift
   PuttyMacUITests/AccessibilityTests.swift
   PuttyMacUITests/IntegrationTests.swift
+  PuttyMacUITests/PrintingTests.swift
   PuttyMacUITests/TestSupport.swift)
 
 set_target_properties(PuttyMacUITests PROPERTIES
@@ -245,6 +247,9 @@ set(_putty_macos_test_gate_deps
 )
 if(TARGET putty-mac-askpass-smoke-c)
   list(APPEND _putty_macos_test_gate_deps putty-mac-askpass-smoke-c)
+endif()
+if(TARGET putty-mac-printing-smoke-c)
+  list(APPEND _putty_macos_test_gate_deps putty-mac-printing-smoke-c)
 endif()
 
 # Drop missing optional targets (e.g. askpass already conditional).
