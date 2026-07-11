@@ -68,7 +68,11 @@ static void session_queue_exit(PuttySession *session)
     queue_toplevel_callback(session_exit_callback, session);
 }
 
-/* --- TermWin (minimal stub; full draw path in Phase 4) --- */
+/*
+ * WORKAROUND: PuttySession embeds a no-op TermWin for headless/smoke use.
+ * Real drawing goes through PuttyBridgeTermWin + TerminalView (Phase 4).
+ * — see .cursor/rules/agents.mdc
+ */
 
 static bool bridge_termwin_setup_draw_ctx(TermWin *tw)
 {
@@ -375,7 +379,11 @@ static const SeatVtable bridge_seat_vt = {
     .get_cursor_position = bridge_seat_get_cursor_position,
 };
 
-/* --- LogPolicy (stderr-only stub until Phase 5) --- */
+/*
+ * WORKAROUND: LogPolicy here only satisfies Seat linkage for PuttySession;
+ * the GUI Event Log is owned by PuttyBridgeTermWin (Phase 6.4).
+ * — see .cursor/rules/agents.mdc
+ */
 
 static void bridge_logpolicy_eventlog(LogPolicy *lp, const char *event)
 {

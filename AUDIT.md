@@ -138,7 +138,7 @@ This audit does **not** demand reformatting upstream `unix/` / `windows/` / port
   - **Where:** cmdline / ssh-exit / eventloop after `putty_*_new`  
   - **Fix:** Remove impossible checks (`pure-c.mdc`).
 
-- [ ] **P2.15** Missing `WORKAROUND:` markers at known parity boundaries  
+- [x] **P2.15** Missing `WORKAROUND:` markers at known parity boundaries  
   - **Where:** `platform_get_x_display` NULL, GSSAPI dlopen names, printing `popen`, stubs  
   - **Fix:** Add agents §1.6 comments at code boundaries.
 

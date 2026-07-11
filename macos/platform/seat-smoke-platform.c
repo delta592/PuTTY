@@ -22,6 +22,10 @@ const struct BackendVtable *select_backend(Conf *conf)
 
 char *platform_get_x_display(void)
 {
+    /*
+     * WORKAROUND: Seat smoke has no X11 display; same as AppKit bridge.
+     * — see .cursor/rules/agents.mdc
+     */
     return NULL;
 }
 

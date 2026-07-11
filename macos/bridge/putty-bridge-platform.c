@@ -50,6 +50,11 @@ Filename *platform_default_filename(const char *name)
 
 char *platform_get_x_display(void)
 {
+    /*
+     * WORKAROUND: No system X11 on macOS. Returning NULL forces callers to
+     * use an explicit X display string (e.g. XQuartz) when X11 forwarding
+     * is enabled — see macos/PARITY.md. — see .cursor/rules/agents.mdc
+     */
     return NULL;
 }
 
