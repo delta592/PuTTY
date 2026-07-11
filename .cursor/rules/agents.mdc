@@ -1,0 +1,307 @@
+---
+description: Universal engineering guardrails and PuTTY/macOS project conventions for coding agents
+alwaysApply: true
+---
+
+# Agent guidance (PuTTY / macOS GUI)
+
+This rule merges two layers:
+
+1. **Universal engineering guardrails** that apply to all coding work
+2. **Project-specific conventions** for this PuTTY fork’s native macOS GUI
+
+When layers conflict, follow this precedence:
+
+1. **Truth and feasibility first**
+2. **Safety and explicit disclosure second**
+3. **Project-specific conventions third**
+4. **Style and structure preferences last**
+
+Do not follow a project convention if doing so would hide a dead end, obscure a workaround, or misrepresent what the tools can actually do.
+
+Companion rules (do not duplicate; follow them in their scopes):
+
+- `.cursor/rules/general.mdc` — git / commit workflow (`alwaysApply`)
+- `.cursor/rules/pure-c.mdc` — pure C safety; **auto-applies when editing `*.{c,h}`** (`alwaysApply: false` + globs)
+- `.cursor/rules/bridge-and-ui.mdc` — AppKit main-thread + C↔Swift bridge (`alwaysApply`)
+
+Architecture and phase status: `MACOS_GUI_PLAN.md`. Day-to-day builds: `macos/README.md`.
+
+---
+
+## 1. Universal engineering guardrails
+
+### 1.1 Think before you build
+
+Before writing implementation code, verify that the chosen tool, API, library, SDK, CLI, platform, runtime, or service can actually do the required job.
+
+For every external dependency or platform capability:
+
+1. Confirm the capability exists in the version, edition, tier, and platform actually being used.
+2. Confirm it does the specific thing required, not merely something adjacent.
+3. Confirm there are no blocking restrictions (licensing, permissions, platform limits, architecture mismatches, missing features).
+4. Check known issues in changelogs, issue trackers, release notes, and community reports when the capability is central.
+
+Surface assumptions explicitly:
+
+- **VERIFIED** — confirmed by authoritative source or direct test
+- **UNVERIFIED** — plausible but not yet confirmed
+- **ASSUMED** — inferred and therefore high risk
+
+If a critical assumption is UNVERIFIED or ASSUMED, stop and flag it before building further.
+
+### 1.2 Answer the goal question first
+
+Before solving how, confirm what:
+
+> Can the chosen platform, library, or tool achieve the user’s actual goal using supported behavior?
+
+If no, say so. If yes only with a workaround, say that clearly — do not present the workaround as a clean native capability.
+
+### 1.3 Fail fast, not slow
+
+If a required capability does not exist, is broken/deprecated, is blocked, only partially works, or needs a workaround: stop and report what is missing, why it matters, and realistic alternatives. Do not silently code around the gap.
+
+### 1.4 Never optimize a dead end
+
+If the approach cannot work in principle, do not keep refining implementation details. State the gap, feasible alternatives, and where any trade-off or workaround begins.
+
+### 1.5 No rationalization
+
+Do not dress up workarounds as architecture. Call out glue code, shell wrappers, undocumented behavior, output scraping, environment-specific hacks, or partial state models.
+
+Red flags that require explicit disclosure:
+
+- External processes doing the core job a native API should handle
+- Resource state not fully modeled by the chosen layer
+- Teardown/cleanup outside the native model
+- Parsing CLI output to recover state
+- OS-specific behavior fundamental to success
+- Glue between systems because neither fully supports the end-to-end operation
+
+Any one deserves discussion. More than one means present it as a workaround.
+
+### 1.6 Workaround hygiene
+
+If the user explicitly approves a workaround after disclosure:
+
+- Mark it clearly in comments
+- Isolate it so it can be replaced later
+- Document what it works around
+- Keep it small and local
+- Re-evaluate if complexity expands
+
+```c
+/* WORKAROUND: [what and why] — see .cursor/rules/agents.mdc */
+```
+
+```swift
+// WORKAROUND: [what and why] — see .cursor/rules/agents.mdc
+```
+
+### 1.7 Research checklist
+
+When evaluating an external dependency or platform:
+
+- Does it exist and appear actively maintained?
+- Does the specific version support the specific operation needed?
+- Are there known issues blocking the use case?
+- Does the license/tier permit the needed operation?
+- Does it work on the target OS, architecture, and runtime?
+- What is the smallest test that proves viability before building further?
+- Can the end goal be achieved without workarounds?
+
+### 1.8 Communication standards
+
+When uncertain, say so. When wrong, own it. Flag dead ends early. Respect the user’s time more than the urge to appear helpful.
+
+---
+
+## 2. Project purpose
+
+This repository is upstream PuTTY plus a **native macOS GUI** (`macos/`) using **Swift / AppKit**, integrated via **CMake**. Treat the portable C core as production networking/crypto/terminal code; treat `macos/` as a third front-end platform alongside `windows/` and `unix/`.
+
+Optimize for:
+
+- Correctness and security at the C / bridge boundary
+- Reuse of portable core (`Seat` / `TermWin` / `LogPolicy` in `putty.h`)
+- Reviewable, minimal diffs (especially outside `macos/`)
+- Main-thread safety for AppKit and PuTTY C calls
+- Maintainable C↔Swift bridge ownership
+- Universal 2 release artifacts when shipping GUI apps
+
+---
+
+## 3. Core architectural principles
+
+- Prefer the **`macos/` platform** (`PUTTY_MACOS_GUI=ON`) for the native GUI — do **not** revive GTK-on-Quartz (`OSX_GTK`, `unix/osxlaunch.c`, bundler paths).
+- Keep the portable C core and vtable boundaries intact; extend via `macos/platform/`, `macos/bridge/`, and Swift UI — do not fork SSH/terminal logic into Swift.
+- Swift consumes a **stable C bridge** (`macos/bridge/putty-bridge.h`, `PuttyBridge` module). Prefer C wrappers over exposing internal struct layouts or direct vtable manipulation from Swift.
+- **All PuTTY C / bridge calls on the main thread** (matches AppKit). UI mutations stay on the main thread (`DispatchQueue.main.async` from C callbacks).
+- CLI tools may continue via the `unix/` platform on Darwin unless explicitly moved; do not flip `PUTTY_MACOS_GUI` inside an existing build tree — use separate build dirs.
+- Do not hard-code secrets, machine-specific paths, or environment assumptions into committed code.
+
+---
+
+## 4. Tooling expectations
+
+Assume / prefer:
+
+- **CMake ≥ 3.28**, **Ninja** (dev / host-arch), **Xcode generator** (Universal 2)
+- **Xcode 16+**, **Swift 6**, macOS **15+** deployment target
+- `./macos/build.sh` for configure/build/open/verify/test (Bash 5.x)
+- SwiftLint / SwiftFormat (`macos/.swiftlint.yml`, `macos/.swiftformat`)
+- clang-tidy / clang analyze scoped to `macos/` only (`make tidy-c`, `make analyze-c`)
+- CTest labels via `./macos/build.sh test` / `make test` (see `macos/TESTING.md`)
+
+Do not reformat or tidy upstream root / `unix/` / `windows/` C with macos-only style tools unless the user explicitly asks.
+
+---
+
+## 5. Repository shape (macOS GUI)
+
+```text
+macos/
+├── README.md, TESTING.md, PARITY.md, AGENT.md, …
+├── build.sh
+├── platform/          # Darwin C platform (from unix/, no GTK)
+├── bridge/            # putty-bridge.h + C session/conf/eventloop API
+├── PuttyMacUI/        # Shared Swift/AppKit UI
+├── PuTTY/, pterm/, puttygen/
+├── tests/             # XCTest + smoke helpers
+└── Resources/
+```
+
+Platform selection (see `cmake/setup.cmake` / plan):
+
+- Windows → `windows/`
+- Darwin + `PUTTY_MACOS_GUI=ON` → `macos/`
+- otherwise → `unix/`
+
+Respect existing structure unless clearly harmful or the user requests restructuring. Prefer the smallest coherent change; avoid broad “fix everything” refactors.
+
+---
+
+## 6. Build and run rules
+
+Prefer the helper script from the repo root:
+
+```bash
+./macos/build.sh check
+./macos/build.sh --dev                 # Debug, host arch
+./macos/build.sh open --dev
+./macos/build.sh test --dev
+./macos/build.sh --universal           # Universal 2 (Xcode generator)
+./macos/build.sh verify --universal
+```
+
+Guidance:
+
+- Use separate build directories for GUI vs CLI and for sanitizer/coverage trees.
+- Universal 2 requires the Xcode generator; Ninja + `PUTTY_MACOS_UNIVERSAL=ON` is host-arch only (with warning).
+- Do not enable sanitizers/coverage on Universal release / notarized builds; do not combine sanitizers with coverage in one tree.
+- A successful local host-arch run does not override Universal / signing / notarization requirements for release artifacts.
+
+---
+
+## 7. Layering rules
+
+| Layer | Location | Agents should |
+|-------|----------|---------------|
+| Portable core | `terminal/`, `ssh/`, `crypto/`, … | Change only when the bug/feature is truly cross-platform; keep diffs minimal |
+| Win32 / GTK reference | `windows/`, `unix/window.c` | Read for parity; do not copy Win32/GTK UI code into Swift |
+| macOS C platform | `macos/platform/` | Adapt unix shims; no GTK |
+| C bridge | `macos/bridge/` | Opaque handles, explicit ownership, main-thread asserts |
+| Swift UI | `macos/PuttyMacUI/`, app targets | AppKit, not SwiftUI-style bindings for core session UI |
+
+If a change depends on an AppKit, Swift, CMake, or PuTTY API capability, verify that capability before building logic around it.
+
+---
+
+## 8. Safety and change-control rules
+
+- Default to safe, reviewable changes.
+- Prefer fixing bugs in the owning layer (core vs platform vs bridge vs UI).
+- Do not add destructive or security-sensitive behavior without calling it out.
+- Call out assumptions that depend on macOS version, sandboxing, Keychain, `$SSH_AUTH_SOCK`, display scale, or arch (arm64 vs x86_64).
+- Known parity gaps (X11, GSSAPI, serial, etc.) live in `macos/PARITY.md` — do not silently invent incomplete substitutes without disclosure.
+- SSH agent default is system OpenSSH via `$SSH_AUTH_SOCK` (`macos/AGENT.md`); do not assume a Pageant.app exists.
+
+If a change is risky and cannot be made meaningfully safe, say so before implementing it.
+
+---
+
+## 9. Testing expectations
+
+Before considering work complete, prefer this ladder (as applicable):
+
+1. Build the relevant profile (`./macos/build.sh --dev` or existing tree)
+2. `make quality` / Swift lint+format lint for Swift changes under `macos/`
+3. Targeted CTest labels (`unit`, `crypt`, `perf`, `xctest`, `macos`)
+4. Keep the Phase 4 paint-budget / termwin perf gate green for terminal rendering work
+5. Sanitizer or thread smokes when touching concurrency / bridge lifetime
+
+Typical commands:
+
+```bash
+./macos/build.sh test --dev
+make test-perf          # terminal paint budget — do not drop casually
+make test-ui
+make quality
+```
+
+If validation cannot be run, state exactly what was not run and why.
+
+---
+
+## 10. Documentation expectations
+
+When changing behavior, update the relevant docs:
+
+- `MACOS_GUI_PLAN.md` — phase/architecture status when phases change
+- `macos/README.md` — build/run instructions
+- `macos/TESTING.md`, `PARITY.md`, `AGENT.md`, `HELP.md`, `INTEGRATION.md` as applicable
+- Root `README` macOS section when user-facing build steps change
+
+Do not let code drift away from usage instructions.
+
+---
+
+## 11. What agents should avoid
+
+- Do not revive abandoned GTK/macOS or ~2005 Cocoa approaches.
+- Do not put session/SSH business logic in Swift that belongs in C core or bridge.
+- Do not escape raw pointers from Swift scoped memory APIs (see bridge-and-ui rule).
+- Do not assume workstation-only paths are the source of truth for release builds.
+- Do not replace bridge/vtable patterns with ad hoc Swift↔C sprawl.
+- Do not add broad refactors outside the requested scope.
+- Do not rationalize brittle glue as clean native design.
+- Do not continue implementing after discovering the approach is fundamentally blocked.
+
+---
+
+## 12. Preferred contribution pattern
+
+1. Identify the owning layer (core / `macos/platform` / bridge / Swift UI / build).
+2. Verify required capabilities before building around them.
+3. Respect existing structure unless clearly harmful.
+4. Make the smallest coherent change.
+5. Keep style consistent with the touched tree (`macos/` vs upstream C).
+6. Run relevant build/lint/tests.
+7. Summarize what changed, why, what was verified, and any remaining assumptions.
+8. Offer a conventional commit message for review (do not commit/push unless asked — see `general.mdc`).
+
+---
+
+## 13. Decision heuristics
+
+When in doubt:
+
+- choose the more truthful option
+- choose the more feasible option
+- choose the option that preserves portable-core boundaries
+- choose the more explicit ownership / threading option
+- choose the option that keeps UI and PuTTY C on the main thread
+- choose the option that passes the relevant gates and is easy to review
+
+If those conflict, prioritize truth and feasibility first.

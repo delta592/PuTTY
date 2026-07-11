@@ -1,0 +1,15 @@
+---
+description: Constraints for Swift/AppKit UI interaction and C bridge memory management
+alwaysApply: true
+---
+
+## AppKit UI Constraints
+- All UI modifications (NSView, NSWindow, NSControl) must happen strictly on the main thread.
+- If a C callback executes a Swift method that impacts the UI, hop via `PuttyMainHop.run` (sync when already on main; otherwise `DispatchQueue.main.async`). Do not invent a third style (`Task { @MainActor }` / bare `assumeIsolated`) for the same hop unless paint latency requires synchronous `MainActor.assumeIsolated` under `draw(_:)`.
+- Prefer explicit AppKit delegation patterns over SwiftUI-style state bindings.
+
+## C Bridge & Interoperability Guardrails
+- **Lifecycle Clarity:** Clearly comment who owns the memory allocation for every bridged pointer (`UnsafePointer`, `OpaquePointer`).
+- **Scope Isolation:** Always wrap direct C buffer operations using Swift's scoped memory APIs (`withUnsafeBytes`, `withUnsafeMutableBufferPointer`). Do not allow raw pointers to escape these closures.
+- **Context Pointers:** When passing a Swift class instance as a `void *` context to a C callback, use `Unmanaged.passUnretained(self).toOpaque()`. Inside the callback, safely reconstruct it using `Unmanaged<AnyClass>.fromOpaque(context).takeUnretainedValue()`.
+- **Error Handling:** Map C integer error codes directly to a structured Swift `Error` enum immediately at the boundary of the bridge.

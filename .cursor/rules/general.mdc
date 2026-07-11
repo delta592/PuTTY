@@ -1,0 +1,16 @@
+---
+description: Global workflow guardrails for code execution, staging, and git commit message formatting
+alwaysApply: true
+---
+
+## Git & Workflow Guardrails
+
+- **Staging & Commits:** Never execute `git commit` commands automatically. Do not commit code unless explicitly requested by the user.
+- **Remote Pushing:** Never execute `git push` or push changes to `origin` under any circumstances unless explicitly asked.
+- **Task Completion:** After finishing a phase or a specific coding task, do not just stop. Generate a comprehensive, well-structured conventional commit message for the changes made and present it to the user for review.
+
+## Conventional Commit Format
+Ensure the generated commit message strictly adheres to the Conventional Commits specification:
+`type(scope): description`
+
+*Common types:* `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`

@@ -1,0 +1,40 @@
+---
+description: C conventions for this PuTTY tree — PuTTY allocators, safe strings, macos/ vs upstream scope
+globs: **/*.{c,h}
+alwaysApply: false
+---
+
+## Scope
+
+- **`macos/` (bridge, platform, new helpers):** Follow the rules below for new and touched code.
+- **Upstream / `unix/` / `windows/` / portable core:** Match the surrounding file. Prefer the smallest coherent change. Do not reformat, modernize types, or introduce `cleanup:` refactors unless required to fix the bug.
+- Do not run macos-only clang-format / clang-tidy across upstream trees (see `macos/.clang-format`, `macos/.clang-tidy`).
+
+## Memory (PuTTY idioms)
+
+- Prefer **`snew` / `snewn` / `sresize` / `sfree`**, **`dupstr`**, and **`strbuf`** over raw `malloc` / `calloc` / `realloc` / `free` for PuTTY-owned objects.
+- `safemalloc` / `snew` treat OOM as fatal — do not add NULL checks after `snew` as if it were libc `malloc`.
+- After `sfree(p)`, set `p = NULL` when the pointer can be reused or double-freed.
+- Initialize pointers to `NULL` on declaration when they may remain unset on some paths.
+
+## Strings
+
+- Do not use `strcpy`, `strcat`, or `sprintf`.
+- Prefer `dupstr` / `strbuf` for heap strings; use `snprintf` (or bounded `strncpy` + explicit NUL) for fixed buffers.
+- Prefer existing PuTTY helpers (`ptrlen`, `dupprintf`, etc.) when they already fit the call site.
+
+## Types
+
+- When implementing or calling PuTTY APIs / vtables, **use the types those APIs already use** (often `int`, `bool`, `size_t`, `char *`) — do not churn call sites to `stdint.h` for style alone.
+- For new local sizes, lengths, and fixed-width wire/binary fields in `macos/` code, prefer `size_t` / `<stdint.h>` types where they clarify intent.
+
+## Control flow and errors
+
+- Check fallible I/O, parse, and API results; do not assume success.
+- Match the file’s existing error/cleanup style (early returns with careful frees are fine). Do not impose a `cleanup:` label pattern on code that does not already use it.
+- For bridge-facing APIs, document ownership of returned pointers (who frees, with which function).
+
+## Style
+
+- New `macos/` C: ~79 columns, 4-space indent (see `macos/.clang-format`) when writing fresh code; do not mass-reformat unrelated lines.
+- Keep includes and naming consistent with neighboring files in the same directory.

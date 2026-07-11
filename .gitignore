@@ -595,5 +595,8 @@ Win32/
 /windows/*.msi
 /windows/*.wixobj
 /windows/*.wixpdb
-/.cursor/
+# Ignore Cursor local state, but keep shared agent rules in-tree.
+/.cursor/*
+!/.cursor/rules/
+!/.cursor/rules/**
 /ai-review.yml.example
