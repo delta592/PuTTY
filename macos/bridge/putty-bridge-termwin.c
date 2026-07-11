@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
 
 #include "putty-bridge.h"
 #include "putty-bridge-termwin.h"
@@ -1988,15 +1989,28 @@ int putty_bridge_termwin_bell_title_smoke(void)
     }
 
     conf_set_int(btw->conf, CONF_beep, BELL_WAVEFILE);
-    conf_set_filename(btw->conf, CONF_bell_wavefile,
-                      filename_from_str("/tmp/putty-bell-test.wav"));
-    if (!putty_bridge_termwin_bell_wavefile_path(btw, wavepath, sizeof(wavepath))) {
-        putty_bridge_termwin_free(btw);
-        return 8;
-    }
-    if (strcmp(wavepath, "/tmp/putty-bell-test.wav") != 0) {
-        putty_bridge_termwin_free(btw);
-        return 9;
+    {
+        char wave_template[] = "/tmp/putty-bell-test-XXXXXX.wav";
+        int wave_fd = mkstemps(wave_template, 4);
+
+        if (wave_fd < 0) {
+            putty_bridge_termwin_free(btw);
+            return 8;
+        }
+        close(wave_fd);
+        unlink(wave_template);
+
+        conf_set_filename(btw->conf, CONF_bell_wavefile,
+                          filename_from_str(wave_template));
+        if (!putty_bridge_termwin_bell_wavefile_path(
+                btw, wavepath, sizeof(wavepath))) {
+            putty_bridge_termwin_free(btw);
+            return 8;
+        }
+        if (strcmp(wavepath, wave_template) != 0) {
+            putty_bridge_termwin_free(btw);
+            return 9;
+        }
     }
 
     smoke_bell_mode = -1;

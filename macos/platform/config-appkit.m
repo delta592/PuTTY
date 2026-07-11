@@ -12,6 +12,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "putty.h"
 #include "dialog.h"
@@ -2904,12 +2905,26 @@ int mac_config_controlbox_smoke(void)
         return 12;
     }
     {
-        Filename *fn = filename_from_str("/tmp/putty-smoke.log");
+        char log_template[] = "/tmp/putty-smoke-XXXXXX.log";
+        int log_fd = mkstemps(log_template, 4);
+        Filename *fn;
+        Filename *got;
+        int ok;
+
+        if (log_fd < 0) {
+            fprintf(stderr, "mac_config_controlbox_smoke: mkstemps failed\n");
+            mac_dlg_cleanup(&dp);
+            conf_free(conf);
+            return 12;
+        }
+        close(log_fd);
+        unlink(log_template);
+
+        fn = filename_from_str(log_template);
         dlg_filesel_set(c, &dp, fn);
         filename_free(fn);
-        Filename *got = dlg_filesel_get(c, &dp);
-        int ok = got && got->path &&
-                 !strcmp(got->path, "/tmp/putty-smoke.log");
+        got = dlg_filesel_get(c, &dp);
+        ok = got && got->path && !strcmp(got->path, log_template);
         filename_free(got);
         if (!ok) {
             fprintf(stderr, "mac_config_controlbox_smoke: filesel set/get failed\n");

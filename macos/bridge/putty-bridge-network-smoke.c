@@ -4,6 +4,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "putty.h"
 #include "network.h"
@@ -60,7 +61,15 @@ int putty_bridge_network_smoke(void)
     (void)net_service_lookup("putty-coverage-no-such-service");
 
     {
-        SockAddr *unix_addr = unix_sock_addr("/tmp/putty-coverage-smoke.sock");
+        char sock_template[] = "/tmp/putty-coverage-smoke.XXXXXX";
+        int sock_fd = mkstemp(sock_template);
+        SockAddr *unix_addr;
+
+        if (sock_fd < 0)
+            return -5;
+        close(sock_fd);
+        unlink(sock_template); /* path only; unix_sock_addr does not need a file */
+        unix_addr = unix_sock_addr(sock_template);
         if (unix_addr)
             sk_addr_free(unix_addr);
     }

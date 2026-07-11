@@ -179,7 +179,7 @@ This audit does **not** demand reformatting upstream `unix/` / `windows/` / port
 - [x] **P3.25** `build.sh check` enforce CMake ≥ 3.28
 - [x] **P3.26** Rule frontmatter hygiene (`alwaysApply` + redundant globs; note pure-c trigger in agents)
 - [x] **P3.27** `sfree` → `NULL` where pointer can be reused
-- [ ] **P3.28** Prefer `mkstemp` over hard-coded `/tmp` in smokes
+- [x] **P3.28** Prefer `mkstemp` over hard-coded `/tmp` in smokes
 - [ ] **P3.29** Replace `storage.c` `/* XXX */` on `FNLEN` with rationale
 - [ ] **P3.30** Align default serial / log paths with `PARITY.md` / paths helpers
 
