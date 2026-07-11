@@ -1,5 +1,9 @@
 /*
  * putty-bridge-cmdline.c — macOS GUI command-line parsing (Phase 5.5).
+ *
+ * Bridge-internal: unwraps PuttyConf→Conf* for upstream cmdline_process_param /
+ * cmdline_run_saved / conf_launchable. Do not expose Conf* to Swift; new
+ * settings for UI/tests go through putty_conf_* in putty-conf.c.
  */
 
 #include <stdio.h>

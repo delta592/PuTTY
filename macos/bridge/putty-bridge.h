@@ -130,10 +130,12 @@ enum PuttyConfProtocol {
     PUTTY_CONF_PROT_SUPDUP = 6,
 };
 
-/** Small set of boolean settings exposed for the connection dialog. */
+/** Small set of boolean settings exposed for the connection dialog / tests. */
 typedef enum PuttyConfBoolKey {
     PUTTY_CONF_BOOL_TCP_NODELAY,
     PUTTY_CONF_BOOL_TCP_KEEPALIVES,
+    /** Prefer SSH agent ($SSH_AUTH_SOCK) when authenticating. */
+    PUTTY_CONF_BOOL_TRY_AGENT,
 } PuttyConfBoolKey;
 
 /** Load default settings (same as "Default Settings" saved session). */
@@ -181,6 +183,22 @@ void putty_conf_set_bool(PuttyConf *conf, PuttyConfBoolKey key, bool value);
  */
 const char *putty_conf_get_font(const PuttyConf *conf);
 void putty_conf_set_font(PuttyConf *conf, const char *font_spec);
+
+/** Columns × rows for a new terminal (CONF_width / CONF_height). */
+void putty_conf_set_terminal_size(PuttyConf *conf, int cols, int rows);
+
+/**
+ * Set one palette entry's RGB (0–255). colour_index matches PuTTY CONF_COLOUR_*
+ * (e.g. 0 = default foreground).
+ */
+void putty_conf_set_colour_rgb(
+    PuttyConf *conf, int colour_index, int r, int g, int b);
+
+/**
+ * Add a manual host-key fingerprint (CONF_ssh_manual_hostkeys).
+ * Returns false if hostkey fails validate_manual_hostkey().
+ */
+bool putty_conf_add_manual_hostkey(PuttyConf *conf, const char *hostkey);
 
 /** True when conf has enough information to open a network/serial session. */
 bool putty_conf_launchable(const PuttyConf *conf);

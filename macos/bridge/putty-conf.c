@@ -171,6 +171,8 @@ bool putty_conf_get_bool(const PuttyConf *conf, PuttyConfBoolKey key)
         return conf_get_bool(conf->conf, CONF_tcp_nodelay);
       case PUTTY_CONF_BOOL_TCP_KEEPALIVES:
         return conf_get_bool(conf->conf, CONF_tcp_keepalives);
+      case PUTTY_CONF_BOOL_TRY_AGENT:
+        return conf_get_bool(conf->conf, CONF_tryagent);
       default:
         return false;
     }
@@ -189,9 +191,49 @@ void putty_conf_set_bool(PuttyConf *conf, PuttyConfBoolKey key, bool value)
       case PUTTY_CONF_BOOL_TCP_KEEPALIVES:
         conf_set_bool(conf->conf, CONF_tcp_keepalives, value);
         break;
+      case PUTTY_CONF_BOOL_TRY_AGENT:
+        conf_set_bool(conf->conf, CONF_tryagent, value);
+        break;
       default:
         break;
     }
+}
+
+void putty_conf_set_terminal_size(PuttyConf *conf, int cols, int rows)
+{
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
+    if (!conf || !conf->conf)
+        return;
+    conf_set_int(conf->conf, CONF_width, cols);
+    conf_set_int(conf->conf, CONF_height, rows);
+}
+
+void putty_conf_set_colour_rgb(
+    PuttyConf *conf, int colour_index, int r, int g, int b)
+{
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
+    if (!conf || !conf->conf)
+        return;
+    conf_set_int_int(conf->conf, CONF_colours, colour_index * 3 + 0, r);
+    conf_set_int_int(conf->conf, CONF_colours, colour_index * 3 + 1, g);
+    conf_set_int_int(conf->conf, CONF_colours, colour_index * 3 + 2, b);
+}
+
+bool putty_conf_add_manual_hostkey(PuttyConf *conf, const char *hostkey)
+{
+    char *canonical;
+
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
+    if (!conf || !conf->conf || !hostkey || !hostkey[0])
+        return false;
+    canonical = dupstr(hostkey);
+    if (!validate_manual_hostkey(canonical)) {
+        sfree(canonical);
+        return false;
+    }
+    conf_set_str_str(conf->conf, CONF_ssh_manual_hostkeys, canonical, "");
+    sfree(canonical);
+    return true;
 }
 
 const char *putty_conf_get_font(const PuttyConf *conf)

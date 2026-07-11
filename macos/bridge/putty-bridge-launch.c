@@ -4,6 +4,10 @@
  * Mirrors unix/main-gtk-application.c launch_new_session /
  * new_session_window, with Swift owning the NSWindow via a registered
  * open-session callback.
+ *
+ * Bridge-internal: may unwrap PuttyConf→Conf* for do_defaults / conf_set_* /
+ * cmdline_host_ok and for ownership hand-off into new_session_window.
+ * Prefer putty_conf_* for any setting also needed from Swift or smokes.
  */
 
 #include <assert.h>

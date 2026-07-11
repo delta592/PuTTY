@@ -126,7 +126,7 @@ This audit does **not** demand reformatting upstream `unix/` / `windows/` / port
 - [x] **P2.11** Ownership docs for `PuttyBridgeSessionSpecial.name` and puttygen `error_out` / fingerprint NULL cases  
   - **Fix:** Document borrow vs free (`puttygen_free_string`) at each API.
 
-- [ ] **P2.12** Direct `conf->conf` / `Terminal` field access outside wrappers  
+- [x] **P2.12** Direct `conf->conf` / `Terminal` field access outside wrappers  
   - **Where:** launch, pterm cmdline, ssh-exit test, termwin smoke  
   - **Fix:** Route through `putty_conf_*` / terminal helpers; keep internals in `putty-conf.c` / bridge-only with comments.
 

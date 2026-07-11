@@ -59,7 +59,7 @@ int putty_mac_pterm_smoke(void)
     putty_bridge_set_open_session_callback(pterm_smoke_open_cb, &st);
 
     conf = putty_conf_new();
-    conf_set_int(conf->conf, CONF_protocol, -1);
+    putty_conf_set_protocol(conf, -1);
     putty_bridge_start_app(conf, true);
 
     if (st.opened != 1 || !st.last_conf || !st.last_connect) {

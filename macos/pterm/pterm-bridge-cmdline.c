@@ -4,6 +4,9 @@
  * Mirrors the pterm subset of unix/main-gtk-simple.c: TOOLTYPE_NONNETWORK,
  * -e COMMAND, -pgpfp, help/version. X11-only flags (-geometry, -xrm, …)
  * are omitted on AppKit.
+ *
+ * Bridge-internal: unwraps PuttyConf→Conf* for upstream cmdline_* APIs.
+ * Protocol -1 (local PTY) is set via putty_conf_set_protocol.
  */
 
 #include <stdio.h>
@@ -95,7 +98,7 @@ PuttyBridgeCmdlineAction putty_bridge_process_command_line(
         return PUTTY_BRIDGE_CMDLINE_LAUNCH;
 
     /* Ensure Connection panel stays hidden in Change Settings. */
-    conf_set_int(conf->conf, CONF_protocol, -1);
+    putty_conf_set_protocol(conf, -1);
 
     arglist = cmdline_arg_list_from_argv(argc, argv);
     arglistpos = 0;
@@ -152,7 +155,7 @@ PuttyBridgeCmdlineAction putty_bridge_process_command_line(
     }
 
     cmdline_run_saved(conf->conf);
-    conf_set_int(conf->conf, CONF_protocol, -1);
+    putty_conf_set_protocol(conf, -1);
 
     if (conf_out)
         *conf_out = conf;

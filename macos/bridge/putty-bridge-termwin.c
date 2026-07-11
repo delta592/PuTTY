@@ -1,5 +1,9 @@
 /*
  * putty-bridge-termwin.c — Swift bridge for MacTermWin / TerminalView (Phase 4.2).
+ *
+ * TermWin-internal: may read Terminal fields (rows/cols/clipboards) and unwrap
+ * PuttyConf→Conf* only inside this translation unit. External callers use
+ * putty_bridge_termwin_* / putty_conf_* APIs.
  */
 
 #include <stdio.h>
@@ -2165,15 +2169,12 @@ int putty_bridge_termwin_window_exit_smoke(void)
         return 1;
     putty_conf_set_host(conf, "example.com");
     /* Non-default Columns×Rows must survive putty_bridge_termwin_open. */
-    conf_set_int(conf->conf, CONF_width, 218);
-    conf_set_int(conf->conf, CONF_height, 32);
+    putty_conf_set_terminal_size(conf, 218, 32);
     /*
      * Pin Default Foreground so the palette check is independent of the
      * user's saved "Default Settings" Colour0 (do_defaults loads that file).
      */
-    conf_set_int_int(conf->conf, CONF_colours, CONF_COLOUR_fg * 3 + 0, 187);
-    conf_set_int_int(conf->conf, CONF_colours, CONF_COLOUR_fg * 3 + 1, 187);
-    conf_set_int_int(conf->conf, CONF_colours, CONF_COLOUR_fg * 3 + 2, 187);
+    putty_conf_set_colour_rgb(conf, CONF_COLOUR_fg, 187, 187, 187);
     if (!putty_conf_warn_on_close(conf)) {
         putty_conf_free(conf);
         return 2;

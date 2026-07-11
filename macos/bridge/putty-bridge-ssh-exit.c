@@ -40,8 +40,7 @@ static void ssh_exit_configure_hostkey(PuttyConf *conf)
     if (n < 0 || (size_t)n >= sizeof(hostkey))
         return;
 
-    if (validate_manual_hostkey(hostkey))
-        conf_set_str_str(conf->conf, CONF_ssh_manual_hostkeys, hostkey, "");
+    (void)putty_conf_add_manual_hostkey(conf, hostkey);
 }
 
 static bool ssh_exit_pump_until(
@@ -116,7 +115,7 @@ int putty_bridge_ssh_exit_test(void)
     putty_conf_set_host(conf, host);
     putty_conf_set_port(conf, port);
     putty_conf_set_username(conf, user);
-    conf_set_bool(conf->conf, CONF_tryagent, true);
+    putty_conf_set_bool(conf, PUTTY_CONF_BOOL_TRY_AGENT, true);
     ssh_exit_configure_hostkey(conf);
 
     btw = putty_bridge_termwin_new();
