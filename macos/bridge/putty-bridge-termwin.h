@@ -180,7 +180,13 @@ bool putty_bridge_termwin_should_warn_on_close(const PuttyBridgeTermWin *btw);
 char *putty_bridge_termwin_close_warn_text(const PuttyBridgeTermWin *btw);
 void putty_bridge_termwin_free_close_warn_text(char *text);
 
-/** One entry from backend_get_specials() (Phase 5.6). */
+/**
+ * One entry from backend_get_specials() (Phase 5.6).
+ *
+ * Ownership: `name` is borrowed from the backend's specials table. It is
+ * valid only until the next specials-menu update / backend reconfig / session
+ * teardown. Do not free, retain, or use after that. `code` / `arg` are values.
+ */
 typedef struct PuttyBridgeSessionSpecial {
     const char *name;
     int32_t code;

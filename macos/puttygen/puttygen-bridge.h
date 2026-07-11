@@ -50,6 +50,10 @@ bool puttygen_key_has_key(const PuttygenKey *key);
  *
  * bits: RSA modulus bits (e.g. 2048), ECDSA curve bits (256/384/521),
  * or ignored for Ed25519 (always 255).
+ *
+ * On failure, *error_out may be set to a heap string; free with
+ * puttygen_free_string(). On success *error_out is NULL (or unchanged if
+ * error_out is NULL).
  */
 bool puttygen_key_generate(
     PuttygenKey *key, PuttygenKeyType type, int bits,
@@ -58,7 +62,8 @@ bool puttygen_key_generate(
 
 /**
  * Probe whether path is encrypted. Sets *needs_passphrase.
- * Returns false on I/O / unsupported type (error_out set).
+ * Returns false on I/O / unsupported type (*error_out set to a heap string;
+ * free with puttygen_free_string()).
  */
 bool puttygen_key_probe_file(
     const char *path, bool *needs_passphrase, char **error_out);
@@ -66,31 +71,46 @@ bool puttygen_key_probe_file(
 /**
  * Load a private key (PPK or OpenSSH). passphrase may be NULL/empty.
  * On NEED_PASSPHRASE / WRONG_PASSPHRASE, key is unchanged.
+ * On PUTTYGEN_LOAD_ERROR, *error_out may be a heap string (puttygen_free_string).
  */
 PuttygenLoadResult puttygen_key_load(
     PuttygenKey *key, const char *path, const char *passphrase,
     char **error_out);
 
-/** Save as PuTTY PPK. passphrase NULL/empty = unencrypted. */
+/**
+ * Save as PuTTY PPK. passphrase NULL/empty = unencrypted.
+ * On failure *error_out may be a heap string (puttygen_free_string).
+ */
 bool puttygen_key_save_ppk(
     PuttygenKey *key, const char *path, const char *passphrase,
     char **error_out);
 
-/** Export OpenSSH private key (auto format). */
+/**
+ * Export OpenSSH private key (auto format).
+ * On failure *error_out may be a heap string (puttygen_free_string).
+ */
 bool puttygen_key_export_openssh(
     PuttygenKey *key, const char *path, const char *passphrase,
     char **error_out);
 
-/** Save OpenSSH authorized_keys one-liner public key. */
+/**
+ * Save OpenSSH authorized_keys one-liner public key.
+ * On failure *error_out may be a heap string (puttygen_free_string).
+ */
 bool puttygen_key_save_public(
     PuttygenKey *key, const char *path, char **error_out);
 
-/** Heap strings; free with puttygen_free_string(). */
+/**
+ * Heap strings; free with puttygen_free_string().
+ * May return NULL if the key has no fingerprint / public blob / comment.
+ * Do not pass NULL to puttygen_free_string().
+ */
 char *puttygen_key_fingerprint(const PuttygenKey *key);
 char *puttygen_key_public_openssh(const PuttygenKey *key);
 char *puttygen_key_comment(const PuttygenKey *key);
 void puttygen_key_set_comment(PuttygenKey *key, const char *comment);
 
+/** Free a heap string from this API. No-op if s is NULL. */
 void puttygen_free_string(char *s);
 
 /** Headless smoke: generate Ed25519, PPK round-trip. Returns 0 on OK. */
