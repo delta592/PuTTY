@@ -2,17 +2,16 @@
 
 Guide for validating the **Windows (`windows/`) platform** of this PuTTY tree from a Mac, without a dedicated Windows PC.
 
-**Recommended host for typical Windows users (x86_64):** a **2019 Intel iMac** (or any Intel Mac) with a **Windows 10/11 x64** guest.
+**Supported stack:** **Vagrant + VirtualBox + Ansible** on an **Intel Mac** (e.g. 2019 iMac) with a **Windows 10/11 x64** guest.
 
-Two supported strategies (use either or both):
+| Layer | Role |
+|-------|------|
+| **VirtualBox** | Hypervisor for the Windows x64 guest |
+| **Vagrant** | VM lifecycle, synced folders, WinRM |
+| **Ansible** | Guest tooling, MSVC build, console tests |
+| **One-shot wrapper** (§3.4) | Single command: up → provision → build → test |
 
-| Strategy | Hypervisor | Best for |
-|----------|------------|----------|
-| **A. Manual VMware Fusion** | Fusion | Interactive GUI smoke, long-lived desktop VM |
-| **B. Vagrant + VirtualBox** (+ **Ansible**) | VirtualBox | Reproducible VM; Ansible for tools/build/console tests |
-| **B one-shot** (§3.5) | same stack | Single command: bring up VM → provision → build → test |
-
-The Apple Silicon Mac Studio can run **Windows 11 ARM** in Fusion; that is useful for WoA smoke checks but is **not** a substitute for native x64 Windows QA. Prefer the Intel iMac for x64.
+Prefer the Intel iMac for this path. Apple Silicon is **not** a substitute for native x64 Windows QA (VirtualBox x64 Windows guests belong on Intel).
 
 Related docs: root `README` (CMake / MSVC), `macos/README.md` (native macOS GUI — separate from this guide).
 
@@ -24,70 +23,60 @@ Related docs: root `README` (CMake / MSVC), `macos/README.md` (native macOS GUI 
 |------|--------------------|
 | Compile as `platform = windows` | MSVC (or MinGW) inside the guest |
 | Run portable tests | `test_terminal`, `testcrypt` + `cryptsuite.py`, `cgtest`, utils binaries |
-| Smoke Win32 GUI | Launch `putty.exe`, exercise Saved Sessions / config dialog |
+| Smoke Win32 GUI | Launch `putty.exe` via VirtualBox GUI or RDP; exercise Saved Sessions / config dialog |
 | Match most users | Real **x86_64** Windows, not ARM64-with-emulation |
 
 This tree’s macOS AppKit work lives under `macos/` and does not replace Windows testing. Shared C changes (e.g. `config.c`, crypto, `terminal/`) **do** affect Windows and should be verified here.
 
 ---
 
-## 2. Which strategy to use
+## 2. How to use the stack
 
-| Need | Prefer |
-|------|--------|
-| Click through PuTTY dialogs often; keep one tuned desktop | **A — Fusion** (manual) |
-| Recreate the guest cleanly; automate install/build/test | **B — Vagrant + VirtualBox**, with **Ansible** (§3.4) |
-| One command for “VM up + build + console tests” | **B one-shot** (§3.5) |
-| Both: daily GUI on Fusion, CI-like reset on Vagrant | **A + B** on the same iMac (separate VMs; watch disk/RAM) |
+| Need | Use |
+|------|-----|
+| Day-to-day “VM up + build + console tests” | **One-shot** (§3.4) |
+| Iterate tools / playbooks without destroying the VM | `vagrant up`, then Ansible with build/test tags (§3.3) |
+| Config-dialog / Win32 GUI smoke | VirtualBox window (`gui = true`) or RDP (§7.2) — manual |
+| Remote unattended MSVC (optional) | GitHub Actions `windows-latest` — complementary, not this stack |
 
-Guest tooling (§4), source layout (§5), build (§6), and tests (§7) are the same once Windows is up. Strategy A installs them by hand; Strategy B should prefer Ansible (§3.4). Day-to-day Strategy B should converge on the one-shot entrypoint (§3.5).
+Guest tooling (§4), source layout (§5), build (§6), and tests (§7) apply once Windows is up. Prefer Ansible (§3.3) over one-off guest scripts. Converge day-to-day work on the one-shot entrypoint (§3.4).
 
-**Note:** Vagrant can also drive Fusion via the VMware provider plugin. This guide standardizes on **VirtualBox** for Vagrant to avoid Fusion license/plugin coupling and to keep Strategy A and B independent.
+This guide does **not** cover other hypervisors or Vagrant providers. Stick to **VirtualBox**.
 
 ---
 
-## 3. Host bring-up
+## 3. Host bring-up (Intel Mac)
 
-### 3.1 Shared host requirements (Intel Mac)
+### 3.1 Host requirements
 
 | Item | Recommendation |
 |------|----------------|
 | Machine | **Intel Mac** (e.g. 2019 iMac) for x64 Windows guests |
 | Host OS | macOS 15 (Sequoia) is fine on supported Intel Macs |
 | Guest arch | **Windows 10 or 11, 64-bit (x86_64)** |
-| Disk budget | Plan **80 GB+** per Windows VM (VS + SDKs + build trees) |
+| Disk budget | Plan **80 GB+** for the VM (VS + SDKs + build trees) |
 | RAM budget | **8 GB** guest minimum; **16 GB** preferred for VS 2022 — leave headroom for macOS |
 
-### 3.2 Strategy A — Manual VMware Fusion
-
-1. Install **VMware Fusion** (Pro/Player as licensed).
-2. Create a new VM from a legitimate Windows 10/11 **x64** ISO.
-3. Suggested VM settings:
+Suggested VirtualBox VM shape (set via Vagrant provider):
 
 | Setting | Suggestion |
 |---------|------------|
 | CPUs | 4+ |
 | RAM | 8–16 GB |
-| Disk | 80 GB+ thin-provisioned |
-| Display | 1920×1080+; 3D acceleration if offered |
-| Network | NAT |
-| Shared folders | Optional (see §5) |
-| Snapshots | After Windows Update + tooling (§4), before first build |
+| Disk | 80 GB+ |
+| Display | Enable GUI when you need §7.2 smoke |
+| Network | NAT + WinRM port forward (Vagrant default pattern) |
+| Snapshots | `clean-tools` after first successful tooling install |
 
-4. Install **VMware Tools** in the guest.
-5. Apply Windows Update once, then snapshot “clean OS” (and again after §4 tooling).
-
-### 3.3 Strategy B — Vagrant + VirtualBox
+### 3.2 Vagrant + VirtualBox
 
 #### Host packages
-
-On the Intel iMac:
 
 ```bash
 brew install --cask virtualbox vagrant
 # Optional: Extension Pack if required by your VirtualBox version / features
 brew install --cask virtualbox-extension-pack
-# Ansible control node (Mac → Windows guest over WinRM); see §3.4
+# Ansible control node (Mac → Windows guest over WinRM); see §3.3
 brew install ansible
 ```
 
@@ -99,40 +88,38 @@ vagrant --version
 ansible --version
 ```
 
-Apple Silicon note: VirtualBox x64 Windows guests belong on the **Intel** iMac. Do not expect this path on the Mac Studio.
-
 #### Windows box and licensing
 
-You need a **Vagrant box** that boots Windows x64 (e.g. a box you build yourself from an ISO, or a trusted published box). Windows licensing still applies — use an ISO/key you are entitled to.
+You need a **Vagrant box** that boots Windows x64 (build one from an ISO, or use a trusted published box). Windows licensing still applies — use an ISO/key you are entitled to.
 
 Typical layout next to or inside this repo (example only; not committed unless you add it):
 
 ```text
 vagrant-windows-putty/
   Vagrantfile
-  windows-test                    # one-shot entrypoint (§3.5) — intent; not in-repo yet
-  ansible/                        # preferred automation (§3.4)
+  windows-test                    # one-shot entrypoint (§3.4) — intent; not in-repo yet
+  ansible/
     inventory/
     playbooks/
     roles/
   scripts/                        # optional thin helpers; avoid duplicating Ansible
 ```
 
-#### Vagrantfile intent (VirtualBox, Windows x64)
+#### Vagrantfile intent
 
 Keep the `Vagrantfile` focused on **VM lifecycle**, not package installs:
 
 - Box name, WinRM communicator, forwarded ports as needed  
 - VirtualBox provider: CPUs, RAM (8–16 GB), `gui = true` when you need dialog smoke  
 - Synced folder: host PuTTY tree → e.g. `C:\src\PuTTY` (build under `C:\build\...`)  
-- Provisioning: either call Ansible from Vagrant, or stop at `vagrant up` and run Ansible separately (§3.4)
+- Provisioning: Ansible from Vagrant, or `vagrant up` then Ansible separately (§3.3)
 
 Bring-up:
 
 ```bash
 cd vagrant-windows-putty
 vagrant up --provider=virtualbox
-# then Ansible (§3.4), or open VirtualBox GUI / RDP for manual smoke
+# then Ansible (§3.3), or open VirtualBox GUI / RDP for manual smoke
 ```
 
 Useful commands:
@@ -148,9 +135,11 @@ WinRM must be enabled on the box for Vagrant and Ansible; public Windows boxes u
 
 **Reality check:** VS Build Tools dominate first-boot time. Snapshot (or bake a custom box) after the first successful tooling run.
 
-### 3.4 Ansible — high-level intent (Strategy B)
+Optional rare bake: **Packer** (or manual) to produce the Windows 11 Vagrant box from a licensed ISO. That feeds this stack once; it is not part of the daily one-shot.
 
-Ansible is the preferred way to **leverage** Vagrant + VirtualBox for repeatable Windows validation. Vagrant creates the machine; Ansible configures it and runs the non-interactive test loop. This section is **intent only** — no playbooks or task lists in-repo yet.
+### 3.3 Ansible — high-level intent
+
+Ansible configures the guest and runs the non-interactive test loop. **Intent only** — no playbooks in-repo yet.
 
 #### Layering
 
@@ -175,42 +164,39 @@ Intel iMac (Ansible control node)
 
 - Run Ansible on the **Intel iMac** against the guest over **WinRM** (not SSH).  
 - Inventory points at the Vagrant guest (static host + forwarded WinRM port, or dynamic inventory from Vagrant).  
-- Expect Windows-oriented collections conceptually (`ansible.windows`, package helpers such as Chocolatey) — exact collection pins left to a future implementation.  
+- Expect Windows-oriented collections conceptually (`ansible.windows`, package helpers such as Chocolatey) — exact pins left to a future implementation.  
 - Two viable trigger styles (pick one and stick to it):  
   - **Vagrant ansible provisioner** — playbook runs as part of `vagrant up` / `vagrant provision`  
   - **Decoupled** — `vagrant up`, then `ansible-playbook` for day-to-day rebuild/test without recreating the VM  
 
 #### Playbook intent (roles / phases)
 
-Organize around phases, not a single monolith:
-
-1. **Bootstrap tooling** — ensure Git, Python 3, CMake, Ninja, and VS 2022 **Build Tools** (MSVC + Windows SDK) are present; long timeouts; prefer Build Tools over full VS.  
+1. **Bootstrap tooling** — Git, Python 3, CMake, Ninja, VS 2022 **Build Tools** (MSVC + Windows SDK); long timeouts; prefer Build Tools over full VS.  
 2. **Verify toolchain** — fail fast if `cl` / `cmake` / `python` are missing in an x64 developer context.  
-3. **Sync or locate source** — use the Vagrant synced tree or clone the same commit validated on macOS/unix; never build object files on the synced folder.  
-4. **Configure + build** — out-of-tree build under e.g. `C:\build\putty-win`, Ninja + MSVC Release (or VS generator); `PUTTY_MACOS_GUI` must stay off.  
-5. **Console test gate** — run `test_terminal`, `test_conf`, `cgtest`, and `cryptsuite` with `PUTTY_TESTCRYPT` set; **fail the play** on any non-zero exit.  
-6. **Report** — emit a short summary (commit SHA, build dir, pass/fail) for copy/paste into PR notes.  
+3. **Sync or locate source** — Vagrant synced tree or clone the same commit validated on macOS/unix; never build object files on the synced folder.  
+4. **Configure + build** — out-of-tree under e.g. `C:\build\putty-win`, Ninja + MSVC Release; `PUTTY_MACOS_GUI` must stay off.  
+5. **Console test gate** — `test_terminal`, `test_conf`, `cgtest`, `cryptsuite` with `PUTTY_TESTCRYPT` set; **fail the play** on any non-zero exit.  
+6. **Report** — short summary (commit SHA, build dir, pass/fail) for PR notes.  
 
-Optional later phases (not required for contribution-risk checks): ASan builds, packaging, artifact copy back to the Mac.
+Optional later: ASan builds, packaging, artifact copy back to the Mac.
 
 #### Explicitly out of Ansible’s job
 
 - Creating or licensing the Windows Vagrant box  
-- Replacing Fusion for day-to-day clicking (§3.2 / §7.2)  
-- Automating flaky GUI drivers for the Saved Sessions dialog (keep manual)  
-- Apple Silicon / Windows 11 ARM as a stand-in for x64  
+- Automating flaky GUI drivers for the Saved Sessions dialog (keep manual — §7.2)  
+- Treating Apple Silicon / Windows 11 ARM as x64 coverage  
 
 #### Lightweight alternative
 
 If Ansible is not installed yet, a one-shot guest PowerShell bootstrap for §4 only is acceptable — but prefer converging on Ansible so build/test are not a second ad-hoc script language.
 
-### 3.5 One-shot entrypoint (Strategy B)
+### 3.4 One-shot entrypoint
 
-Goal: **one execution** on the Intel iMac that brings up the Windows 11 (or 10) x64 guest, ensures tooling, builds PuTTY as the Windows platform, and runs the console test gate — then exits non-zero on failure.
+Goal: **one execution** on the Intel iMac that brings up the Windows x64 guest, ensures tooling, builds PuTTY as the Windows platform, and runs the console test gate — then exits non-zero on failure.
 
-This is intent only; no wrapper script is checked into this repo yet.
+Intent only; no wrapper script is checked into this repo yet.
 
-#### Stack (do not replace with something else for local VirtualBox)
+#### Stack
 
 ```text
 windows-test / make windows-test / just windows-test
@@ -218,27 +204,27 @@ windows-test / make windows-test / just windows-test
         ├─ 1. vagrant up --provider=virtualbox
         │       create or start Win11 x64 VM, synced folders, WinRM
         │
-        ├─ 2. Ansible (§3.4 phases)
+        ├─ 2. Ansible (§3.3 phases)
         │       tools (idempotent) → verify → configure/build → console tests
         │
         └─ 3. exit non-zero if any console test fails
 ```
 
-| Piece | Role in the one-shot |
-|-------|----------------------|
-| **Wrapper** (shell, Make, or Just) | Single human-facing command; stable name even when internals change |
-| **Vagrant** | Orchestrates VirtualBox VM lifecycle |
-| **VirtualBox** | Runs the Windows guest |
-| **Ansible** | Guest tooling, MSVC build, §7.1 tests |
+| Piece | Role |
+|-------|------|
+| **Wrapper** (shell, Make, or Just) | Single human-facing command |
+| **Vagrant** | VirtualBox VM lifecycle |
+| **VirtualBox** | Windows guest |
+| **Ansible** | Tooling, MSVC build, §7.1 tests |
 
-That trio **is** the local one-shot stack. Ansible alone is a weak VM lifecycle tool; Terraform/Docker/GHA do not replace this path on the iMac.
+That trio **is** the local one-shot stack. Ansible alone is a weak VM lifecycle tool; Docker/GHA do not replace this path on the iMac.
 
 #### Two shapes (pick one)
 
-1. **Vagrant-provision driven** — `vagrant up --provision` runs the Ansible provisioner through build/test (or `vagrant provision` when the VM already exists).  
-2. **Wrapper driven (preferred UX)** — script always does `vagrant up`, then `ansible-playbook …` with tags/phases for build+test so daily runs do not depend on remembering provision flags.
+1. **Vagrant-provision driven** — `vagrant up --provision` runs Ansible through build/test (or `vagrant provision` when the VM already exists).  
+2. **Wrapper driven (preferred UX)** — always `vagrant up`, then `ansible-playbook …` with tags/phases for build+test.
 
-Conceptual daily command (name illustrative):
+Conceptual daily command:
 
 ```bash
 ./windows-test
@@ -251,13 +237,11 @@ Conceptual daily command (name illustrative):
 
 | Run | What happens | Expectation |
 |-----|----------------|-------------|
-| **First cold start** | Box download/import + VS Build Tools + first build | Slow (can be a long wall-clock); not a “quick” one-shot |
-| **After tools snapshot / pre-tooled box** | VM start + incremental or clean build + tests | Practical daily one-shot (minutes-scale, hardware-dependent) |
-| **VM already up** | Skip create; Ansible build/test only | Fastest iterate |
+| **First cold start** | Box download/import + VS Build Tools + first build | Slow (long wall-clock) |
+| **After tools snapshot / pre-tooled box** | VM start + build + tests | Practical daily one-shot |
+| **VM already up** | Ansible build/test only | Fastest iterate |
 
-Bake a **`clean-tools` snapshot** (or a custom box with Build Tools preinstalled) after the first successful tooling phase so `./windows-test` stays usable.
-
-Optional rare phase: **Packer** (or manual) to produce the Windows 11 Vagrant box from an ISO you license. That is **not** part of the daily one-shot; it feeds Strategy B once.
+Bake a **`clean-tools` snapshot** (or a custom box with Build Tools preinstalled) after the first successful tooling phase.
 
 #### What the one-shot must and must not do
 
@@ -271,35 +255,37 @@ Optional rare phase: **Packer** (or manual) to produce the Windows 11 Vagrant bo
 
 **Must not**
 
-- Claim to automate §7.2 GUI dialog smoke (still human / Fusion / VirtualBox GUI)  
+- Claim to automate §7.2 GUI dialog smoke (VirtualBox GUI or RDP — human)  
 - Build with `PUTTY_MACOS_GUI=ON`  
 - Write build trees onto the synced folder  
 - Require Apple Silicon / Win11 ARM for “x64 coverage”
 
-#### Relation to Strategy A and CI
+#### Relation to CI
 
-- **Fusion (A):** still best for frequent clicking; one-shot does not replace it.  
-- **GitHub Actions `windows-latest`:** a *remote* one-shot; complementary, not the same as this VirtualBox stack.  
-- On the iMac, treat `./windows-test` as the local equivalent of “push and wait for Windows CI,” plus optional manual GUI smoke.
+GitHub Actions `windows-latest` is a *remote* one-shot — complementary. On the iMac, `./windows-test` is the local equivalent, plus optional manual GUI smoke.
 
-Same checklist for Fusion-manual and Vagrant guests. Prefer **64-bit** editions.
+---
+
+## 4. Guest: tools to install
+
+Prefer **64-bit** editions. Ansible should converge the guest on this set (§3.3).
 
 ### 4.1 Required
 
 | Tool | Why | Notes |
 |------|-----|--------|
-| **Git for Windows** | Clone / update this repo | Include Git Bash; default line endings usually fine for this tree |
-| **Visual Studio 2022** | Official Windows toolchain for PuTTY | Workload: **Desktop development with C++**. Include MSVC v143, Windows 10/11 SDK, C++ CMake tools if offered |
-| **CMake** ≥ 3.7 (3.20+ fine) | Upstream build system | From [cmake.org](https://cmake.org/), VS bundle, or Chocolatey/`winget`. Must be on `PATH` in the VS Developer environment |
-| **Python 3** | `test/cryptsuite.py` and some test helpers | Add `python` / `py` to `PATH`; `pip` not required for cryptsuite |
+| **Git for Windows** | Clone / update this repo | Include Git Bash |
+| **Visual Studio 2022** | Official Windows toolchain | Or **Build Tools 2022** with Desktop C++ / MSVC / Windows SDK |
+| **CMake** ≥ 3.7 (3.20+ fine) | Upstream build system | cmake.org, VS bundle, Chocolatey, or `winget`; on `PATH` in VS developer env |
+| **Python 3** | `test/cryptsuite.py` | On `PATH`; `pip` not required for cryptsuite |
 
-Visual Studio **Build Tools 2022** (without the full IDE) is enough for CLI builds: same C++ / MSVC / Windows SDK components. Prefer Build Tools under Ansible / Vagrant automation to save disk.
+Prefer **Build Tools** under Ansible to save disk versus the full IDE.
 
 ### 4.2 Strongly recommended
 
 | Tool | Why |
 |------|-----|
-| **Ninja** | Faster incremental builds (`winget`, Chocolatey, or scoop) |
+| **Ninja** | Faster incremental builds |
 | **Windows Terminal** or **x64 Native Tools Command Prompt for VS 2022** | Consistent `cl.exe` / `link.exe` on `PATH` |
 
 ### 4.3 Optional
@@ -309,7 +295,7 @@ Visual Studio **Build Tools 2022** (without the full IDE) is enough for CLI buil
 | **Halibut** | Rebuild docs / `.chm` from `doc/*.but` |
 | **Address Sanitizer** | VS 2022 ASan (`CHECKLST.txt`) |
 | **MinGW-w64** | Alternate toolchain; prefer **MSVC** for shipping fidelity |
-| **Chocolatey / winget** | Useful under Ansible package tasks or a thin bootstrap |
+| **Chocolatey / winget** | Useful under Ansible package tasks |
 
 ### 4.4 Verify the toolchain
 
@@ -325,17 +311,17 @@ ninja --version
 
 `cl` and `cmake` must succeed before configuring the tree.
 
-Under Vagrant / Ansible: prefer the toolchain verify phase in §3.4 (or open `vagrant powershell` and run the same checks by hand).
+Prefer the Ansible toolchain verify phase (§3.3), or `vagrant powershell` for the same checks by hand.
+
 ---
 
 ## 5. Getting the source into the guest
 
-### A. Synced / shared folder (Fusion or Vagrant)
+### A. Vagrant synced folder
 
-- **Fusion:** share the host PuTTY tree; access via `\\vmware-host\Shared Folders\...` or a drive letter.
-- **Vagrant:** `config.vm.synced_folder` as in §3.3 (e.g. host repo → `C:\src\PuTTY`).
+`config.vm.synced_folder` → e.g. host repo to `C:\src\PuTTY`.
 
-Always build into a **guest-local** directory (e.g. `C:\build\putty-win`) so object files are not on a slow or locked shared FS.
+Always build into a **guest-local** directory (e.g. `C:\build\putty-win`) so object files are not on a slow or locked synced FS.
 
 ### B. Clone inside the guest
 
@@ -372,9 +358,9 @@ cmake --build C:\build\putty-win --config Release
 
 Expect among others: `putty.exe`, `puttytel.exe`, `puttygen.exe`, `pageant.exe`, `plink.exe`, `pscp.exe`, `psftp.exe`, `pterm.exe`, plus `test_terminal.exe`, `testcrypt.exe`, `cgtest.exe`, etc.
 
-### 6.3 Scripted build from the Mac (Strategy B)
+### 6.3 Scripted build from the Mac
 
-Prefer **Ansible** (§3.4 phases 4–5) so configure/build/test share one entry point. A small guest-side wrapper invoked by Ansible is fine; avoid maintaining a parallel ad-hoc `vagrant powershell` one-liner as the primary path.
+Prefer **Ansible** (§3.3 phases 4–5) or the one-shot (§3.4) so configure/build/test share one entry point.
 
 ---
 
@@ -393,15 +379,17 @@ set PUTTY_TESTCRYPT=%CD%\testcrypt.exe
 python C:\src\PuTTY\test\cryptsuite.py
 ```
 
+Normally driven by Ansible / the one-shot, not by hand.
+
 ### 7.2 Manual GUI smoke (contribution-risk hotspot)
 
-Requires a **GUI session** (Fusion console, VirtualBox window with GUI enabled, or RDP). Ansible / headless Vagrant cover compile + console tests only — do **not** expect the playbook to replace this smoke.
+Requires a **GUI session** (VirtualBox window with GUI enabled, or RDP). Headless one-shot covers compile + console tests only.
 
 Shared `config.c` Saved Sessions behavior changed for AppKit; it also affects Windows:
 
-1. Launch `putty.exe`.
-2. Select sessions, edit saved-session name, Load / Save / double-click open.
-3. Mid-session: Change Settings; confirm Save-as still behaves (no freeze).
+1. Launch `putty.exe`.  
+2. Select sessions, edit saved-session name, Load / Save / double-click open.  
+3. Mid-session: Change Settings; confirm Save-as still behaves (no freeze).  
 4. Optional trivial SSH/raw session; confirm paint and clean exit.
 
 ### 7.3 Out of scope unless you invest more
@@ -419,17 +407,16 @@ Shared `config.c` Saved Sessions behavior changed for AppKit; it also affects Wi
 ```text
 Mac Studio (arm64)              2019 iMac (Intel)
 ─────────────────              ────────────────────────────────
-macos/ AppKit GUI              Strategy A: Fusion — GUI smoke
-unix/CLI + Linux Docker   ──►  Strategy B one-shot (§3.5):
-                               Vagrant+VirtualBox+Ansible
-                               → tools/build/console tests
-                               (+ human GUI smoke if not using A)
+macos/ AppKit GUI              Vagrant + VirtualBox + Ansible
+unix/CLI + Linux Docker   ──►  one-shot (§3.4)
+                               → tools / build / console tests
+                               + manual GUI smoke (§7.2) as needed
 ```
 
 1. Develop and test macOS/unix on the Studio.  
-2. On the same commit, on the iMac run the Strategy B **one-shot** (§3.5), or use A/B manually.  
-3. Keep §7.2 GUI smoke manual when dialog/`config.c` code changed.  
-4. Optionally add GitHub Actions `windows-latest` as a remote one-shot (does not replace local GUI smoke).
+2. On the same commit, on the iMac run `./windows-test` (or equivalent).  
+3. Keep §7.2 manual when dialog / `config.c` code changed.  
+4. Optionally add GitHub Actions `windows-latest` as a remote one-shot.
 
 ---
 
@@ -444,40 +431,25 @@ unix/CLI + Linux Docker   ──►  Strategy B one-shot (§3.5):
 | `PUTTY_MACOS_GUI` | Leave off on Windows |
 | Guest OOM | Raise VM RAM to 16 GB |
 | Vagrant cannot WinRM | Box must enable WinRM; check firewall/creds; enable VirtualBox GUI and fix inside guest |
-| Ansible cannot reach guest | Same WinRM path as Vagrant; confirm inventory host/port/creds; install `pywinrm` on the Mac control node if needed |
-| VirtualBox + Fusion both installed | Fine as separate strategies; avoid two heavy Windows VMs at once without enough RAM |
+| Ansible cannot reach guest | Same WinRM path as Vagrant; confirm inventory host/port/creds; install `pywinrm` on the Mac if needed |
 | First tooling provision times out | Install VS Build Tools in stages; raise WinRM/Ansible timeouts; snapshot a pre-tooled box |
-| One-shot too slow every time | Missing `clean-tools` snapshot / pre-tooled box; cold VS install is re-running — fix bake phase (§3.5) |
-| One-shot passes but GUI untested | Expected — run §7.2 manually; do not treat console gate as full Windows QA |
+| One-shot too slow every time | Missing `clean-tools` snapshot / pre-tooled box; cold VS install is re-running |
+| One-shot passes but GUI untested | Expected — run §7.2 manually |
 
 ---
 
-## 10. Checklists
+## 10. Checklist (first time)
 
-### Strategy A — Fusion (first time)
-
-- [ ] Fusion installed  
-- [ ] Windows 10/11 **x64** VM (4+ CPU, 8–16 GB RAM, 80 GB+ disk)  
-- [ ] VMware Tools; snapshots after OS and after tooling  
-- [ ] Guest tools §4  
-- [ ] Build + `test_terminal` / cryptsuite + `putty.exe` GUI smoke  
-
-### Strategy B — Vagrant + VirtualBox (+ Ansible)
-
-- [ ] VirtualBox + Vagrant on the Intel iMac  
-- [ ] Ansible on the Mac control node (WinRM-capable)  
+- [ ] Intel iMac with VirtualBox + Vagrant + Ansible  
 - [ ] Windows x64 Vagrant box (licensed) with WinRM  
-- [ ] `Vagrantfile` focused on VM lifecycle + synced folder; GUI enabled when needed for smoke  
-- [ ] Ansible intent implemented later as playbooks/roles covering §3.4 phases (tools → verify → build → console tests)  
-- [ ] One-shot entrypoint (§3.5) — e.g. `windows-test` / Make / Just — wraps `vagrant up` + Ansible build/test  
-- [ ] Snapshot (or custom box) after first successful tooling install so one-shot stays fast  
-- [ ] Console test gate green via one-shot; GUI smoke via VirtualBox/RDP or Strategy A  
-
-### Both
-
-- [ ] Do not treat Windows 11 ARM on Apple Silicon as x64 coverage  
+- [ ] `Vagrantfile`: VirtualBox provider, synced folder, GUI when needed for smoke  
+- [ ] Ansible phases (§3.3): tools → verify → build → console tests  
+- [ ] One-shot entrypoint (§3.4) wrapping `vagrant up` + Ansible  
+- [ ] `clean-tools` snapshot (or pre-tooled box) after first tooling install  
+- [ ] One-shot console gate green  
+- [ ] §7.2 GUI smoke when dialog/`config.c` changed  
 - [ ] Same git commit validated on macOS/unix and Windows  
-- [ ] GUI smoke (§7.2) not skipped when `config.c` / dialog code changed  
+- [ ] Do not treat Apple Silicon / Win11 ARM as x64 coverage  
 
 ---
 
@@ -487,6 +459,6 @@ unix/CLI + Linux Docker   ──►  Strategy B one-shot (§3.5):
 - `cmake/toolchain-mingw.cmake` — Linux MinGW cross-compile (compile-check only)  
 - `CHECKLST.txt` — upstream release / ASan / old-platform notes  
 - `macos/README.md` — native macOS GUI (not used inside the Windows guest)  
-- [Vagrant](https://www.vagrantup.com/) / [VirtualBox](https://www.virtualbox.org/) — Strategy B VM layer  
-- [Ansible](https://docs.ansible.com/) — Strategy B guest automation (WinRM; see §3.4 intent)  
-- §3.5 — local one-shot entrypoint (Vagrant + Ansible wrapper; intent only)  
+- [Vagrant](https://www.vagrantup.com/) / [VirtualBox](https://www.virtualbox.org/) — VM layer  
+- [Ansible](https://docs.ansible.com/) — guest automation (WinRM; see §3.3)  
+- §3.4 — local one-shot entrypoint (intent only)  
