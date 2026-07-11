@@ -367,14 +367,18 @@ static void bridge_eventlog_free_lines(PuttyBridgeTermWin *btw)
     int i;
 
     if (btw->events_initial) {
-        for (i = 0; i < LOGEVENT_INITIAL_MAX; i++)
+        for (i = 0; i < LOGEVENT_INITIAL_MAX; i++) {
             sfree(btw->events_initial[i]);
+            btw->events_initial[i] = NULL;
+        }
         sfree(btw->events_initial);
         btw->events_initial = NULL;
     }
     if (btw->events_circular) {
-        for (i = 0; i < LOGEVENT_CIRCULAR_MAX; i++)
+        for (i = 0; i < LOGEVENT_CIRCULAR_MAX; i++) {
             sfree(btw->events_circular[i]);
+            btw->events_circular[i] = NULL;
+        }
         sfree(btw->events_circular);
         btw->events_circular = NULL;
     }
@@ -499,6 +503,7 @@ static void bridge_eventlog_append(
     strftime(timebuf, sizeof(timebuf), "%Y-%m-%d %H:%M:%S\t", &tm);
 
     sfree(*location);
+    *location = NULL;
     *location = dupcat(timebuf, string);
 
     if (btw->ninitial < LOGEVENT_INITIAL_MAX) {
@@ -509,6 +514,7 @@ static void bridge_eventlog_append(
         btw->circular_first =
             (btw->circular_first + 1) % LOGEVENT_CIRCULAR_MAX;
         sfree(btw->events_circular[btw->circular_first]);
+        btw->events_circular[btw->circular_first] = NULL;
         btw->events_circular[btw->circular_first] = dupstr("..");
     }
 

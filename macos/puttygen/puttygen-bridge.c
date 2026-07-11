@@ -482,6 +482,7 @@ void puttygen_key_set_comment(PuttygenKey *key, const char *comment)
     if (!puttygen_key_has_key(key))
         return;
     sfree(key->ukey->comment);
+    key->ukey->comment = NULL;
     key->ukey->comment = dupstr(comment ? comment : "");
 }
 

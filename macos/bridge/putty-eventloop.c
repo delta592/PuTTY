@@ -99,6 +99,7 @@ void putty_pollwrapper_free(PuttyPollWrapper *wrapper)
     if (wrapper->pw)
         pollwrap_free(wrapper->pw);
     sfree(wrapper->fdlist);
+    wrapper->fdlist = NULL;
     sfree(wrapper);
 }
 
