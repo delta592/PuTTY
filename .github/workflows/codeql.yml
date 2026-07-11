@@ -8,7 +8,9 @@
 # tree under CodeQL's DYLD tracer + mandatory x86_64 cross-compile is
 # ~20–25 minutes on GitHub-hosted runners. We cannot remove that tracer
 # overhead. Instead we (1) keep C/Python cheap, (2) skip Swift on PRs that
-# do not touch macOS/Swift sources, (3) ccache the C objects across runs.
+# do not touch macOS/Swift sources, (3) ccache the C objects across runs,
+# (4) still build every Swift-bearing target (apps + smokes + XCTest) so
+# CodeQL does not mark those sources as unscanned.
 #
 # Docs:
 #   https://docs.github.com/en/code-security/code-scanning/creating-an-advanced-setup-for-code-scanning/codeql-code-scanning-for-compiled-languages
@@ -150,9 +152,25 @@ jobs:
       - name: Build macOS GUI (Swift)
         run: |
           set -euo pipefail
-          # PuTTY.app links PuttyMacUI (~90% of production Swift).
-          # Tracer overhead dominates; ccache only helps repeated C compiles.
-          cmake --build build-codeql --parallel --target PuTTY
+          # CodeQL Swift only indexes files compiled under the tracer. Build
+          # every Swift-bearing target so puttygen/pterm/smokes/tests are not
+          # reported as "excluded from scanning". PuttyMacUI is pulled in via
+          # PuTTY/pterm; tracer overhead still dominates wall time.
+          targets=(
+            PuTTY
+            pterm
+            puttygen-app
+            PuttyBridgeSwiftSmoke
+            PuttyBridgeTermPerfTest
+          )
+          # PuttyMacUITests is optional (needs XCTest + SDK at configure time).
+          if ninja -C build-codeql -t targets all 2>/dev/null \
+               | grep -E '^PuttyMacUITests:' >/dev/null; then
+            targets+=(PuttyMacUITests)
+          else
+            echo "note: PuttyMacUITests target absent; XCTest suite not traced"
+          fi
+          cmake --build build-codeql --parallel --target "${targets[@]}"
           ccache -s
 
       - name: Perform CodeQL Analysis
