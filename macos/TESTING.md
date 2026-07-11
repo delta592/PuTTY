@@ -1,8 +1,11 @@
 # Manual QA matrix (Phase 9.1) and quality tooling
 
-Automated tests live in CTest (`./macos/build.sh test` or `make test`).
-This checklist covers host / display combinations that CI cannot fully
-exercise, plus sanitizers, coverage, and macos/-scoped lint/analysis.
+Automated tests live in CTest (`./macos/build.sh test` or `make test`)
+on a developer machine. There is **no** GitHub Actions job yet that runs
+this suite (Phase 10 deferred; `.github/workflows/` is CodeQL-only).
+This checklist covers host / display combinations that automated CI
+cannot fully exercise, plus sanitizers, coverage, and macos/-scoped
+lint/analysis.
 
 ## Make / CMake test targets
 

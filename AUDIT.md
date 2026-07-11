@@ -110,12 +110,12 @@ This audit does **not** demand reformatting upstream `unix/` / `windows/` / port
   - **Was:** Swift-facing header forward-declared `struct Backend` and exported `putty_session_get_backend()`.  
   - **Fix:** Removed `struct Backend` from the public header; added `putty_session_has_backend` + `putty_session_backend_unthrottle`. Bumped `PUTTY_BRIDGE_API_VERSION` to 2.
 
-- [~] **P1.10** Plan claims “macOS CI” for unit tests without a test workflow — **SKIPPED**  
-  - **Skipped:** 2026-07-10 (explicitly deferred; not fixing in this audit pass)  
+- [x] **P1.10** Plan claims “macOS CI” for unit tests without a test workflow  
+  - **Done:** 2026-07-10 (docs honesty via P2.22)  
   - **Rules:** `agents.mdc` §1 (truth), §10  
-  - **Where:** `MACOS_GUI_PLAN.md` §9.1; `.github/workflows/` (CodeQL only)  
-  - **Issue:** Checkbox marked done for CI; reality is local-only testing.  
-  - **Deferred fix:** Uncheck / qualify as local, or add Phase 10 CI that runs `./macos/build.sh test`. Remains open for a later docs/CI pass (related: P2.22).
+  - **Where:** `MACOS_GUI_PLAN.md` §9.1 / §10; `.github/workflows/` (CodeQL only)  
+  - **Was:** Checkbox implied CI; reality is local-only testing.  
+  - **Fix:** Qualified §9.1 as local CTest; Phase 10 status banner states no `build.sh test` workflow yet.
 
 ---
 
@@ -165,7 +165,7 @@ This audit does **not** demand reformatting upstream `unix/` / `windows/` / port
 - [x] **P2.21** Phase 8 release path open (signing / notarization / DMG)  
   - **Fix:** Execute or explicitly defer 8.2–8.4 in plan.
 
-- [ ] **P2.22** Phase 10 CI missing (`build.sh test` / Universal verify on main)  
+- [x] **P2.22** Phase 10 CI missing (`build.sh test` / Universal verify on main)  
   - **Fix:** Add workflow or keep plan honest.
 
 - [ ] **P2.23** Root README further reading omits `TESTING.md`, `PARITY.md`, `HELP.md`, `INTEGRATION.md`  
@@ -188,7 +188,7 @@ This audit does **not** demand reformatting upstream `unix/` / `windows/` / port
 ## Suggested remediation order
 
 1. **P0:** [x] P0.1 PuTTYgen lifecycle → [x] P0.2 TermWin null guards
-2. **P1:** [x] P1.3–P1.9 → [~] P1.10 skipped (CI honesty deferred)
+2. **P1:** [x] P1.3–P1.9 → [x] P1.10 (CI honesty via P2.22)
 3. **P2:** Ownership / `Error` enum / I/O / `WORKAROUND:` / conf wrappers / docs / Phase 8–10
 4. **P3:** Style consistency and rule-file polish
 

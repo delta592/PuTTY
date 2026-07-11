@@ -1112,7 +1112,7 @@ explicit Universal 2-only checks.
 
 ### 9.1 Testing
 
-- [x] Run existing C unit tests (`testcrypt`, `test_terminal`, …) on macOS CI with `PUTTY_MACOS_GUI=ON`.
+- [x] Run existing C unit tests (`testcrypt`, `test_terminal`, …) on macOS **locally** with `PUTTY_MACOS_GUI=ON` via `./macos/build.sh test` / CTest. _(Automated macOS CI runner deferred to Phase 10.)_
 - [x] Add macOS-specific UI tests (XCTest) for launch, connect (mock server), config save/load.
 - [x] Manual matrix on **native Intel** (x86_64 slice), **native Apple Silicon** (arm64 slice), and cross-arch smoke (Universal 2 `.app` copied between machine types); light/dark mode, multiple monitors, Spaces.
 - [x] Confirm performance gate (Phase 4) on Apple Silicon; spot-check on Intel.
@@ -1246,15 +1246,21 @@ Related deferrals already documented: Pageant.app / Keychain
 
 ## Phase 10 — CI and ongoing maintenance
 
+**Status (honest):** **Not started.** There is no GitHub Actions (or other)
+workflow that runs `./macos/build.sh test` or Universal verify on this fork.
+`.github/workflows/` currently contains CodeQL only. Local validation is
+`./macos/build.sh test --dev` / `verify --universal` on developer machines.
+Until a macOS runner job lands, treat “CI green” claims as **local-only**.
+
 **Goal:** Prevent macOS GUI regressions in automated builds.
 
 ### 10.1 Continuous integration
 
-- [ ] Add macOS runner job: configure with `-DPUTTY_MACOS_GUI=ON`, build all app targets.
-- [ ] Release / mainline artifact job: `-DPUTTY_MACOS_UNIVERSAL=ON`; verify with `lipo -info` on each `.app`.
+- [ ] Add macOS runner job: configure with `-DPUTTY_MACOS_GUI=ON`, build all app targets (`./macos/build.sh --dev` or equivalent).
+- [ ] Release / mainline artifact job: `-DPUTTY_MACOS_UNIVERSAL=ON`; verify with `lipo -info` on each `.app` (`./macos/build.sh verify --universal`).
 - [ ] Optional fast PR job: `-DPUTTY_MACOS_UNIVERSAL=OFF` (native arch only) for shorter compile times; full Universal 2 gate on merge to main.
 - [ ] Fallback if single-runner universal cross-compile is impractical: build `arm64` and `x86_64` separately on matching runners, then `lipo -create` into one `.app` executable before signing (document in `Buildscr.macos`).
-- [ ] Run C test suite.
+- [ ] Run C test suite (`./macos/build.sh test` / CTest labels `unit`, `macos`, `xctest`).
 - [ ] Artifact-upload unsigned Universal 2 `.app` bundles for QA.
 
 ### 10.2 Release integration
