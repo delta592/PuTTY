@@ -1,6 +1,6 @@
 import AppKit
 
-/// Shared AppKit menu construction for PuTTY / pterm (Phase 9.3–9.4).
+/// Shared AppKit menu construction for PuTTY / pterm (Phase 9.3–9.5).
 @MainActor
 public enum PuttyStandardMenus {
     /// Edit → Paste Special (nil-target; handled by `TerminalView`).
@@ -9,6 +9,8 @@ public enum PuttyStandardMenus {
     public static let copyAllSelector = #selector(TerminalView.copyAll(_:))
     /// File → Print… (nil-target; `TerminalView.printView` / ObjC `print:`).
     public static let printSelector = #selector(NSView.printView(_:))
+    /// Help → «App» Help.
+    public static let openHelpSelector = #selector(PuttyHelpMenuTarget.openHelp(_:))
 
     /// About + Settings… (⌘,) + Hide (⌘H) in the application menu.
     public static func installAppMenuChrome(
@@ -162,5 +164,28 @@ public enum PuttyStandardMenus {
         }
         mainMenu.insertItem(editItem, at: insertAt)
         return editMenu
+    }
+
+    /// Help menu with «App» Help (⇧⌘? / ?).
+    @discardableResult
+    public static func installHelpMenu(
+        into mainMenu: NSMenu,
+        appName: String
+    ) -> NSMenu {
+        PuttyHelp.registerNotificationObserver()
+
+        let helpItem = NSMenuItem(title: "Help", action: nil, keyEquivalent: "")
+        let helpMenu = NSMenu(title: "Help")
+
+        let openHelp = helpMenu.addItem(
+            withTitle: "\(appName) Help",
+            action: openHelpSelector,
+            keyEquivalent: "?")
+        openHelp.target = PuttyHelpMenuTarget.shared
+
+        helpItem.submenu = helpMenu
+        mainMenu.addItem(helpItem)
+        NSApp.helpMenu = helpMenu
+        return helpMenu
     }
 }

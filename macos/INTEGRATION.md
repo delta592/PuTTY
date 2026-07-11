@@ -71,5 +71,6 @@ path documented in [`PRINTING.md`](PRINTING.md).
 
 - [`ACCESSIBILITY.md`](ACCESSIBILITY.md) — VoiceOver / Reduce Motion / Increase Contrast
 - [`PRINTING.md`](PRINTING.md) — ANSI printer + File → Print
+- [`HELP.md`](HELP.md) — bundled Halibut HTML / Help menu
 - [`TESTING.md`](TESTING.md) — CTest / XCTest
 - `PuttyMacUI/PuttyStandardMenus.swift`, `PuttyChrome.swift`, `TerminalScrollInput.swift`

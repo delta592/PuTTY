@@ -9,6 +9,8 @@ add_library(putty-macui STATIC
   PuttyStandardMenus.swift
   PuttyConfHandle.swift
   PuttyEventLoop.swift
+  PuttyHelp.swift
+  HelpWindowController.swift
   SessionWindowController.swift
   SessionSpecialsMenu.swift
   SessionEventLog.swift
@@ -38,7 +40,8 @@ target_link_libraries(putty-macui PUBLIC
   "-framework AppKit"
   "-framework CoreText"
   "-framework CoreGraphics"
-  "-framework Foundation")
+  "-framework Foundation"
+  "-framework WebKit")
 
 # Clang module map for import PuttyBridge (implementation linked by apps).
 target_include_directories(putty-macui PUBLIC

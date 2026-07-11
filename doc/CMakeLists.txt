@@ -117,6 +117,18 @@ if(HALIBUT AND PERL_EXECUTABLE)
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     DEPENDS ${manual_sources} ${manual_dependencies})
   add_custom_target(pdf DEPENDS putty.pdf)
+
+  # Export HTML location for macOS .app help bundling (Phase 9.5).
+  set(PUTTY_DOC_HAS_HTML TRUE)
+  set(PUTTY_DOC_HTML_DIR ${html_dir})
+else()
+  set(PUTTY_DOC_HAS_HTML FALSE)
+  set(PUTTY_DOC_HTML_DIR "")
+endif()
+
+if(NOT CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+  set(PUTTY_DOC_HAS_HTML ${PUTTY_DOC_HAS_HTML} PARENT_SCOPE)
+  set(PUTTY_DOC_HTML_DIR "${PUTTY_DOC_HTML_DIR}" PARENT_SCOPE)
 endif()
 
 macro(register_manpage title section)

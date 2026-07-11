@@ -92,6 +92,7 @@ target_link_libraries(pterm PRIVATE
 
 putty_macos_configure_swift_target(pterm)
 putty_macos_add_app_resources(pterm Pterm.icns)
+putty_macos_add_help(pterm)
 putty_macos_register_gui_app(pterm)
 installed_program(pterm)
 

@@ -6,6 +6,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/icons.cmake)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/bundle_version.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/help.cmake)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/quality.cmake)
 
 # Swift language version is set once in the root CMakeLists.txt (Ninja:
@@ -387,10 +388,16 @@ if(_putty_macos_gui_apps)
     else()
       set(_putty_macos_layout_universal OFF)
     endif()
+    if(PUTTY_DOC_HAS_HTML)
+      set(_putty_macos_layout_help ON)
+    else()
+      set(_putty_macos_layout_help OFF)
+    endif()
     list(APPEND _putty_macos_layout_commands
       COMMAND ${CMAKE_COMMAND}
         -DAPP=$<TARGET_BUNDLE_DIR:${_putty_macos_gui_app}>
         -DREQUIRE_UNIVERSAL=${_putty_macos_layout_universal}
+        -DREQUIRE_HELP=${_putty_macos_layout_help}
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/verify_bundle_layout.cmake)
   endforeach()
   add_custom_target(verify-bundle-layout

@@ -45,7 +45,10 @@ target_link_libraries(puttygen-macos-bridge PUBLIC
 
 add_executable(puttygen-app MACOSX_BUNDLE
   PuttygenApp.swift
-  PuttygenWindowController.swift)
+  PuttygenWindowController.swift
+  # Shared help UI (no PuttyBridge); same sources as putty-macui Phase 9.5.
+  ${CMAKE_SOURCE_DIR}/macos/PuttyMacUI/PuttyHelp.swift
+  ${CMAKE_SOURCE_DIR}/macos/PuttyMacUI/HelpWindowController.swift)
 
 set_target_properties(puttygen-app PROPERTIES
   OUTPUT_NAME puttygen
@@ -63,10 +66,12 @@ target_compile_options(puttygen-app PRIVATE
 target_link_libraries(puttygen-app PRIVATE
   "-framework AppKit"
   "-framework UniformTypeIdentifiers"
+  "-framework WebKit"
   puttygen-macos-bridge)
 
 putty_macos_configure_swift_target(puttygen-app)
 putty_macos_add_app_resources(puttygen-app Puttygen.icns)
+putty_macos_add_help(puttygen-app)
 putty_macos_register_gui_app(puttygen-app)
 installed_program(puttygen-app)
 

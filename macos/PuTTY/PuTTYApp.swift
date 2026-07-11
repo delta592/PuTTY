@@ -249,6 +249,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SessionMenuUpdating {
 
         PuttyStandardMenus.installFileMenu(into: mainMenu)
         PuttyStandardMenus.installEditMenu(into: mainMenu)
+        PuttyStandardMenus.installHelpMenu(into: mainMenu, appName: "PuTTY")
 
         NSApp.mainMenu = mainMenu
     }

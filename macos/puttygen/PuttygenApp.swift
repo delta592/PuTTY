@@ -90,6 +90,18 @@ final class PuttygenAppDelegate: NSObject, NSApplicationDelegate {
             keyEquivalent: "")
         mainMenu.addItem(fileItem)
 
+        let helpItem = NSMenuItem(title: "Help", action: nil, keyEquivalent: "")
+        let helpMenu = NSMenu(title: "Help")
+        let openHelp = helpMenu.addItem(
+            withTitle: "PuTTYgen Help",
+            action: #selector(PuttyHelpMenuTarget.openHelp(_:)),
+            keyEquivalent: "?")
+        openHelp.target = PuttyHelpMenuTarget.shared
+        helpItem.submenu = helpMenu
+        mainMenu.addItem(helpItem)
+        NSApp.helpMenu = helpMenu
+        PuttyHelp.registerNotificationObserver()
+
         NSApp.mainMenu = mainMenu
     }
 }

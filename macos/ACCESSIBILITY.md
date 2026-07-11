@@ -39,6 +39,7 @@ Dialogs set `initialFirstResponder`, enable
 | Askpass | Secure field | Already focused before `runModal` |
 | Event Log | Filter field | Then Tab into the log text |
 | PuTTYgen | Key type popup | All primary controls have accessibility labels |
+| Help window | WebView | Labelled “PuTTY User Manual” |
 
 Static labels refuse first responder so Tab skips them. macOS **Full
 Keyboard Access** (System Settings → Keyboard) is still required to Tab

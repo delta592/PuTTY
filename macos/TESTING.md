@@ -137,3 +137,9 @@ trackpad / Edit checklist: [`INTEGRATION.md`](INTEGRATION.md).
 Automated: `putty-mac-printing-smoke-c` (pipe job) and `PrintingTests`
 (File menu, transcript extraction, printable view). Manual Print /
 ANSI printer checklist: [`PRINTING.md`](PRINTING.md).
+
+## Help (Phase 9.5)
+
+Automated: `HelpTests` (Help menu wiring, help window construction).
+`verify-bundle-layout` checks `Resources/Help/index.html` when Halibut
+HTML was built. Manual Help checklist: [`HELP.md`](HELP.md).

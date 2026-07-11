@@ -231,24 +231,28 @@ on the
 
 \S{faq-mac-port}{Question} Will there ever be a \I{Mac OS}Mac version of PuTTY?
 
-As of 2026, I doubt that the core PuTTY team will ever finish one.
+Yes. This source tree includes a native AppKit GUI for macOS 15 and later
+(\c{PuTTY.app}, \c{pterm.app}, and \c{PuTTYgen.app}). See
+\c{macos/README.md} and \c{MACOS_GUI_PLAN.md} for build instructions and
+status. The in-app \e{Help} menu opens the same Halibut HTML user manual
+as the Windows CHM help.
 
-We've tried more than once. Around 2005 we attempted one in the form
-of a native Cocoa application, but it turned out to be very slow to
-redraw its window for some reason we never got to the bottom of.
+Historically, the core PuTTY team tried more than once and did not ship a
+release-quality Mac port of their own. Around 2005 there was an attempt in
+the form of a native Cocoa application, but it turned out to be very slow to
+redraw its window for some reason they never got to the bottom of.
 
-In 2015, after porting the GTK front end to work with GTK 3, we began
+In 2015, after porting the GTK front end to work with GTK 3, they began
 another attempt, based on making small changes to the GTK code and
 building it against the OS X Quartz version of GTK 3. This didn't have
 the speed issue, and came much closer to being finished. But
 unfortunately the Quartz GTK port seems to have bit-rotted: the last
-time I tried to build the Mac port, I couldn't even figure out how to
-install a GTK it would build with.
+time that approach was tried, it was no longer clear how to install a GTK
+it would build with.
 
-If anyone were interested in picking this up and finishing it, the
-TODO list in \c{unix/main-gtk-application.c} in the source code is a
-good place to start, and I'd be happy to provide advice and
-discussion.
+The GTK-on-Quartz TODO list in \c{unix/main-gtk-application.c} remains
+relevant for anyone continuing that approach; the AppKit port in
+\c{macos/} is the supported native path in this tree.
 
 \S{faq-iphone}{Question} Is there a version of PuTTY for mobile operating systems?
 

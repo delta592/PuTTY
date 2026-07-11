@@ -144,6 +144,7 @@ final class PtermAppDelegate: NSObject, NSApplicationDelegate, SessionMenuUpdati
 
         PuttyStandardMenus.installFileMenu(into: mainMenu)
         PuttyStandardMenus.installEditMenu(into: mainMenu)
+        PuttyStandardMenus.installHelpMenu(into: mainMenu, appName: "pterm")
 
         NSApp.mainMenu = mainMenu
     }

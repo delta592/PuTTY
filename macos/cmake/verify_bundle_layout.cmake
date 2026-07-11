@@ -99,6 +99,15 @@ if(IS_DIRECTORY "${_resources}/en.lproj/en.lproj")
     "verify_bundle_layout.cmake: nested en.lproj/en.lproj in ${_resources}")
 endif()
 
+# Phase 9.5: Halibut HTML help (optional unless REQUIRE_HELP=ON).
+if(REQUIRE_HELP)
+  if(NOT EXISTS "${_resources}/Help/index.html")
+    message(FATAL_ERROR
+      "verify_bundle_layout.cmake: missing Help/index.html in ${_resources} "
+      "(Halibut HTML help required)")
+  endif()
+endif()
+
 # Resources must not contain Mach-O binaries (architecture-neutral check).
 file(GLOB_RECURSE _resource_files LIST_DIRECTORIES false "${_resources}/*")
 foreach(_res ${_resource_files})

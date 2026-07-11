@@ -7,6 +7,7 @@ For a short overview from the repository root, see the “Building on
 macOS (native GUI)” section of [`../README`](../README). Architecture
 and phase status live in [`../MACOS_GUI_PLAN.md`](../MACOS_GUI_PLAN.md).
 SSH agent behaviour is documented in [`AGENT.md`](AGENT.md).
+In-app help is documented in [`HELP.md`](HELP.md).
 
 ## Prerequisites
 
@@ -18,6 +19,7 @@ SSH agent behaviour is documented in [`AGENT.md`](AGENT.md).
 | Ninja | Dev / host-arch Release profiles |
 | Xcode generator | Universal 2 (`arm64` + `x86_64`) only |
 | Python 3 | Icon generation at configure/build time |
+| Halibut + Perl | Bundled HTML help (`Help → … Help`); optional — without them the menu opens the online manual |
 | Bash 5.x | Required by `build.sh` (`brew install bash`) |
 
 Point `xcode-select` at Xcode:
@@ -31,7 +33,7 @@ Put Homebrew ahead of `/bin` so `./macos/build.sh` finds Bash 5:
 
 ```sh
 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
-brew install cmake ninja python bash
+brew install cmake ninja python bash halibut
 ```
 
 Check the toolchain:
@@ -229,5 +231,6 @@ seat, clipboard, and related paths. See `macos/CMakeLists.txt` and
 | [`ACCESSIBILITY.md`](ACCESSIBILITY.md) | Phase 9.2 VoiceOver / keyboard / Reduce Motion |
 | [`INTEGRATION.md`](INTEGRATION.md) | Phase 9.3 Settings / accent / scroll / Edit menu |
 | [`PRINTING.md`](PRINTING.md) | Phase 9.4 ANSI printer + File → Print |
+| [`HELP.md`](HELP.md) | Phase 9.5 bundled Halibut HTML / Help menu |
 | [`TESTING.md`](TESTING.md) | Phase 9.1 CTest / XCTest / manual matrix |
 | [`PuTTY/TERMINAL_PERFORMANCE.md`](PuTTY/TERMINAL_PERFORMANCE.md) | Terminal paint performance notes |

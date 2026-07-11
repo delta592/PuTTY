@@ -22,9 +22,9 @@ static void *mac_gui_parent_window;
 - (BOOL)alertShowHelp:(NSAlert *)alert
 {
     (void)alert;
-    [[NSWorkspace sharedWorkspace] openURL:
-        [NSURL URLWithString:
-            @"https://www.chiark.greenend.org.uk/~sgtatham/putty/"]];
+    /* Phase 9.5: Swift PuttyHelp observes this and opens the WebKit help window. */
+    [[NSNotificationCenter defaultCenter]
+        postNotificationName:@"PuTTYOpenBundledHelp" object:nil];
     return YES;
 }
 @end

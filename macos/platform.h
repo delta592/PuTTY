@@ -38,7 +38,7 @@
 #define MULTICLICK_ONLY_EVENT 0
 
 /* ---------------------------------------------------------------------- */
-/* Help system (no HTML Help on macOS; AppKit sheets in Phase 5/6) */
+/* Help system (bundled Halibut HTML via AppKit / WebKit — Phase 9.5) */
 
 typedef void *HelpCtx;
 #define NULL_HELPCTX ((HelpCtx)NULL)

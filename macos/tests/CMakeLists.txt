@@ -188,6 +188,7 @@ xctest_add_bundle(PuttyMacUITests putty-macui
   PuttyMacUITests/AccessibilityTests.swift
   PuttyMacUITests/IntegrationTests.swift
   PuttyMacUITests/PrintingTests.swift
+  PuttyMacUITests/HelpTests.swift
   PuttyMacUITests/TestSupport.swift)
 
 set_target_properties(PuttyMacUITests PROPERTIES
@@ -224,7 +225,8 @@ target_link_options(PuttyMacUITests PRIVATE
 target_link_libraries(PuttyMacUITests PRIVATE
   putty-macos-bridge
   "-framework AppKit"
-  "-framework Foundation")
+  "-framework Foundation"
+  "-framework WebKit")
 
 putty_macos_configure_swift_target(PuttyMacUITests)
 

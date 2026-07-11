@@ -1191,8 +1191,19 @@ Smoke: `putty-mac-printing-smoke-c`; XCTest: `PrintingTests`.
 
 ### 9.5 Help
 
-- [ ] Bundle HTML or PDF help generated from `doc/` Halibut sources.
-- [ ] **Help → PuTTY Help** menu opens Help Viewer or embedded WebKit view.
+- [x] Bundle HTML or PDF help generated from `doc/` Halibut sources.
+- [x] **Help → PuTTY Help** menu opens Help Viewer or embedded WebKit view.
+
+**Implementation:** Halibut HTML (`doc/html/`, same as `make doc`) is
+copied into each GUI `.app` as `Contents/Resources/Help/` via
+`macos/cmake/help.cmake` (`putty_macos_add_help`) when Halibut+Perl are
+available. **Help → «App» Help** (`PuttyStandardMenus.installHelpMenu`)
+opens an embedded `WKWebView` (`HelpWindowController` / `PuttyHelp`).
+Alert Help buttons post `PuTTYOpenBundledHelp`. Without Halibut, the
+menu opens the online HTML manual. FAQ `faq-mac-port` updated for the
+native AppKit port. Docs: [`macos/HELP.md`](macos/HELP.md).
+XCTest: `HelpTests`; `verify-bundle-layout` checks `Help/index.html`
+when HTML was built.
 
 ### 9.6 Known parity gaps (document honestly)
 
