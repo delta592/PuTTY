@@ -173,6 +173,32 @@ suite.
 
 ---
 
+## Code boundary markers (`WORKAROUND:`)
+
+Agents and reviewers should find `WORKAROUND:` comments (agents.mdc §1.6)
+at macOS-owned boundaries:
+
+| Boundary | Location |
+|----------|----------|
+| `platform_get_x_display()` → `NULL` | `macos/bridge/putty-bridge-platform.c` |
+| ANSI printer via `popen` | `macos/platform/printing.c` |
+| `x_get_default` (no X resources) | `macos/platform/stubs.c` |
+| Headless TermWin / LogPolicy in `PuttySession` | `macos/bridge/putty-session.c` |
+| Optional random-seed read errors | `macos/platform/storage.c` |
+
+**Symlinked Unix sources** (`macos/platform/gss.c` → `unix/gss.c`,
+`serial.c`, `x11.c`, …) must **not** grow macOS-only comments in the
+Unix tree. Treat this document as the WORKAROUND record for those paths:
+
+- **GSSAPI:** DYNAMIC `dlopen` of Linux `.so` names usually fails on
+  stock macOS; Apple frameworks not wired (see §2).
+- **X11 auth / display helpers:** Unix `$XAUTHORITY` / socket paths only;
+  no Quartz integration (see §1).
+- **Serial `provide_ldisc`:** unused stub; local echo/edit stay off
+  (same as Unix; see §3).
+
+---
+
 ## How to use this document
 
 - Treat rows in the summary table as **known limitations** for release
