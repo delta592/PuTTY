@@ -4,6 +4,11 @@ import PuttyBridge
 // MARK: - C callback trampolines (Swift 6: @convention(c) on function types)
 
 private enum TerminalViewBridge {
+    /*
+     * Paint-path callbacks run nested under TerminalView.draw(_:) →
+     * putty_bridge_termwin_paint. They must stay synchronous; MainActor
+     * assumeIsolated is intentional here (AUDIT P1.4).
+     */
     static let setupDrawCtx: @convention(c) (UnsafeMutableRawPointer?) -> Bool = { ctx in
         guard let ctx else { return false }
         let view = Unmanaged<TerminalView>.fromOpaque(ctx).takeUnretainedValue()
@@ -46,9 +51,12 @@ private enum TerminalViewBridge {
     ) -> Void = { ctx, dirty in
         guard let ctx else { return }
         let view = Unmanaged<TerminalView>.fromOpaque(ctx).takeUnretainedValue()
-        MainActor.assumeIsolated { view.scheduleRedraw(dirty) }
+        PuttyMainHop.run { [weak view] in
+            view?.scheduleRedraw(dirty)
+        }
     }
 
+    /// Synchronous measure during paint — keep assumeIsolated.
     static let charWidth: @convention(c) (UnsafeMutableRawPointer?, Int32) -> Int32 = { ctx, uc in
         guard let ctx else { return 1 }
         let view = Unmanaged<TerminalView>.fromOpaque(ctx).takeUnretainedValue()
@@ -59,21 +67,27 @@ private enum TerminalViewBridge {
         { ctx, x, y in
             guard let ctx else { return }
             let view = Unmanaged<TerminalView>.fromOpaque(ctx).takeUnretainedValue()
-            MainActor.assumeIsolated { view.updateCaretCell(x: x, y: y) }
+            PuttyMainHop.run { [weak view] in
+                view?.updateCaretCell(x: x, y: y)
+            }
         }
 
     static let setRawMouseMode: @convention(c) (UnsafeMutableRawPointer?, Bool) -> Void =
         { ctx, enable in
             guard let ctx else { return }
             let view = Unmanaged<TerminalView>.fromOpaque(ctx).takeUnretainedValue()
-            MainActor.assumeIsolated { view.setRawMouseMode(enable) }
+            PuttyMainHop.run { [weak view] in
+                view?.setRawMouseMode(enable)
+            }
         }
 
     static let setRawMouseModePointer: @convention(c) (UnsafeMutableRawPointer?, Bool) -> Void =
         { ctx, enable in
             guard let ctx else { return }
             let view = Unmanaged<TerminalView>.fromOpaque(ctx).takeUnretainedValue()
-            MainActor.assumeIsolated { view.setRawMousePointer(enable) }
+            PuttyMainHop.run { [weak view] in
+                view?.setRawMousePointer(enable)
+            }
         }
 
     static let clipWrite: @convention(c) (
@@ -83,8 +97,8 @@ private enum TerminalViewBridge {
         let codepoints = (0..<Int(len)).map { UInt32(bitPattern: Int32(text[$0])) }
         let string = String(decoding: codepoints, as: UTF32.self)
         let view = Unmanaged<TerminalView>.fromOpaque(ctx).takeUnretainedValue()
-        Task { @MainActor in
-            view.writeToClipboard(string, clipboard: clipboard, mustDeselect: mustDeselect)
+        PuttyMainHop.run { [weak view] in
+            view?.writeToClipboard(string, clipboard: clipboard, mustDeselect: mustDeselect)
         }
     }
 
@@ -92,8 +106,8 @@ private enum TerminalViewBridge {
         { ctx, clipboard in
             guard let ctx else { return }
             let view = Unmanaged<TerminalView>.fromOpaque(ctx).takeUnretainedValue()
-            Task { @MainActor in
-                view.requestClipboardPaste(clipboard: clipboard)
+            PuttyMainHop.run { [weak view] in
+                view?.requestClipboardPaste(clipboard: clipboard)
             }
         }
 
@@ -102,8 +116,8 @@ private enum TerminalViewBridge {
     ) -> Void = { ctx, total, start, page in
         guard let ctx else { return }
         let view = Unmanaged<TerminalView>.fromOpaque(ctx).takeUnretainedValue()
-        MainActor.assumeIsolated {
-            view.resizeScrollHost?.updateScrollbar(
+        PuttyMainHop.run { [weak view] in
+            view?.resizeScrollHost?.updateScrollbar(
                 total: Int(total), start: Int(start), page: Int(page)
             )
         }
@@ -114,8 +128,8 @@ private enum TerminalViewBridge {
     ) -> Void = { ctx, cols, rows in
         guard let ctx else { return }
         let view = Unmanaged<TerminalView>.fromOpaque(ctx).takeUnretainedValue()
-        MainActor.assumeIsolated {
-            view.resizeScrollHost?.requestTerminalResize(
+        PuttyMainHop.run { [weak view] in
+            view?.resizeScrollHost?.requestTerminalResize(
                 cols: Int(cols), rows: Int(rows)
             )
         }
@@ -125,8 +139,8 @@ private enum TerminalViewBridge {
         { ctx, mode in
             guard let ctx else { return }
             let view = Unmanaged<TerminalView>.fromOpaque(ctx).takeUnretainedValue()
-            MainActor.assumeIsolated {
-                guard let termWin = view.termWin else { return }
+            PuttyMainHop.run { [weak view] in
+                guard let view, let termWin = view.termWin else { return }
                 view.windowChromeHost?.ringBell(mode: mode, termWin: termWin)
             }
         }
@@ -137,8 +151,8 @@ private enum TerminalViewBridge {
         guard let ctx, let title else { return }
         let view = Unmanaged<TerminalView>.fromOpaque(ctx).takeUnretainedValue()
         let string = String(cString: title)
-        MainActor.assumeIsolated {
-            view.windowChromeHost?.setWindowTitle(string)
+        PuttyMainHop.run { [weak view] in
+            view?.windowChromeHost?.setWindowTitle(string)
         }
     }
 
@@ -148,8 +162,8 @@ private enum TerminalViewBridge {
         guard let ctx, let title else { return }
         let view = Unmanaged<TerminalView>.fromOpaque(ctx).takeUnretainedValue()
         let string = String(cString: title)
-        MainActor.assumeIsolated {
-            view.windowChromeHost?.setIconTitle(string)
+        PuttyMainHop.run { [weak view] in
+            view?.windowChromeHost?.setIconTitle(string)
         }
     }
 
@@ -157,7 +171,9 @@ private enum TerminalViewBridge {
         { ctx in
             guard let ctx else { return }
             let view = Unmanaged<TerminalView>.fromOpaque(ctx).takeUnretainedValue()
-            MainActor.assumeIsolated { view.applySettingsFromConf() }
+            PuttyMainHop.run { [weak view] in
+                view?.applySettingsFromConf()
+            }
         }
 }
 

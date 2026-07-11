@@ -23,7 +23,9 @@ final class TerminalClipboard {
       queue: .main
     ) { [weak self] _ in
       guard let self else { return }
-      MainActor.assumeIsolated { self.pasteboardDidChange() }
+      PuttyMainHop.run { [weak self] in
+        self?.pasteboardDidChange()
+      }
     }
   }
 

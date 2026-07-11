@@ -61,9 +61,11 @@ final class PtermAppDelegate: NSObject, NSApplicationDelegate, SessionMenuUpdati
         putty_bridge_set_open_session_callback(
             { ctx, conf, connect in
                 guard let ctx else { return }
-                Unmanaged<OpenSessionBox>.fromOpaque(ctx)
+                let box = Unmanaged<OpenSessionBox>.fromOpaque(ctx)
                     .takeUnretainedValue()
-                    .handleOpen(conf: conf, connect: connect)
+                PuttyMainHop.run {
+                    box.handleOpen(conf: conf, connect: connect)
+                }
             },
             Unmanaged.passUnretained(box).toOpaque()
         )

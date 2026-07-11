@@ -10,6 +10,7 @@ add_library(putty-macui STATIC
   PuttyConfHandle.swift
   PuttyEventLoop.swift
   PuttyHelp.swift
+  PuttyMainHop.swift
   HelpWindowController.swift
   SessionWindowController.swift
   SessionSpecialsMenu.swift

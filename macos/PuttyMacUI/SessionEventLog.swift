@@ -99,8 +99,8 @@ private enum SessionEventLogBridge {
         guard let ctx else { return }
         let controller = Unmanaged<SessionWindowController>.fromOpaque(ctx)
             .takeUnretainedValue()
-        MainActor.assumeIsolated {
-            guard SessionWindowController.isOpen(controller) else { return }
+        PuttyMainHop.run { [weak controller] in
+            guard let controller, SessionWindowController.isOpen(controller) else { return }
             SessionEventLog.shared.sessionDidReceiveEvent(for: controller)
         }
     }

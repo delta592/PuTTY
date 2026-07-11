@@ -198,8 +198,8 @@ private enum SessionRemoteExitBridge {
     ) -> Void = { ctx, _, closeWindow in
         guard let ctx else { return }
         let controller = Unmanaged<SessionWindowController>.fromOpaque(ctx).takeUnretainedValue()
-        MainActor.assumeIsolated {
-            controller.sessionDidRemoteExit(closeWindow: closeWindow)
+        PuttyMainHop.run { [weak controller] in
+            controller?.sessionDidRemoteExit(closeWindow: closeWindow)
         }
     }
 }
