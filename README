@@ -168,5 +168,8 @@ CLI-only build on macOS (unchanged)
   cmake -B build-macos-cli -G Ninja
   cmake --build build-macos-cli
 
-Further reading: macos/README.md (build/run), macos/AGENT.md (SSH agent),
-MACOS_GUI_PLAN.md (architecture and remaining packaging work).
+Further reading: macos/README.md (build/run and related-docs table),
+macos/TESTING.md (CTest / XCTest / manual matrix), macos/PARITY.md
+(X11 / GSSAPI / serial gaps), macos/HELP.md (bundled Halibut help),
+macos/INTEGRATION.md (Settings / Edit menu), macos/AGENT.md (SSH agent),
+MACOS_GUI_PLAN.md (architecture and remaining packaging / CI work).

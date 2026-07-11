@@ -168,7 +168,7 @@ This audit does **not** demand reformatting upstream `unix/` / `windows/` / port
 - [x] **P2.22** Phase 10 CI missing (`build.sh test` / Universal verify on main)  
   - **Fix:** Add workflow or keep plan honest.
 
-- [ ] **P2.23** Root README further reading omits `TESTING.md`, `PARITY.md`, `HELP.md`, `INTEGRATION.md`  
+- [x] **P2.23** Root README further reading omits `TESTING.md`, `PARITY.md`, `HELP.md`, `INTEGRATION.md`  
   - **Fix:** Point at `macos/README.md` related-docs table.
 
 ---
