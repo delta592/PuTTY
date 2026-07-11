@@ -31,7 +31,12 @@
 #ifdef PATH_MAX
 #define FNLEN PATH_MAX
 #else
-#define FNLEN 1024 /* XXX */
+/*
+ * Fallback when PATH_MAX is unavailable (rare on Darwin). Session and
+ * host-key paths under Application Support are well under 1 KiB; match
+ * the historical unix/storage.c bound rather than inventing a new one.
+ */
+#define FNLEN 1024
 #endif
 
 enum {
