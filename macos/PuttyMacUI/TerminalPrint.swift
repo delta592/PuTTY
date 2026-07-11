@@ -43,7 +43,9 @@ public enum TerminalPrint {
         from window: NSWindow?
     ) {
         let textView = makePrintableView(text: text, font: font)
-        let printInfo = NSPrintInfo.shared.copy() as! NSPrintInfo
+        guard let printInfo = NSPrintInfo.shared.copy() as? NSPrintInfo else {
+            return
+        }
         printInfo.horizontalPagination = .fit
         printInfo.verticalPagination = .automatic
         printInfo.isHorizontallyCentered = false

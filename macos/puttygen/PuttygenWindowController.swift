@@ -262,30 +262,41 @@ final class PuttygenWindowController: NSWindowController, NSWindowDelegate, NSTe
         }
     }
 
+    private struct KeyDisplaySnapshot {
+        var hasKey: Bool
+        var fingerprint: String?
+        var publicKey: String?
+        var comment: String?
+    }
+
     private func refreshKeyDisplay() {
-        let snapshot: (hasKey: Bool, fingerprint: String?, publicKey: String?, comment: String?)? =
-            withKeyHandle { key in
-                let hasKey = puttygen_key_has_key(key)
-                guard hasKey else {
-                    return (false, nil, nil, nil)
-                }
-                var fingerprint: String?
-                var publicKey: String?
-                var comment: String?
-                if let fp = puttygen_key_fingerprint(key) {
-                    fingerprint = String(cString: fp)
-                    puttygen_free_string(fp)
-                }
-                if let pub = puttygen_key_public_openssh(key) {
-                    publicKey = String(cString: pub)
-                    puttygen_free_string(pub)
-                }
-                if let c = puttygen_key_comment(key) {
-                    comment = String(cString: c)
-                    puttygen_free_string(c)
-                }
-                return (true, fingerprint, publicKey, comment)
+        let snapshot: KeyDisplaySnapshot? = withKeyHandle { key in
+            let hasKey = puttygen_key_has_key(key)
+            guard hasKey else {
+                return KeyDisplaySnapshot(hasKey: false)
             }
+            var fingerprint: String?
+            var publicKey: String?
+            var comment: String?
+            if let fp = puttygen_key_fingerprint(key) {
+                fingerprint = String(cString: fp)
+                puttygen_free_string(fp)
+            }
+            if let pub = puttygen_key_public_openssh(key) {
+                publicKey = String(cString: pub)
+                puttygen_free_string(pub)
+            }
+            if let c = puttygen_key_comment(key) {
+                comment = String(cString: c)
+                puttygen_free_string(c)
+            }
+            return KeyDisplaySnapshot(
+                hasKey: true,
+                fingerprint: fingerprint,
+                publicKey: publicKey,
+                comment: comment
+            )
+        }
 
         let hasKey = snapshot?.hasKey ?? false
         savePrivateButton.isEnabled = hasKey && !generating
@@ -337,7 +348,7 @@ final class PuttygenWindowController: NSWindowController, NSWindowDelegate, NSTe
 
     @objc func generateKey(_ sender: Any?) {
         _ = sender
-        guard !generating, !isTornDown, keyHandle != nil else { return }
+        guard !generating, !isTornDown, let keyHandle else { return }
         let type = selectedKeyType()
         let bits = Int32(bitsField.intValue)
         generationEpoch &+= 1
@@ -349,7 +360,7 @@ final class PuttygenWindowController: NSWindowController, NSWindowDelegate, NSTe
         // Key pointer is passed by bitPattern so the @Sendable closure does not
         // need to touch MainActor state. Free is blocked until generating ends
         // (windowShouldClose / terminate refuse while generating).
-        let keyBits = Int(bitPattern: keyHandle!)
+        let keyBits = Int(bitPattern: keyHandle)
         let context = PuttygenGenerateContext(epoch: epoch, controller: self)
         let ctxBits = Int(bitPattern: Unmanaged.passRetained(context).toOpaque())
 
