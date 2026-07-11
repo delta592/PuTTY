@@ -43,7 +43,7 @@ extern "C" {
 /* API versioning */
 
 /** Increment when breaking the public C API visible to Swift. */
-#define PUTTY_BRIDGE_API_VERSION 1
+#define PUTTY_BRIDGE_API_VERSION 2
 
 /** @deprecated Use putty_bridge_api_version(); kept for smoke tests. */
 int putty_bridge_version(void);
@@ -68,9 +68,6 @@ typedef struct PuttySession PuttySession;
 #define PUTTY_CONF_TYPEDEF_DEFINED
 typedef struct PuttyConf PuttyConf;
 #endif
-
-/** Opaque PuTTY backend handle (see putty.h in C bridge code). */
-struct Backend;
 
 /* ---------------------------------------------------------------------- */
 /* Session callbacks (Phase 3.2) */
@@ -110,8 +107,14 @@ void putty_session_start(PuttySession *session);
 /** Apply new settings to a live or idle session. */
 void putty_session_reconfigure(PuttySession *session, const PuttyConf *conf);
 
-/** For backend_unthrottle and other C-side backend access (Phase 3.4). */
-struct Backend *putty_session_get_backend(PuttySession *session);
+/** True if a network/PTY backend is attached (after a successful start). */
+bool putty_session_has_backend(const PuttySession *session);
+
+/**
+ * Forward send-buffer backpressure to the backend (Phase 3.4).
+ * No-op if there is no backend.
+ */
+void putty_session_backend_unthrottle(PuttySession *session, size_t bufsize);
 
 /* ---------------------------------------------------------------------- */
 /* Configuration (Phase 3.3) */

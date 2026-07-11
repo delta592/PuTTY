@@ -21,7 +21,7 @@ int putty_bridge_api_version(void)
 const char *putty_bridge_api_version_string(void)
 {
     PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
-    return "1";
+    return "2";
 }
 
 const char *putty_bridge_buildinfo_platform(void)

@@ -546,12 +546,18 @@ void putty_session_reconfigure(PuttySession *session, const PuttyConf *conf)
     conf_free(oldconf);
 }
 
-struct Backend *putty_session_get_backend(PuttySession *session)
+bool putty_session_has_backend(const PuttySession *session)
 {
     PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
-    if (!session)
-        return NULL;
-    return session->backend;
+    return session != NULL && session->backend != NULL;
+}
+
+void putty_session_backend_unthrottle(PuttySession *session, size_t bufsize)
+{
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
+    if (!session || !session->backend)
+        return;
+    backend_unthrottle(session->backend, bufsize);
 }
 
 static void putty_bridge_session_smoke_on_output(
@@ -626,7 +632,7 @@ int putty_bridge_session_smoke(void)
         putty_session_free(session);
         return -4;
     }
-    if (putty_session_get_backend(session) != NULL) {
+    if (putty_session_has_backend(session)) {
         putty_session_free(session);
         return -5;
     }

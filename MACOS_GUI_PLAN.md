@@ -383,7 +383,7 @@ module and call the C entry points.
 - [x] `PuttySession *putty_session_new(const PuttyConf *conf)` — allocate seat, terminal, backend.
 - [x] `void putty_session_free(PuttySession *)`.
 - [x] `void putty_session_start(PuttySession *)` / `putty_session_reconfigure(PuttySession *, PuttyConf *)`.
-- [x] `Backend *putty_session_get_backend(PuttySession *)` for throttle/unthrottle.
+- [x] `putty_session_has_backend` / `putty_session_backend_unthrottle` (opaque; no `struct Backend *` in Swift header).
 - [x] Callback registration struct:
 
   ```c
