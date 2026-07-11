@@ -48,7 +48,7 @@ public enum PuttyHelp {
             object: nil,
             queue: .main
         ) { _ in
-            Task { @MainActor in
+            PuttyMainHop.run {
                 PuttyHelp.open()
             }
         }

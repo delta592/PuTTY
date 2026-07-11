@@ -47,6 +47,7 @@ add_executable(puttygen-app MACOSX_BUNDLE
   PuttygenApp.swift
   PuttygenWindowController.swift
   # Shared help UI (no PuttyBridge); same sources as putty-macui Phase 9.5.
+  ${CMAKE_SOURCE_DIR}/macos/PuttyMacUI/PuttyMainHop.swift
   ${CMAKE_SOURCE_DIR}/macos/PuttyMacUI/PuttyHelp.swift
   ${CMAKE_SOURCE_DIR}/macos/PuttyMacUI/HelpWindowController.swift)
 

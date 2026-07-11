@@ -77,7 +77,7 @@ final class TerminalClipboard {
         NSPasteboard(name: pasteboardName).string(forType: .string)
       }.value
       guard let string, !string.isEmpty else { return }
-      await MainActor.run {
+      PuttyMainHop.run { [weak self] in
         guard let self, let termWin = self.termWin else { return }
         self.pasteString(string, termWin: termWin)
       }

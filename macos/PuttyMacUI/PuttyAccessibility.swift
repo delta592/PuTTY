@@ -23,7 +23,7 @@ public enum PuttyAccessibility {
             object: NSWorkspace.shared,
             queue: .main
         ) { _ in
-            Task { @MainActor in
+            PuttyMainHop.run {
                 handler()
             }
         }

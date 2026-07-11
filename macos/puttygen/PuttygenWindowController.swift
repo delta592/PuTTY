@@ -362,7 +362,7 @@ final class PuttygenWindowController: NSWindowController, NSWindowDelegate, NSTe
             guard let key = OpaquePointer(bitPattern: keyBits),
                   let ctx = UnsafeMutableRawPointer(bitPattern: ctxBits)
             else {
-                DispatchQueue.main.async {
+                PuttyMainHop.run {
                     context.controller?.finishGeneration(
                         ok: false, error: "Invalid key handle", epoch: epoch)
                 }
@@ -375,7 +375,7 @@ final class PuttygenWindowController: NSWindowController, NSWindowDelegate, NSTe
                     guard let rawCtx else { return }
                     let progressCtx = Unmanaged<PuttygenGenerateContext>
                         .fromOpaque(rawCtx).takeUnretainedValue()
-                    DispatchQueue.main.async {
+                    PuttyMainHop.run {
                         progressCtx.controller?.updateGenerationProgress(
                             fraction, epoch: progressCtx.epoch)
                     }
@@ -391,7 +391,7 @@ final class PuttygenWindowController: NSWindowController, NSWindowDelegate, NSTe
             // Capture weak controller before defer releases the context.
             let controller = Unmanaged<PuttygenGenerateContext>
                 .fromOpaque(ctx).takeUnretainedValue().controller
-            DispatchQueue.main.async {
+            PuttyMainHop.run {
                 controller?.finishGeneration(ok: ok, error: errorString, epoch: epoch)
             }
         }

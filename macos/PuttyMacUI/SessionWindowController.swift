@@ -40,7 +40,7 @@ public final class SessionWindowController: NSWindowController, NSWindowDelegate
          * animations and can crash in _NSWindowTransformAnimation dealloc
          * (macos/app_crash_004.txt).
          */
-        DispatchQueue.main.async {
+        PuttyMainHop.run {
             controller.present()
         }
     }

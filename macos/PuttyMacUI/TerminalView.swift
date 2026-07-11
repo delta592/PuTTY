@@ -719,7 +719,7 @@ final class TerminalView: NSView {
          * synchronously nested inside that path has crashed in
          * ssh2_connection_filter_queue (app_crash_007.txt).
          */
-        DispatchQueue.main.async { [weak self] in
+        PuttyMainHop.run { [weak self] in
             guard let self else { return }
             self.applyFontSpecFromConf()
             self.updateFontMetrics()
@@ -795,7 +795,7 @@ final class TerminalView: NSView {
 
         guard !dirtyFlushScheduled else { return }
         dirtyFlushScheduled = true
-        DispatchQueue.main.async { [weak self] in
+        PuttyMainHop.run { [weak self] in
             guard let self else { return }
             self.dirtyFlushScheduled = false
             guard let rect = self.pendingDirty else { return }

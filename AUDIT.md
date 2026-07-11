@@ -175,7 +175,7 @@ This audit does **not** demand reformatting upstream `unix/` / `windows/` / port
 
 ## P3 — Nice-to-have
 
-- [ ] **P3.24** Standardize C→Swift callback dispatch style (`assumeIsolated` vs `Task` vs `DispatchQueue.main.async`)
+- [x] **P3.24** Standardize C→Swift callback dispatch style (`assumeIsolated` vs `Task` vs `DispatchQueue.main.async`)
 - [ ] **P3.25** `build.sh check` enforce CMake ≥ 3.28
 - [ ] **P3.26** Rule frontmatter hygiene (`alwaysApply` + redundant globs; note pure-c trigger in agents)
 - [ ] **P3.27** `sfree` → `NULL` where pointer can be reused
