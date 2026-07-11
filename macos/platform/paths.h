@@ -18,6 +18,12 @@
 /* Default session log location when the user has not configured one. */
 #define PUTTY_MACOS_DEFAULT_LOG_REL "Documents/putty.log"
 
+/*
+ * Placeholder serial line (not an enumerated device). Prefer the callout
+ * namespace (/dev/cu.*) over dial-in (/dev/tty.*) — see macos/PARITY.md.
+ */
+#define PUTTY_MACOS_DEFAULT_SERIAL_LINE "/dev/cu.usbserial"
+
 char *putty_macos_home_directory(void);
 char *putty_macos_app_support_directory(void);
 char *putty_macos_default_log_path(void);

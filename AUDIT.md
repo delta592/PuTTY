@@ -181,7 +181,7 @@ This audit does **not** demand reformatting upstream `unix/` / `windows/` / port
 - [x] **P3.27** `sfree` → `NULL` where pointer can be reused
 - [x] **P3.28** Prefer `mkstemp` over hard-coded `/tmp` in smokes
 - [x] **P3.29** Replace `storage.c` `/* XXX */` on `FNLEN` with rationale
-- [ ] **P3.30** Align default serial / log paths with `PARITY.md` / paths helpers
+- [x] **P3.30** Align default serial / log paths with `PARITY.md` / paths helpers
 
 ---
 

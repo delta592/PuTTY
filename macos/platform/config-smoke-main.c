@@ -7,6 +7,7 @@
 #include <stdarg.h>
 
 #include "putty.h"
+#include "paths.h"
 
 #include "config-appkit.h"
 
@@ -36,7 +37,7 @@ char *platform_default_s(const char *name)
     if (!strcmp(name, "TermType"))
         return dupstr(getenv("TERM"));
     if (!strcmp(name, "SerialLine"))
-        return dupstr("/dev/tty.usbserial");
+        return dupstr(PUTTY_MACOS_DEFAULT_SERIAL_LINE);
     return NULL;
 }
 
@@ -60,8 +61,12 @@ FontSpec *platform_default_fontspec(const char *name)
 
 Filename *platform_default_filename(const char *name)
 {
-    if (!strcmp(name, "LogFileName"))
-        return filename_from_str("putty.log");
+    if (!strcmp(name, "LogFileName")) {
+        char *path = putty_macos_default_log_path();
+        Filename *fn = filename_from_str(path && path[0] ? path : "putty.log");
+        sfree(path);
+        return fn;
+    }
     return filename_from_str("");
 }
 

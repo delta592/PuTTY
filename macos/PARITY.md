@@ -122,9 +122,9 @@ Prefer password / public-key / agent auth until this is verified.
   `otherbackends`.
 - Connection type **Serial** and the Serial settings panel are
   available.
-- Default line string is `/dev/tty.usbserial`
-  (`platform_default_s("SerialLine")` in the bridge) — a placeholder
-  name, not an enumerated device.
+- Default line string is `/dev/cu.usbserial`
+  (`PUTTY_MACOS_DEFAULT_SERIAL_LINE` via `platform_default_s("SerialLine")`)
+  — a placeholder name, not an enumerated device.
 
 ### Gaps
 
@@ -134,7 +134,7 @@ Prefer password / public-key / agent auth until this is verified.
   and `/dev/tty.*` (dial-in). Applications that open the port
   themselves should prefer **`/dev/cu.*`**. There is no IOKit
   enumeration UI; the user must type the path.
-- Default `/dev/tty.usbserial` often does not exist; real devices look
+- Default `/dev/cu.usbserial` often does not exist; real devices look
   like `/dev/cu.usbserial-…` or vendor-specific names.
 - Flow-control / baud edge cases on Apple USB-serial drivers are
   unknown.
