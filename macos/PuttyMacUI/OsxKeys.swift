@@ -1,7 +1,17 @@
 import AppKit
 import PuttyBridge
 
-/// Translates NSEvent keyboard input into PuTTY terminal key sequences (Phase 4.5).
+/**
+ * Translates NSEvent keyboard input into PuTTY terminal key sequences (Phase 4.5).
+ *
+ * Intentional macOS UI shim (not a C bridge helper): AppKit's
+ * `interpretKeyEvents` / `doCommand(by:)` path remaps Control letters to
+ * editing selectors on a plain NSView. This type therefore consumes Control
+ * keys itself — preferring `NSEvent.characters`, then the unshifted letter,
+ * then a US-QWERTY `keyCode` map — before any text-system fallthrough.
+ * Matching C helpers live in `macos/platform/osxkeys.c` for non-AppKit paths;
+ * keep this Swift path for NSEvent semantics.
+ */
 @MainActor
 enum OsxKeys {
     private static let scrollLinesPerTick = 3
@@ -307,8 +317,11 @@ enum OsxKeys {
         return nil
     }
 
-    /// US-QWERTY letter/digit/punctuation for Control when NSEvent character
-    /// strings are empty (layout / IME edge cases).
+    /**
+     * WORKAROUND: US-QWERTY letter/digit/punctuation for Control when NSEvent
+     * character strings are empty (layout / IME edge cases). Layout-specific;
+     * intentional AppKit shim — see type-level docs. — see .cursor/rules/agents.mdc
+     */
     private static func usQwertyLetter(forKeyCode keyCode: Int) -> UInt8? {
         switch keyCode {
         case 0x00: return UInt8(ascii: "a")

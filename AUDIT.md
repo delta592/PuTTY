@@ -151,7 +151,7 @@ This audit does **not** demand reformatting upstream `unix/` / `windows/` / port
 - [x] **P2.17** Sparse ownership comments on `OpaquePointer` fields  
   - **Fix:** Comment each handle (borrowed vs owned) and free site.
 
-- [ ] **P2.18** Keyboard shim in Swift (`OsxKeys.swift` US-QWERTY control-letter fallback)  
+- [x] **P2.18** Keyboard shim in Swift (`OsxKeys.swift` US-QWERTY control-letter fallback)  
   - **Fix:** Prefer bridge helper or document as intentional macOS UI shim.
 
 ### Docs / tooling / structure
