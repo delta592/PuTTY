@@ -5,7 +5,7 @@ alwaysApply: true
 
 ## AppKit UI Constraints
 - All UI modifications (NSView, NSWindow, NSControl) must happen strictly on the main thread.
-- If a C callback executes a Swift method that impacts the UI, hop via `PuttyMainHop.run` (sync when already on main; otherwise `DispatchQueue.main.async`). Do not invent a third style (`Task { @MainActor }` / bare `assumeIsolated`) for the same hop unless paint latency requires synchronous `MainActor.assumeIsolated` under `draw(_:)`.
+- If a C callback executes a Swift method that impacts the UI, hop via `PuttyMainHop.run` (sync when already on main; otherwise `DispatchQueue.main.async`). Use `PuttyMainHop.runAsync` when the work must wait for the next main-queue turn (e.g. session present after config `dlg_end`) — sync-on-main nesting can break first TCP connect. Do not invent a third style (`Task { @MainActor }` / bare `assumeIsolated`) for the same hop unless paint latency requires synchronous `MainActor.assumeIsolated` under `draw(_:)`.
 - Prefer explicit AppKit delegation patterns over SwiftUI-style state bindings.
 
 ## C Bridge & Interoperability Guardrails

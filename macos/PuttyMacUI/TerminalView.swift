@@ -718,8 +718,9 @@ final class TerminalView: NSView {
          * SSH I/O callbacks may still be draining; resizing/redrawing
          * synchronously nested inside that path has crashed in
          * ssh2_connection_filter_queue (app_crash_007.txt).
+         * Must use runAsync — PuttyMainHop.run is sync on main and would nest.
          */
-        PuttyMainHop.run { [weak self] in
+        PuttyMainHop.runAsync { [weak self] in
             guard let self else { return }
             self.applyFontSpecFromConf()
             self.updateFontMetrics()

@@ -35,12 +35,15 @@ public final class SessionWindowController: NSWindowController, NSWindowDelegate
         let controller = SessionWindowController(conf: conf, connect: connect)
         openControllers.append(controller)
         /*
-         * Present on the next run-loop turn. Opening immediately from the
-         * config dialog's Open action races AppKit window-transform
-         * animations and can crash in _NSWindowTransformAnimation dealloc
+         * Always defer to the next main-queue turn — do not use
+         * PuttyMainHop.run (sync-on-main). Opening immediately from the
+         * config dialog's Open action nests backend_init/connect inside
+         * dlg_end before uxsel Dispatch sources can run, which can fail
+         * the first TCP connect with EHOSTUNREACH ("No route to host").
+         * It also races AppKit window-transform animations
          * (macos/app_crash_004.txt).
          */
-        PuttyMainHop.run {
+        PuttyMainHop.runAsync {
             controller.present()
         }
     }
