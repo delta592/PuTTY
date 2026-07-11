@@ -31,14 +31,15 @@ static bool ssh_exit_skip_requested(void)
 static void ssh_exit_configure_hostkey(PuttyConf *conf)
 {
     char hostkey[256];
+    int n;
     const char *configured = ssh_exit_env_or_default(
         "PUTTY_BRIDGE_TEST_HOSTKEY",
         "SHA256:QV1VZsAC792TF0SzLDcwbQ1feceWY481HUZDvbEBiaE");
 
-    if (strlen(configured) >= sizeof(hostkey))
+    n = snprintf(hostkey, sizeof(hostkey), "%s", configured);
+    if (n < 0 || (size_t)n >= sizeof(hostkey))
         return;
 
-    strcpy(hostkey, configured);
     if (validate_manual_hostkey(hostkey))
         conf_set_str_str(conf->conf, CONF_ssh_manual_hostkeys, hostkey, "");
 }
