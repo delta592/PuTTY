@@ -144,7 +144,7 @@ This audit does **not** demand reformatting upstream `unix/` / `windows/` / port
 
 ### Swift / AppKit
 
-- [ ] **P2.16** No shared `PuttyBridgeError` at bridge boundary  
+- [x] **P2.16** No shared `PuttyBridgeError` at bridge boundary  
   - **Issue:** Failures → `fputs` / beep / ad hoc strings; Puttygen has a local good pattern.  
   - **Fix:** Map C codes to a Swift `Error` enum at first Swift touch.
 

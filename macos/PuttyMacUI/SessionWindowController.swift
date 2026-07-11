@@ -97,9 +97,22 @@ public final class SessionWindowController: NSWindowController, NSWindowDelegate
 
         let conf = sessionConf
         sessionConf = nil
-        scrollContainer.terminalView.openSession(conf: conf, connect: connectOnOpen)
+        let openResult = scrollContainer.terminalView.openSession(
+            conf: conf, connect: connectOnOpen)
         if let conf {
             putty_conf_free(conf)
+        }
+        if case .failure(let error) = openResult {
+            let alert = NSAlert()
+            alert.messageText = "Session Error"
+            alert.informativeText = error.localizedDescription
+            alert.alertStyle = .critical
+            alert.addButton(withTitle: "OK")
+            if let window {
+                alert.beginSheetModal(for: window)
+            } else {
+                alert.runModal()
+            }
         }
         if let termWin = scrollContainer.terminalView.termWin {
             SessionSpecialsMenu.shared.installCallback(for: self, termWin: termWin)

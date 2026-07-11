@@ -305,12 +305,14 @@ final class TerminalView: NSView {
     }
 
     /// Open the MacGuiSeat-backed session (Phase 5.5). Call once after the view is in a window.
-    func openSession(conf: PuttyConfHandle?, connect: Bool) {
-        guard let termWin else { return }
+    @discardableResult
+    func openSession(conf: PuttyConfHandle?, connect: Bool) -> Result<Void, PuttyBridgeError> {
+        guard let termWin else {
+            return .failure(.bridgeMessage("Terminal view has no TermWin handle."))
+        }
 
         if !putty_bridge_termwin_open(termWin, conf, connect) {
-            fputs("TerminalView: putty_bridge_termwin_open failed\n", stderr)
-            return
+            return .failure(.termWinOpenFailed)
         }
 
         clipboard = TerminalClipboard(termWin: termWin)
@@ -347,6 +349,7 @@ final class TerminalView: NSView {
         setNeedsDisplay(bounds)
         window?.displayIfNeeded()
         window?.makeFirstResponder(self)
+        return .success(())
     }
 
     override func viewDidMoveToWindow() {

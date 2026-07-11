@@ -8,6 +8,7 @@ add_library(putty-macui STATIC
   PuttyChrome.swift
   PuttyStandardMenus.swift
   PuttyConfHandle.swift
+  PuttyBridgeError.swift
   PuttyEventLoop.swift
   PuttyHelp.swift
   PuttyMainHop.swift
