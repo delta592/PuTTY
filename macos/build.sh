@@ -407,7 +407,15 @@ run_check() {
   log_detail "bash: ${BASH_VERSION} ($(command -v -- bash))"
 
   if check_tool ok cmake cmake; then
+    local cmake_ver major minor
+    cmake_ver=$(cmake --version | awk 'NR==1 {print $3}')
     log_detail "cmake: $(cmake --version | head -n1)"
+    # GUI builds require ≥ 3.28 (macos/CMakeLists.txt); match that floor here.
+    IFS=. read -r major minor _ <<< "${cmake_ver}"
+    if (( major < 3 || (major == 3 && minor < 28) )); then
+      log_detail "cmake ${cmake_ver} is too old (need ≥ 3.28 for PUTTY_MACOS_GUI)"
+      ok=0
+    fi
   fi
 
   if check_tool ok 'ninja (needed for --dev / --release / --cli)' ninja; then
