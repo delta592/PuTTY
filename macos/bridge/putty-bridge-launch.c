@@ -47,6 +47,7 @@ void putty_bridge_session_window_closed(void)
 
 int putty_bridge_open_session_window_count(void)
 {
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     return open_session_windows;
 }
 

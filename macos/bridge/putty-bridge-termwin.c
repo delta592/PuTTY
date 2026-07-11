@@ -350,8 +350,10 @@ static void bridge_install_termwin_callbacks(PuttyBridgeTermWin *btw)
 
 PuttyBridgeTermWin *putty_bridge_termwin_new(void)
 {
-    PuttyBridgeTermWin *btw = snew(PuttyBridgeTermWin);
+    PuttyBridgeTermWin *btw;
 
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
+    btw = snew(PuttyBridgeTermWin);
     memset(btw, 0, sizeof(*btw));
     return btw;
 }
@@ -377,6 +379,7 @@ static void bridge_eventlog_free_lines(PuttyBridgeTermWin *btw)
 
 void putty_bridge_termwin_free(PuttyBridgeTermWin *btw)
 {
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     if (!btw)
         return;
 
@@ -608,6 +611,7 @@ bool putty_bridge_termwin_open(
 
 bool putty_bridge_termwin_session_is_active(const PuttyBridgeTermWin *btw)
 {
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     if (!btw || !btw->seat)
         return false;
     return mac_gui_seat_is_active(btw->seat);
@@ -615,6 +619,7 @@ bool putty_bridge_termwin_session_is_active(const PuttyBridgeTermWin *btw)
 
 bool putty_bridge_termwin_should_warn_on_close(const PuttyBridgeTermWin *btw)
 {
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     if (!btw || !btw->seat)
         return false;
     return mac_gui_seat_should_warn_on_close(btw->seat);
@@ -622,6 +627,7 @@ bool putty_bridge_termwin_should_warn_on_close(const PuttyBridgeTermWin *btw)
 
 char *putty_bridge_termwin_close_warn_text(const PuttyBridgeTermWin *btw)
 {
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     if (!btw || !btw->seat)
         return NULL;
     return mac_gui_seat_close_warn_text(btw->seat);
@@ -691,6 +697,7 @@ bool putty_bridge_termwin_restart_session(PuttyBridgeTermWin *btw)
 
 size_t putty_bridge_termwin_eventlog_count(const PuttyBridgeTermWin *btw)
 {
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     if (!btw)
         return 0;
     return (size_t)btw->ninitial + (size_t)btw->ncircular;
@@ -702,6 +709,7 @@ bool putty_bridge_termwin_eventlog_line(
     const char *line = NULL;
     size_t len;
 
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     if (!btw || !buf || buflen == 0)
         return false;
     if (index < (size_t)btw->ninitial) {
@@ -978,6 +986,7 @@ const char *putty_bridge_termwin_font_spec(const PuttyBridgeTermWin *btw)
 {
     FontSpec *fs;
 
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     if (!btw || !btw->conf)
         return DEFAULT_MAC_FONT;
     fs = conf_get_fontspec(btw->conf, CONF_font);
@@ -999,6 +1008,7 @@ void putty_bridge_termwin_set_font_metrics(
 
 double putty_bridge_termwin_cell_width_pt(const PuttyBridgeTermWin *btw)
 {
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     if (!btw || !btw->mtw)
         return 0.0;
     return btw->mtw->cell_width_pt;
@@ -1006,6 +1016,7 @@ double putty_bridge_termwin_cell_width_pt(const PuttyBridgeTermWin *btw)
 
 double putty_bridge_termwin_cell_height_pt(const PuttyBridgeTermWin *btw)
 {
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     if (!btw || !btw->mtw)
         return 0.0;
     return btw->mtw->cell_height_pt;
@@ -1077,6 +1088,7 @@ bool putty_bridge_termwin_palette_colour(
 
 int32_t putty_bridge_termwin_cols(const PuttyBridgeTermWin *btw)
 {
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     if (!btw || !btw->term)
         return 0;
     return btw->term->cols;
@@ -1084,6 +1096,7 @@ int32_t putty_bridge_termwin_cols(const PuttyBridgeTermWin *btw)
 
 int32_t putty_bridge_termwin_rows(const PuttyBridgeTermWin *btw)
 {
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     if (!btw || !btw->term)
         return 0;
     return btw->term->rows;
@@ -1352,6 +1365,7 @@ void putty_bridge_termwin_request_resize_completed(PuttyBridgeTermWin *btw)
 
 int32_t putty_bridge_termwin_resize_action(const PuttyBridgeTermWin *btw)
 {
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     if (!btw || !btw->conf)
         return PUTTY_BRIDGE_RESIZE_TERM;
     return conf_get_int(btw->conf, CONF_resize_action);
@@ -1359,6 +1373,7 @@ int32_t putty_bridge_termwin_resize_action(const PuttyBridgeTermWin *btw)
 
 bool putty_bridge_termwin_scrollbar_enabled(const PuttyBridgeTermWin *btw)
 {
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     if (!btw || !btw->conf)
         return true;
     return conf_get_bool(btw->conf, CONF_scrollbar);
@@ -1368,6 +1383,7 @@ void putty_bridge_termwin_view_size_for_grid(
     const PuttyBridgeTermWin *btw, int32_t cols, int32_t rows,
     double *width_pt, double *height_pt)
 {
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     if (!btw || !btw->mtw || cols < 1 || rows < 1)
         return;
     if (width_pt)
@@ -1396,6 +1412,7 @@ void putty_bridge_termwin_scrollbar_state(
     const PuttyBridgeTermWin *btw,
     int32_t *total, int32_t *start, int32_t *page)
 {
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     if (!btw || !btw->mtw)
         return;
     if (total)
@@ -1408,6 +1425,7 @@ void putty_bridge_termwin_scrollbar_state(
 
 bool putty_bridge_termwin_win_name_always(const PuttyBridgeTermWin *btw)
 {
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     if (!btw || !btw->conf)
         return false;
     return conf_get_bool(btw->conf, CONF_win_name_always);
@@ -1418,6 +1436,7 @@ bool putty_bridge_termwin_bell_wavefile_path(
 {
     const Filename *wavefile;
 
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     if (!btw || !btw->conf || !buf || buflen == 0)
         return false;
 
@@ -1434,6 +1453,7 @@ bool putty_bridge_termwin_raw_mouse_active(const PuttyBridgeTermWin *btw)
 {
     Terminal *term;
 
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     if (!btw || !btw->term)
         return false;
 
@@ -1452,6 +1472,7 @@ bool putty_bridge_termwin_pointer_indicates_raw_mouse(
 
 bool putty_bridge_termwin_mouse_override_shift(const PuttyBridgeTermWin *btw)
 {
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     if (!btw || !btw->conf)
         return true;
     return conf_get_bool(btw->conf, CONF_mouse_override);
@@ -1468,6 +1489,7 @@ int32_t putty_bridge_termwin_mouse_buttons_mode(const PuttyBridgeTermWin *btw)
 bool putty_bridge_termwin_right_click_shows_menu(
     const PuttyBridgeTermWin *btw, bool control)
 {
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     /*
      * Match Windows: MOUSE_WINDOWS always shows the context menu on
      * right-click; Control+right-click shows it in any mode (escape hatch
@@ -1631,6 +1653,7 @@ void putty_bridge_termwin_lost_clipboard_ownership(
 
 bool putty_bridge_termwin_mouse_autocopy_enabled(const PuttyBridgeTermWin *btw)
 {
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     if (!btw || !btw->conf)
         return false;
     return conf_get_bool(btw->conf, CONF_mouseautocopy);
@@ -1639,6 +1662,7 @@ bool putty_bridge_termwin_mouse_autocopy_enabled(const PuttyBridgeTermWin *btw)
 int32_t putty_bridge_termwin_mouse_select_clipboard_count(
     const PuttyBridgeTermWin *btw)
 {
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     if (!btw || !btw->term)
         return 0;
     return btw->term->n_mouse_select_clipboards;
@@ -2074,6 +2098,7 @@ int putty_bridge_termwin_seat_output_exit_smoke(void)
 
 void putty_bridge_set_parent_window(void *nswindow)
 {
+    PUTTY_BRIDGE_ASSERT_MAIN_THREAD();
     mac_gui_dialogs_set_parent_window(nswindow);
 }
 
