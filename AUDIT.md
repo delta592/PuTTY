@@ -130,7 +130,7 @@ This audit does **not** demand reformatting upstream `unix/` / `windows/` / port
   - **Where:** launch, pterm cmdline, ssh-exit test, termwin smoke  
   - **Fix:** Route through `putty_conf_*` / terminal helpers; keep internals in `putty-conf.c` / bridge-only with comments.
 
-- [ ] **P2.13** Fallible I/O unchecked  
+- [x] **P2.13** Fallible I/O unchecked  
   - **Where:** `storage.c` `fprintf`/`fclose`; `read_random_seed`; `printing.c` short `fwrite` / `pclose`; puttygen public save `ferror`  
   - **Fix:** Propagate or log errors; mark intentional ignore with `WORKAROUND:` if kept.
 

@@ -13,6 +13,7 @@
 
 struct printer_job_tag {
     FILE *fp;
+    bool write_failed;
 };
 
 printer_job *printer_start_job(char *printer)
@@ -24,14 +25,17 @@ printer_job *printer_start_job(char *printer)
 
     pj = snew(printer_job);
     /*
-     * Treat the printer string as a command to pipe to — typically lpr
-     * under CUPS, matching the Unix GTK frontend.
+     * WORKAROUND: Treat the printer string as a command to pipe to —
+     * typically lpr under CUPS, matching the Unix GTK frontend. No native
+     * CUPS job API; popen is the supported parity path (PARITY.md).
+     * — see .cursor/rules/agents.mdc
      */
     pj->fp = popen(printer, "w");
     if (!pj->fp) {
         sfree(pj);
         return NULL;
     }
+    pj->write_failed = false;
     return pj;
 }
 
@@ -41,15 +45,20 @@ void printer_job_data(printer_job *pj, const void *data, size_t len)
         return;
 
     if (fwrite(data, 1, len, pj->fp) < len)
-        /* ignore short writes; finish_job still closes the pipe */;
+        pj->write_failed = true;
 }
 
 void printer_finish_job(printer_job *pj)
 {
+    int status;
+
     if (!pj)
         return;
 
-    pclose(pj->fp);
+    status = pclose(pj->fp);
+    if (pj->write_failed || status != 0)
+        nonfatal("Printer job failed (short write or command exit status %d)",
+                 status);
     sfree(pj);
 }
 

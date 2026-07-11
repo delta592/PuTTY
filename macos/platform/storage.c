@@ -167,6 +167,7 @@ static char *make_filename(int index, const char *subname)
 
 struct settings_w {
     FILE *fp;
+    bool write_failed;
 };
 
 settings_w *open_settings_w(const char *sessionname, char **errmsg)
@@ -210,22 +211,30 @@ settings_w *open_settings_w(const char *sessionname, char **errmsg)
 
     settings_w *toret = snew(settings_w);
     toret->fp = fp;
+    toret->write_failed = false;
     return toret;
 }
 
 void write_setting_s(settings_w *handle, const char *key, const char *value)
 {
-    fprintf(handle->fp, "%s=%s\n", key, value);
+    if (fprintf(handle->fp, "%s=%s\n", key, value) < 0)
+        handle->write_failed = true;
 }
 
 void write_setting_i(settings_w *handle, const char *key, int value)
 {
-    fprintf(handle->fp, "%s=%d\n", key, value);
+    if (fprintf(handle->fp, "%s=%d\n", key, value) < 0)
+        handle->write_failed = true;
 }
 
 void close_settings_w(settings_w *handle)
 {
-    fclose(handle->fp);
+    bool bad = handle->write_failed || ferror(handle->fp);
+
+    if (fclose(handle->fp) != 0)
+        bad = true;
+    if (bad)
+        nonfatal("Unable to finish writing saved session settings");
     sfree(handle);
 }
 
@@ -872,8 +881,13 @@ void read_random_seed(noise_consumer_t consumer)
     if (fd >= 0) {
         char buf[512];
         int ret;
-        while ( (ret = read(fd, buf, sizeof(buf))) > 0)
+        while ((ret = read(fd, buf, sizeof(buf))) > 0)
             consumer(buf, ret);
+        /*
+         * WORKAROUND: read() errors are ignored — seed is optional entropy
+         * only; matching unix/storage.c. Missing/corrupt seed is non-fatal.
+         * — see .cursor/rules/agents.mdc
+         */
         close(fd);
     }
 }

@@ -441,8 +441,18 @@ bool puttygen_key_save_public(
     ssh2_write_pubkey(fp, key->ukey->comment,
                       pub->s, pub->len,
                       SSH_KEYTYPE_SSH2_PUBLIC_OPENSSH);
-    fclose(fp);
-    strbuf_free(pub);
+    {
+        bool bad = ferror(fp);
+
+        if (fclose(fp) != 0)
+            bad = true;
+        strbuf_free(pub);
+        if (bad) {
+            if (error_out)
+                *error_out = dup_error("Failed writing public key file");
+            return false;
+        }
+    }
     return true;
 }
 
