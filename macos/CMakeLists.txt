@@ -260,8 +260,10 @@ add_dependencies(fuzzterm generated_licence_h)
 target_link_libraries(fuzzterm
   guiterminal eventloop settings utils ${platform_libraries})
 
-add_executable(osxlaunch
-  platform/osxlaunch.c)
+# Do not build unix/osxlaunch.c here. That helper is for GTK-on-Quartz /
+# gtk-mac-bundler (unix/*.bundle) and must not be revived under
+# PUTTY_MACOS_GUI (agents.mdc §3 / §11, AUDIT P1.6). The unix/ platform
+# still builds osxlaunch when PUTTY_MACOS_GUI is OFF.
 
 add_library(puttygen-common OBJECT
   ${CMAKE_SOURCE_DIR}/stubs/no-timing.c
