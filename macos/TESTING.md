@@ -116,6 +116,7 @@ On Intel: run the same binaries once as a spot-check; set
 
 | Date | Machine | Arch | Tester | Notes |
 |------|---------|------|--------|-------|
+| 2026-07-10 | intrepid (this tree) | arm64 | automated | Phase 9 exit validation: `./macos/build.sh test --dev` **41/41** CTest (unit/crypt/perf/ui incl. Accessibility, Integration, Printing, Help); `verify-bundle-layout` OK for PuTTY/pterm/puttygen |
 | 2026-07-09 | intrepid (this tree) | arm64 | automated | `./macos/build.sh test --dev`: 29/29 CTest (incl. XCTest + perf) |
 | | | x86_64 native | | Pending physical Intel Mac |
 | | | Universal cross-copy | | Pending second machine |
