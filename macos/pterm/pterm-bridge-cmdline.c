@@ -94,8 +94,6 @@ PuttyBridgeCmdlineAction putty_bridge_process_command_line(
     setup(true);
 
     conf = putty_conf_new();
-    if (!conf)
-        return PUTTY_BRIDGE_CMDLINE_LAUNCH;
 
     /* Ensure Connection panel stays hidden in Change Settings. */
     putty_conf_set_protocol(conf, -1);

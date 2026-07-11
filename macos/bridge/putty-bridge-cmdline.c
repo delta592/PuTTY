@@ -105,8 +105,6 @@ PuttyBridgeCmdlineAction putty_bridge_process_command_line(
     setup(true);
 
     conf = putty_conf_new();
-    if (!conf)
-        return PUTTY_BRIDGE_CMDLINE_LAUNCH;
 
     arglist = cmdline_arg_list_from_argv(argc, argv);
     arglistpos = 0;

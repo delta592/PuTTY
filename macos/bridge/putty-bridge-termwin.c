@@ -2165,8 +2165,6 @@ int putty_bridge_termwin_window_exit_smoke(void)
     PuttyBridgeCmdlineAction action;
 
     conf = putty_conf_new();
-    if (!conf)
-        return 1;
     putty_conf_set_host(conf, "example.com");
     /* Non-default Columns×Rows must survive putty_bridge_termwin_open. */
     putty_conf_set_terminal_size(conf, 218, 32);
@@ -2240,8 +2238,6 @@ int putty_bridge_termwin_specials_exit_smoke(void)
     PuttyBridgeSessionSpecial specials[8];
 
     btw = putty_bridge_termwin_new();
-    if (!btw)
-        return 1;
 
     putty_bridge_termwin_set_specials_menu_callback(
         btw, putty_bridge_termwin_specials_smoke_cb, &smoke_specials_cb_count);
@@ -2286,8 +2282,6 @@ int putty_bridge_termwin_eventlog_smoke(void)
     size_t expected;
 
     btw = putty_bridge_termwin_new();
-    if (!btw)
-        return 1;
 
     putty_bridge_termwin_set_eventlog_callback(
         btw, putty_bridge_termwin_eventlog_smoke_cb, &smoke_cb_count);

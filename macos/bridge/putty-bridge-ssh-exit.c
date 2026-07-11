@@ -108,8 +108,6 @@ int putty_bridge_ssh_exit_test(void)
     setenv("PUTTY_MACOS_DIALOG_AUTO_ACCEPT", "1", 1);
 
     conf = putty_conf_new();
-    if (!conf)
-        return -1;
 
     putty_conf_set_protocol(conf, PUTTY_CONF_PROT_SSH);
     putty_conf_set_host(conf, host);
@@ -119,11 +117,6 @@ int putty_bridge_ssh_exit_test(void)
     ssh_exit_configure_hostkey(conf);
 
     btw = putty_bridge_termwin_new();
-    if (!btw) {
-        putty_conf_free(conf);
-        unsetenv("PUTTY_MACOS_DIALOG_AUTO_ACCEPT");
-        return -2;
-    }
 
     if (!putty_bridge_termwin_open(btw, conf, true)) {
         fprintf(stderr,

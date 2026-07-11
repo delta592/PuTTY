@@ -276,8 +276,6 @@ int putty_bridge_conf_smoke(void)
     const char *host;
 
     conf = putty_conf_new();
-    if (!conf)
-        return -1;
 
     putty_conf_set_host(conf, "bridge-smoke.example");
     putty_conf_set_port(conf, 2222);
@@ -326,11 +324,6 @@ int putty_bridge_conf_smoke(void)
         return -6;
 
     loaded = putty_conf_new();
-    if (!loaded) {
-        putty_conf_free(conf);
-        del_settings(putty_conf_smoke_session);
-        return -7;
-    }
 
     if (!putty_conf_load_session(loaded, putty_conf_smoke_session)) {
         putty_conf_free(conf);

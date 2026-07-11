@@ -604,8 +604,6 @@ int putty_bridge_session_smoke(void)
     static const char probe[] = "session-smoke\r\n";
 
     session = putty_session_new(NULL);
-    if (!session)
-        return -1;
     if (!session->term || !session->conf)
         return -2;
 
@@ -618,10 +616,6 @@ int putty_bridge_session_smoke(void)
     putty_session_set_callbacks(session, &cbs, &output_bytes);
 
     conf = putty_conf_new();
-    if (!conf) {
-        putty_session_free(session);
-        return -3;
-    }
     putty_conf_set_host(conf, "session-smoke.example");
     putty_conf_set_port(conf, 2222);
     putty_conf_set_protocol(conf, PUTTY_CONF_PROT_SSH);

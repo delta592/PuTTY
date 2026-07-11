@@ -258,8 +258,6 @@ int putty_bridge_eventloop_smoke(void)
     }
 
     wrapper = putty_pollwrapper_new();
-    if (!wrapper)
-        return -1;
 
     putty_uxsel_fill_pollfds(wrapper);
     if (putty_pollwrapper_poll_instant(wrapper) < 0) {
@@ -274,8 +272,6 @@ int putty_bridge_eventloop_smoke(void)
     putty_pollwrapper_free(wrapper);
 
     session = putty_session_new(NULL);
-    if (!session)
-        return -3;
     if (putty_session_output(session, test_input, sizeof(test_input) - 1) != 0)
         return -4;
     putty_session_free(session);

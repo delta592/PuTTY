@@ -134,7 +134,7 @@ This audit does **not** demand reformatting upstream `unix/` / `windows/` / port
   - **Where:** `storage.c` `fprintf`/`fclose`; `read_random_seed`; `printing.c` short `fwrite` / `pclose`; puttygen public save `ferror`  
   - **Fix:** Propagate or log errors; mark intentional ignore with `WORKAROUND:` if kept.
 
-- [ ] **P2.14** Dead NULL checks after `snew`  
+- [x] **P2.14** Dead NULL checks after `snew`  
   - **Where:** cmdline / ssh-exit / eventloop after `putty_*_new`  
   - **Fix:** Remove impossible checks (`pure-c.mdc`).
 
