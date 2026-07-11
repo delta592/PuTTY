@@ -16,7 +16,7 @@ parity gaps (X11, GSSAPI, serial) are in [`PARITY.md`](PARITY.md).
 |-------------|--------|
 | macOS 15+ | Deployment target (`PUTTY_MACOS_DEPLOYMENT_TARGET`, default `15.0`) |
 | Xcode 16+ | Full app, not Command Line Tools alone; includes Swift 6 |
-| CMake ≥ 3.28 | |
+| CMake ≥ 3.28 | Required when `PUTTY_MACOS_GUI=ON` (enforced in `macos/CMakeLists.txt`). Root `cmake_minimum_required` stays `3.7...3.28` for upstream non-GUI builds. |
 | Ninja | Dev / host-arch Release profiles |
 | Xcode generator | Universal 2 (`arm64` + `x86_64`) only |
 | Python 3 | Icon generation at configure/build time |

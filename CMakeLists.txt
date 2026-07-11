@@ -1,4 +1,6 @@
 cmake_minimum_required(VERSION 3.7...3.28)
+# Upstream floor stays 3.7 for non-GUI platforms. The macOS AppKit GUI
+# (PUTTY_MACOS_GUI=ON) requires CMake ≥ 3.28 — enforced in macos/CMakeLists.txt.
 
 set(PUTTY_MACOS_GUI OFF
   CACHE BOOL "Enable Swift/AppKit native GUI on macOS (Darwin only)")

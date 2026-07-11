@@ -2,6 +2,12 @@
 #
 # Phase 2.2: non-GTK platform C modules (mirrors unix/CMakeLists.txt).
 
+if(CMAKE_VERSION VERSION_LESS "3.28")
+  message(FATAL_ERROR
+    "PUTTY_MACOS_GUI requires CMake ≥ 3.28 (found ${CMAKE_VERSION}). "
+    "Root cmake_minimum_required remains 3.7...3.28 for non-GUI builds.")
+endif()
+
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/icons.cmake)
