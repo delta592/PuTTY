@@ -55,6 +55,27 @@ Default build dirs: `build-macos-gui-coverage`,
 `build-macos-gui-coverage-swift`, `build-macos-gui-asan`,
 `build-macos-gui-tsan`.
 
+### Coverage baseline (post-AUDIT remediation)
+
+Re-run after bridge/UI audit work. Host-arch Debug trees only.
+
+| Tree | Command | Result (2026-07-10, arm64) |
+|------|---------|----------------------------|
+| Dev CTest | `./macos/build.sh test --dev` | **41/41** passed (unit/crypt/perf/ui/xctest) |
+| C coverage | `make coverage` | `unit\|crypt` **37/37**; sample lines: `putty-conf.c` **74.7%**, `paths.c` **78.9%**, `putty-bridge-platform.c` **54.1%** |
+| Swift coverage | `make coverage-swift` | `unit\|crypt\|xctest` **38/38**; PuttyMacUI+tests **55.3%** lines / **45.9%** regions (`PuttyBridgeError.swift` **100%**, `BridgeErrorTests` **98.4%**, `LaunchTests` **100%**) |
+
+HTML report: `build-macos-gui-coverage-swift/coverage-report/html/index.html`.
+Makefile still expects roughly **50–60%** line cover on the instrumented
+Swift UI surface without live SSH/serial — current TOTAL is in that band.
+
+New / extended automated coverage for audit remediations:
+
+- `putty_bridge_conf_smoke` — terminal size, colour RGB, try-agent, manual
+  hostkey, `/dev/cu.usbserial` + Documents log defaults
+- `BridgeErrorTests` — `PuttyBridgeError` descriptions / `takeCString`
+- `LaunchTests.testConfHelpersTerminalSizeTryAgentAndHostkey`
+
 ## Lint and static analysis (macos/ only)
 
 These tools **must not** reformat or tidy upstream root `*.c` / `unix/` /
@@ -119,6 +140,7 @@ On Intel: run the same binaries once as a spot-check; set
 
 | Date | Machine | Arch | Tester | Notes |
 |------|---------|------|--------|-------|
+| 2026-07-10 | intrepid (this tree) | arm64 | automated | Post-AUDIT P0–P3: `./macos/build.sh test --dev` **41/41**; `make coverage` unit\|crypt **37/37**; `make coverage-swift` **38/38** + llvm-cov TOTAL **55.3%** lines (`PuttyBridgeError` 100%); conf smoke covers new helpers + path defaults; `BridgeErrorTests` added |
 | 2026-07-10 | intrepid (this tree) | arm64 | automated | Phase 9 exit validation: `./macos/build.sh test --dev` **41/41** CTest (unit/crypt/perf/ui incl. Accessibility, Integration, Printing, Help); `verify-bundle-layout` OK for PuTTY/pterm/puttygen |
 | 2026-07-09 | intrepid (this tree) | arm64 | automated | `./macos/build.sh test --dev`: 29/29 CTest (incl. XCTest + perf) |
 | | | x86_64 native | | Pending physical Intel Mac |

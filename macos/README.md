@@ -195,7 +195,7 @@ cmake --build build-macos-gui-dev --target putty-test-all
 CTest covers portable C tests (`test_terminal`, `test_lineedit`, `test_conf`,
 `cryptsuite`/`testcrypt`, …), macOS smoke binaries, the Phase 4 perf gate,
 and the `PuttyMacUITests` XCTest bundle (launch, local-echo connect, config
-save/load). `testzlib` (stdin tool) and `testsc` (DynamoRIO dry-run) are
+save/load, accessibility, integration, printing, help, `PuttyBridgeError`). `testzlib` (stdin tool) and `testsc` (DynamoRIO dry-run) are
 built but not registered as CTest cases. Manual matrix: [`TESTING.md`](TESTING.md).
 
 Single smoke binary:

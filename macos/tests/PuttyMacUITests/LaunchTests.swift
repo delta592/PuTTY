@@ -61,4 +61,25 @@ final class LaunchTests: XCTestCase {
         XCTAssertTrue(putty_bridge_needs_initial_config(conf))
         XCTAssertFalse(putty_conf_launchable(conf))
     }
+
+    func testConfHelpersTerminalSizeTryAgentAndHostkey() {
+        let conf = putty_conf_new()
+        XCTAssertNotNil(conf)
+        defer { putty_conf_free(conf) }
+
+        putty_conf_set_host(conf, "conf-helpers.example")
+        putty_conf_set_protocol(conf, Int32(PUTTY_CONF_PROT_SSH.rawValue))
+        putty_conf_set_terminal_size(conf, 132, 43)
+        putty_conf_set_bool(conf, PUTTY_CONF_BOOL_TRY_AGENT, true)
+        XCTAssertTrue(putty_conf_get_bool(conf, PUTTY_CONF_BOOL_TRY_AGENT))
+        putty_conf_set_colour_rgb(conf, 0, 1, 2, 3)
+        XCTAssertTrue(
+            putty_conf_add_manual_hostkey(
+                conf,
+                "SHA256:QV1VZsAC792TF0SzLDcwbQ1feceWY481HUZDvbEBiaE"
+            )
+        )
+        XCTAssertFalse(putty_conf_add_manual_hostkey(conf, "bad-key"))
+        XCTAssertTrue(putty_conf_launchable(conf))
+    }
 }

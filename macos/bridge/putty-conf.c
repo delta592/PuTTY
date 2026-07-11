@@ -9,6 +9,7 @@
 #include "putty-bridge-thread.h"
 
 #include "storage.h"
+#include "paths.h"
 
 PuttyConf *putty_conf_new(void)
 {
@@ -304,6 +305,30 @@ int putty_bridge_conf_smoke(void)
     if (!putty_conf_launchable(conf))
         return -23;
 
+    putty_conf_set_terminal_size(conf, 100, 40);
+    if (conf_get_int(conf->conf, CONF_width) != 100 ||
+        conf_get_int(conf->conf, CONF_height) != 40)
+        return -27;
+
+    putty_conf_set_colour_rgb(conf, CONF_COLOUR_fg, 10, 20, 30);
+    if (conf_get_int_int(conf->conf, CONF_colours, CONF_COLOUR_fg * 3 + 0) != 10 ||
+        conf_get_int_int(conf->conf, CONF_colours, CONF_COLOUR_fg * 3 + 1) != 20 ||
+        conf_get_int_int(conf->conf, CONF_colours, CONF_COLOUR_fg * 3 + 2) != 30)
+        return -28;
+
+    putty_conf_set_bool(conf, PUTTY_CONF_BOOL_TRY_AGENT, true);
+    if (!putty_conf_get_bool(conf, PUTTY_CONF_BOOL_TRY_AGENT))
+        return -29;
+    putty_conf_set_bool(conf, PUTTY_CONF_BOOL_TRY_AGENT, false);
+    if (putty_conf_get_bool(conf, PUTTY_CONF_BOOL_TRY_AGENT))
+        return -30;
+
+    if (!putty_conf_add_manual_hostkey(
+            conf, "SHA256:QV1VZsAC792TF0SzLDcwbQ1feceWY481HUZDvbEBiaE"))
+        return -31;
+    if (putty_conf_add_manual_hostkey(conf, "not-a-valid-hostkey"))
+        return -32;
+
     {
         PuttyConf *copy = putty_conf_copy(conf);
         if (!copy)
@@ -349,5 +374,33 @@ int putty_bridge_conf_smoke(void)
     putty_conf_delete_session(putty_conf_smoke_session);
     putty_conf_free(conf);
     putty_conf_free(loaded);
+
+    /*
+     * Platform defaults (P3.30): serial callout placeholder and Documents
+     * log path from paths.h helpers.
+     */
+    {
+        char *serial = platform_default_s("SerialLine");
+        Filename *logfn;
+        char *expect_log;
+
+        if (!serial || strcmp(serial, PUTTY_MACOS_DEFAULT_SERIAL_LINE) != 0) {
+            sfree(serial);
+            return -40;
+        }
+        sfree(serial);
+
+        expect_log = putty_macos_default_log_path();
+        logfn = platform_default_filename("LogFileName");
+        if (!expect_log || !logfn || !logfn->path ||
+            strcmp(logfn->path, expect_log) != 0) {
+            filename_free(logfn);
+            sfree(expect_log);
+            return -41;
+        }
+        filename_free(logfn);
+        sfree(expect_log);
+    }
+
     return 0;
 }
