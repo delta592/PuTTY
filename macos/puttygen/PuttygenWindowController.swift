@@ -2,12 +2,33 @@ import AppKit
 import Foundation
 import PuttygenBridge
 
+/// Progress callback context for background `puttygen_key_generate`.
+/// Retained for the worker lifetime; holds a weak controller so UI updates
+/// are skipped if the window is already torn down.
+private final class PuttygenGenerateContext: @unchecked Sendable {
+    let epoch: UInt64
+    weak var controller: PuttygenWindowController?
+
+    init(epoch: UInt64, controller: PuttygenWindowController) {
+        self.epoch = epoch
+        self.controller = controller
+    }
+}
+
 /// Main PuTTYgen window — generate / load / save / export SSH-2 keys (Phase 7.3).
 @MainActor
 final class PuttygenWindowController: NSWindowController, NSWindowDelegate, NSTextFieldDelegate {
-    /// Owned C key handle; freed in deinit (nonisolated).
-    nonisolated(unsafe) private let key: OpaquePointer
+    /// Owned C key handle. All `puttygen_key_*` access (including free) runs on
+    /// `keyQueue` so generate cannot race with teardown or other key ops.
+    nonisolated(unsafe) private var keyHandle: OpaquePointer?
+    private let keyQueue = DispatchQueue(label: "uk.org.tartarus.putty.puttygen.key")
+    /// Bumped on each generate start; completion/progress ignore stale epochs.
+    private var generationEpoch: UInt64 = 0
     private var generating = false
+    private var isTornDown = false
+
+    /// True while a background `puttygen_key_generate` is in flight.
+    var isGenerating: Bool { generating }
 
     private let typePopUp = NSPopUpButton(frame: .zero, pullsDown: false)
     private let bitsField = NSTextField(string: "2048")
@@ -25,7 +46,7 @@ final class PuttygenWindowController: NSWindowController, NSWindowDelegate, NSTe
     private let statusLabel = NSTextField(labelWithString: "No key.")
 
     init() {
-        key = puttygen_key_new()
+        keyHandle = puttygen_key_new()
         let content = NSView(frame: NSRect(x: 0, y: 0, width: 640, height: 520))
         let window = NSWindow(
             contentRect: content.frame,
@@ -56,7 +77,46 @@ final class PuttygenWindowController: NSWindowController, NSWindowDelegate, NSTe
     }
 
     deinit {
-        puttygen_key_free(key)
+        // Safety net if windowWillClose did not run (e.g. abrupt teardown).
+        releaseKeyHandle()
+    }
+
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        _ = sender
+        guard generating else { return true }
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.messageText = "Key generation in progress"
+        alert.informativeText =
+            "Please wait for generation to finish before closing PuTTYgen."
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
+        return false
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        _ = notification
+        isTornDown = true
+        generationEpoch &+= 1
+        releaseKeyHandle()
+    }
+
+    /// Free the C key on `keyQueue` after any in-flight key work drains.
+    nonisolated private func releaseKeyHandle() {
+        keyQueue.sync {
+            if let key = keyHandle {
+                puttygen_key_free(key)
+                keyHandle = nil
+            }
+        }
+    }
+
+    /// Run a PuttygenBridge key operation on `keyQueue` (serializes vs generate).
+    private func withKeyHandle<T>(_ body: (OpaquePointer) -> T) -> T? {
+        keyQueue.sync {
+            guard let key = keyHandle else { return nil }
+            return body(key)
+        }
     }
 
     private func buildUI(in content: NSView) {
@@ -203,15 +263,39 @@ final class PuttygenWindowController: NSWindowController, NSWindowDelegate, NSTe
     }
 
     private func refreshKeyDisplay() {
-        let hasKey = puttygen_key_has_key(key)
+        let snapshot: (hasKey: Bool, fingerprint: String?, publicKey: String?, comment: String?)? =
+            withKeyHandle { key in
+                let hasKey = puttygen_key_has_key(key)
+                guard hasKey else {
+                    return (false, nil, nil, nil)
+                }
+                var fingerprint: String?
+                var publicKey: String?
+                var comment: String?
+                if let fp = puttygen_key_fingerprint(key) {
+                    fingerprint = String(cString: fp)
+                    puttygen_free_string(fp)
+                }
+                if let pub = puttygen_key_public_openssh(key) {
+                    publicKey = String(cString: pub)
+                    puttygen_free_string(pub)
+                }
+                if let c = puttygen_key_comment(key) {
+                    comment = String(cString: c)
+                    puttygen_free_string(c)
+                }
+                return (true, fingerprint, publicKey, comment)
+            }
+
+        let hasKey = snapshot?.hasKey ?? false
         savePrivateButton.isEnabled = hasKey && !generating
         savePublicButton.isEnabled = hasKey && !generating
         exportButton.isEnabled = hasKey && !generating
         commentField.isEnabled = hasKey && !generating
-        generateButton.isEnabled = !generating
-        loadButton.isEnabled = !generating
+        generateButton.isEnabled = !generating && !isTornDown
+        loadButton.isEnabled = !generating && !isTornDown
 
-        if !hasKey {
+        guard let snapshot, snapshot.hasKey else {
             fingerprintField.stringValue = ""
             publicKeyView.string = ""
             commentField.stringValue = ""
@@ -219,18 +303,9 @@ final class PuttygenWindowController: NSWindowController, NSWindowDelegate, NSTe
             return
         }
 
-        if let fp = puttygen_key_fingerprint(key) {
-            fingerprintField.stringValue = String(cString: fp)
-            puttygen_free_string(fp)
-        }
-        if let pub = puttygen_key_public_openssh(key) {
-            publicKeyView.string = String(cString: pub)
-            puttygen_free_string(pub)
-        }
-        if let comment = puttygen_key_comment(key) {
-            commentField.stringValue = String(cString: comment)
-            puttygen_free_string(comment)
-        }
+        fingerprintField.stringValue = snapshot.fingerprint ?? ""
+        publicKeyView.string = snapshot.publicKey ?? ""
+        commentField.stringValue = snapshot.comment ?? ""
         statusLabel.stringValue = "Key ready."
     }
 
@@ -243,32 +318,66 @@ final class PuttygenWindowController: NSWindowController, NSWindowDelegate, NSTe
         refreshKeyDisplay()
     }
 
+    fileprivate func updateGenerationProgress(_ fraction: Double, epoch: UInt64) {
+        guard !isTornDown, generationEpoch == epoch, generating else { return }
+        progress.doubleValue = fraction
+    }
+
+    private func finishGeneration(ok: Bool, error: String?, epoch: UInt64) {
+        guard !isTornDown, generationEpoch == epoch else { return }
+        setGenerating(false)
+        if !ok {
+            showError(error ?? "Key generation failed")
+            statusLabel.stringValue = "Generation failed."
+        } else {
+            refreshKeyDisplay()
+            statusLabel.stringValue = "Key generated."
+        }
+    }
+
     @objc func generateKey(_ sender: Any?) {
         _ = sender
-        guard !generating else { return }
+        guard !generating, !isTornDown, keyHandle != nil else { return }
         let type = selectedKeyType()
         let bits = Int32(bitsField.intValue)
+        generationEpoch &+= 1
+        let epoch = generationEpoch
         setGenerating(true)
         statusLabel.stringValue = "Generating key…"
 
-        // OpaquePointer / UnsafeMutableRawPointer are not Sendable; pass
-        // bitPatterns into the @Sendable worker and rebuild the pointers there.
-        let keyBits = Int(bitPattern: key)
-        let ctxBits = Int(bitPattern: Unmanaged.passUnretained(self).toOpaque())
-        DispatchQueue.global(qos: .userInitiated).async {
-            guard let keyHandle = OpaquePointer(bitPattern: keyBits),
-                  let ctx = UnsafeMutableRawPointer(bitPattern: ctxBits) else {
+        // Retain progress context for the worker; release after generate returns.
+        // Key pointer is passed by bitPattern so the @Sendable closure does not
+        // need to touch MainActor state. Free is blocked until generating ends
+        // (windowShouldClose / terminate refuse while generating).
+        let keyBits = Int(bitPattern: keyHandle!)
+        let context = PuttygenGenerateContext(epoch: epoch, controller: self)
+        let ctxBits = Int(bitPattern: Unmanaged.passRetained(context).toOpaque())
+
+        keyQueue.async {
+            defer {
+                if let raw = UnsafeMutableRawPointer(bitPattern: ctxBits) {
+                    Unmanaged<PuttygenGenerateContext>.fromOpaque(raw).release()
+                }
+            }
+            guard let key = OpaquePointer(bitPattern: keyBits),
+                  let ctx = UnsafeMutableRawPointer(bitPattern: ctxBits)
+            else {
+                DispatchQueue.main.async {
+                    context.controller?.finishGeneration(
+                        ok: false, error: "Invalid key handle", epoch: epoch)
+                }
                 return
             }
             var err: UnsafeMutablePointer<CChar>?
             let ok = puttygen_key_generate(
-                keyHandle, type, bits,
-                { ctx, fraction in
-                    guard let ctx else { return }
-                    let controller = Unmanaged<PuttygenWindowController>
-                        .fromOpaque(ctx).takeUnretainedValue()
+                key, type, bits,
+                { rawCtx, fraction in
+                    guard let rawCtx else { return }
+                    let progressCtx = Unmanaged<PuttygenGenerateContext>
+                        .fromOpaque(rawCtx).takeUnretainedValue()
                     DispatchQueue.main.async {
-                        controller.progress.doubleValue = fraction
+                        progressCtx.controller?.updateGenerationProgress(
+                            fraction, epoch: progressCtx.epoch)
                     }
                 },
                 ctx,
@@ -279,15 +388,11 @@ final class PuttygenWindowController: NSWindowController, NSWindowDelegate, NSTe
                 puttygen_free_string($0)
                 return s
             }
+            // Capture weak controller before defer releases the context.
+            let controller = Unmanaged<PuttygenGenerateContext>
+                .fromOpaque(ctx).takeUnretainedValue().controller
             DispatchQueue.main.async {
-                self.setGenerating(false)
-                if !ok {
-                    self.showError(errorString ?? "Key generation failed")
-                    self.statusLabel.stringValue = "Generation failed."
-                } else {
-                    self.refreshKeyDisplay()
-                    self.statusLabel.stringValue = "Key generated."
-                }
+                controller?.finishGeneration(ok: ok, error: errorString, epoch: epoch)
             }
         }
     }
@@ -304,6 +409,7 @@ final class PuttygenWindowController: NSWindowController, NSWindowDelegate, NSTe
     }
 
     private func loadKey(at path: String) {
+        guard !generating, !isTornDown else { return }
         var needsPass = false
         var err: UnsafeMutablePointer<CChar>?
         guard puttygen_key_probe_file(path, &needsPass, &err) else {
@@ -319,26 +425,38 @@ final class PuttygenWindowController: NSWindowController, NSWindowDelegate, NSTe
             }
         }
 
-        let result = path.withCString { cPath in
-            (passphrase ?? "").withCString { cPass in
-                puttygen_key_load(key, cPath, cPass, &err)
+        let outcome: (PuttygenLoadResult, String?)? = withKeyHandle { key in
+            var localErr: UnsafeMutablePointer<CChar>?
+            let result = path.withCString { cPath in
+                (passphrase ?? "").withCString { cPass in
+                    puttygen_key_load(key, cPath, cPass, &localErr)
+                }
             }
+            let message: String? = localErr.map {
+                let s = String(cString: $0)
+                puttygen_free_string($0)
+                return s
+            }
+            return (result, message)
         }
+        guard let outcome else { return }
 
-        switch result {
+        switch outcome.0 {
         case PUTTYGEN_LOAD_OK:
             refreshKeyDisplay()
             statusLabel.stringValue = "Key loaded."
         case PUTTYGEN_LOAD_NEED_PASSPHRASE, PUTTYGEN_LOAD_WRONG_PASSPHRASE:
             showError("Wrong passphrase or passphrase required.")
         default:
-            showError(takeError(&err) ?? "Failed to load key")
+            showError(outcome.1 ?? "Failed to load key")
         }
     }
 
     @objc func savePrivateKey(_ sender: Any?) {
         _ = sender
-        guard puttygen_key_has_key(key) else { return }
+        guard !generating else { return }
+        let hasKey = withKeyHandle { puttygen_key_has_key($0) } ?? false
+        guard hasKey else { return }
         applyCommentFromField()
         guard let pass = matchedPassphraseForSave() else { return }
 
@@ -348,22 +466,32 @@ final class PuttygenWindowController: NSWindowController, NSWindowDelegate, NSTe
         panel.allowedContentTypes = [.data]
         guard panel.runModal() == .OK, let url = panel.url else { return }
 
-        var err: UnsafeMutablePointer<CChar>?
-        let ok = url.path.withCString { cPath in
-            pass.withCString { cPass in
-                puttygen_key_save_ppk(key, cPath, cPass, &err)
+        let outcome = withKeyHandle { key -> (Bool, String?) in
+            var localErr: UnsafeMutablePointer<CChar>?
+            let ok = url.path.withCString { cPath in
+                pass.withCString { cPass in
+                    puttygen_key_save_ppk(key, cPath, cPass, &localErr)
+                }
             }
+            let message: String? = localErr.map {
+                let s = String(cString: $0)
+                puttygen_free_string($0)
+                return s
+            }
+            return (ok, message)
         }
-        if ok {
+        if outcome?.0 == true {
             statusLabel.stringValue = "Private key saved."
         } else {
-            showError(takeError(&err) ?? "Save failed")
+            showError(outcome?.1 ?? "Save failed")
         }
     }
 
     @objc func savePublicKey(_ sender: Any?) {
         _ = sender
-        guard puttygen_key_has_key(key) else { return }
+        guard !generating else { return }
+        let hasKey = withKeyHandle { puttygen_key_has_key($0) } ?? false
+        guard hasKey else { return }
         applyCommentFromField()
 
         let panel = NSSavePanel()
@@ -371,20 +499,30 @@ final class PuttygenWindowController: NSWindowController, NSWindowDelegate, NSTe
         panel.nameFieldStringValue = "id_putty.pub"
         guard panel.runModal() == .OK, let url = panel.url else { return }
 
-        var err: UnsafeMutablePointer<CChar>?
-        let ok = url.path.withCString { cPath in
-            puttygen_key_save_public(key, cPath, &err)
+        let outcome = withKeyHandle { key -> (Bool, String?) in
+            var localErr: UnsafeMutablePointer<CChar>?
+            let ok = url.path.withCString { cPath in
+                puttygen_key_save_public(key, cPath, &localErr)
+            }
+            let message: String? = localErr.map {
+                let s = String(cString: $0)
+                puttygen_free_string($0)
+                return s
+            }
+            return (ok, message)
         }
-        if ok {
+        if outcome?.0 == true {
             statusLabel.stringValue = "Public key saved."
         } else {
-            showError(takeError(&err) ?? "Save failed")
+            showError(outcome?.1 ?? "Save failed")
         }
     }
 
     @objc func exportOpenSSH(_ sender: Any?) {
         _ = sender
-        guard puttygen_key_has_key(key) else { return }
+        guard !generating else { return }
+        let hasKey = withKeyHandle { puttygen_key_has_key($0) } ?? false
+        guard hasKey else { return }
         applyCommentFromField()
         guard let pass = matchedPassphraseForSave() else { return }
 
@@ -393,16 +531,24 @@ final class PuttygenWindowController: NSWindowController, NSWindowDelegate, NSTe
         panel.nameFieldStringValue = "id_ed25519"
         guard panel.runModal() == .OK, let url = panel.url else { return }
 
-        var err: UnsafeMutablePointer<CChar>?
-        let ok = url.path.withCString { cPath in
-            pass.withCString { cPass in
-                puttygen_key_export_openssh(key, cPath, cPass, &err)
+        let outcome = withKeyHandle { key -> (Bool, String?) in
+            var localErr: UnsafeMutablePointer<CChar>?
+            let ok = url.path.withCString { cPath in
+                pass.withCString { cPass in
+                    puttygen_key_export_openssh(key, cPath, cPass, &localErr)
+                }
             }
+            let message: String? = localErr.map {
+                let s = String(cString: $0)
+                puttygen_free_string($0)
+                return s
+            }
+            return (ok, message)
         }
-        if ok {
+        if outcome?.0 == true {
             statusLabel.stringValue = "OpenSSH key exported."
         } else {
-            showError(takeError(&err) ?? "Export failed")
+            showError(outcome?.1 ?? "Export failed")
         }
     }
 
@@ -414,9 +560,13 @@ final class PuttygenWindowController: NSWindowController, NSWindowDelegate, NSTe
     }
 
     private func applyCommentFromField() {
-        guard puttygen_key_has_key(key) else { return }
-        commentField.stringValue.withCString { cstr in
-            puttygen_key_set_comment(key, cstr)
+        let comment = commentField.stringValue
+        _ = withKeyHandle { key -> Bool in
+            guard puttygen_key_has_key(key) else { return false }
+            comment.withCString { cstr in
+                puttygen_key_set_comment(key, cstr)
+            }
+            return true
         }
     }
 

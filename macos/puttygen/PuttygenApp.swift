@@ -35,6 +35,21 @@ final class PuttygenAppDelegate: NSObject, NSApplicationDelegate {
         true
     }
 
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        _ = sender
+        guard windowController?.isGenerating == true else {
+            return .terminateNow
+        }
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.messageText = "Key generation in progress"
+        alert.informativeText =
+            "Please wait for generation to finish before quitting PuTTYgen."
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
+        return .terminateCancel
+    }
+
     private func installMenus() {
         let mainMenu = NSMenu()
         let appItem = NSMenuItem()

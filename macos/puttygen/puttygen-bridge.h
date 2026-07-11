@@ -45,6 +45,9 @@ bool puttygen_key_has_key(const PuttygenKey *key);
  * Generate a new SSH-2 key. Blocks until complete. Call from a background
  * queue; progress_fn may fire on the same thread.
  *
+ * The key handle must remain valid for the full call. Callers must not
+ * puttygen_key_free(key) (or destroy the owning UI) until this returns.
+ *
  * bits: RSA modulus bits (e.g. 2048), ECDSA curve bits (256/384/521),
  * or ignored for Ed25519 (always 255).
  */
