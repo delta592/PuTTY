@@ -1023,6 +1023,12 @@ still checks the three registered `.app` executables (Xcode generator +
 
 ## Phase 8 — Packaging, signing, and distribution
 
+**Status (honest):** **8.1 complete** (bundle layout, version stamping,
+`verify-bundle-layout` / `verify-universal`). **8.2–8.4 deferred** — no
+Developer ID signing automation, entitlements plists, notarization target,
+or DMG assembler in-tree yet. Local ad-hoc `codesign` remains a manual
+developer step; release Gatekeeper/notarization is not a current exit gate.
+
 **Goal:** Ship installable, Gatekeeper-approved application bundles.
 
 ### 8.1 Bundle layout
@@ -1070,6 +1076,8 @@ explicit Universal 2-only checks.
 
 ### 8.2 Code signing
 
+**Deferred** until a release signing identity and CI secrets are available.
+
 - [ ] Ad-hoc sign for local dev: `codesign --force --deep --sign -`.
 - [ ] Release: sign with **Developer ID Application** certificate (`PUTTY_MACOS_SIGN_IDENTITY`).
 - [ ] Enable **Hardened Runtime** (`-o runtime`).
@@ -1080,17 +1088,21 @@ explicit Universal 2-only checks.
 
 ### 8.3 Notarization
 
-- [ ] Post-build target: `notarytool submit` + `stapler staple` when `PUTTY_MACOS_NOTarize=ON`.
+**Deferred** with 8.2 (requires signed artifacts + Apple notary credentials).
+
+- [ ] Post-build target: `notarytool submit` + `stapler staple` when `PUTTY_MACOS_NOTARIZE=ON`.
 - [ ] Store notary credentials in CI secrets (Phase 10).
 - [ ] Verify stapled apps on clean macOS 15 VM.
 
 ### 8.4 DMG / distribution (optional)
 
+**Deferred** until 8.2–8.3 exist for a shippable artifact.
+
 - [ ] CMake custom target to assemble `.dmg` with Applications symlink.
 - [ ] Ship a **single Universal 2** `.app` per application in the DMG (not separate Intel/ARM downloads).
 - [ ] Align with existing upstream release process (`Buildscr` integration or separate `release-macos.sh`).
 
-**Phase 8 exit criteria:** Signed Universal 2 PuTTY.app passes `spctl -a -vv`; `lipo -info` and `codesign --display --verbose` confirm both slices; notarized build installs on macOS 15 on Intel and Apple Silicon without security warnings.
+**Phase 8 exit criteria (when 8.2–8.4 land):** Signed Universal 2 PuTTY.app passes `spctl -a -vv`; `lipo -info` and `codesign --display --verbose` confirm both slices; notarized build installs on macOS 15 on Intel and Apple Silicon without security warnings. **Current bar:** unsigned/ad-hoc Universal 2 bundles verify via `./macos/build.sh verify --universal`.
 
 ---
 

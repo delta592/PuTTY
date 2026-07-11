@@ -162,7 +162,7 @@ This audit does **not** demand reformatting upstream `unix/` / `windows/` / port
 - [x] **P2.20** Plan file inventory drift (`PuTTY/` vs `PuttyMacUI/`; entitlements listed but absent)  
   - **Fix:** Update inventory + Phase 8 status banner.
 
-- [ ] **P2.21** Phase 8 release path open (signing / notarization / DMG)  
+- [x] **P2.21** Phase 8 release path open (signing / notarization / DMG)  
   - **Fix:** Execute or explicitly defer 8.2–8.4 in plan.
 
 - [ ] **P2.22** Phase 10 CI missing (`build.sh test` / Universal verify on main)  

@@ -165,7 +165,7 @@ stop / flow to match the device.
 | Pageant.app / `NSStatusItem` menu-bar agent | [`AGENT.md`](AGENT.md) |
 | Keychain storage for private keys / passphrases | [`AGENT.md`](AGENT.md) |
 | App Sandbox (direct distribution first) | `MACOS_GUI_PLAN.md` Phase 8 / risk register |
-| Code signing / notarization | Phase 8 (not started) |
+| Code signing / notarization | Phase 8 (8.2–8.4 deferred; 8.1 bundle verify only) |
 
 These are product/packaging choices, not Windows feature parity bugs,
 but they are intentional omissions relative to a “full” desktop PuTTY
