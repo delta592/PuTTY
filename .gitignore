@@ -458,6 +458,8 @@ $RECYCLE.BIN/
 .ninja_deps
 .ninja_log
 build.ninja
+# CMake --system-information probe output (must not live in the source tree)
+__cmake_systeminformation/
 # Out-of-source CMake build trees (see README "Building on macOS (GUI)")
 /build-*/
 Debug/
