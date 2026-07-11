@@ -2,13 +2,16 @@ import AppKit
 import PuttyBridge
 
 /// Payload for a Special Commands menu item (NSObject for representedObject).
+///
+/// Holds a weak `SessionWindowController` instead of a raw TermWin pointer so a
+/// deferred menu action cannot call into a freed bridge handle (AUDIT P1.5).
 final class SpecialCommandPayload: NSObject {
-    let termWin: OpaquePointer
+    weak var controller: SessionWindowController?
     let code: Int32
     let arg: Int32
 
-    init(termWin: OpaquePointer, code: Int32, arg: Int32) {
-        self.termWin = termWin
+    init(controller: SessionWindowController, code: Int32, arg: Int32) {
+        self.controller = controller
         self.code = code
         self.arg = arg
     }
@@ -17,8 +20,12 @@ final class SpecialCommandPayload: NSObject {
 @MainActor
 final class SpecialCommandTarget: NSObject {
     @objc func sendSpecial(_ sender: NSMenuItem) {
-        guard let payload = sender.representedObject as? SpecialCommandPayload else { return }
-        putty_bridge_termwin_send_special(payload.termWin, payload.code, payload.arg)
+        guard let payload = sender.representedObject as? SpecialCommandPayload,
+              let controller = payload.controller,
+              SessionWindowController.isOpen(controller),
+              let termWin = controller.activeTermWin
+        else { return }
+        putty_bridge_termwin_send_special(termWin, payload.code, payload.arg)
     }
 }
 
@@ -73,6 +80,13 @@ public final class SessionSpecialsMenu {
         }
     }
 
+    /// Drop Special Commands UI before the session's TermWin is destroyed.
+    func sessionWillClose(_ controller: SessionWindowController) {
+        if controller === keyController {
+            setKeyController(nil)
+        }
+    }
+
     func installCallback(for controller: SessionWindowController, termWin: OpaquePointer) {
         let ctx = Unmanaged.passUnretained(controller).toOpaque()
         putty_bridge_termwin_set_specials_menu_callback(
@@ -88,7 +102,7 @@ public final class SessionSpecialsMenu {
             hideSpecials()
             return
         }
-        rebuildMenu(termWin: termWin)
+        rebuildMenu(for: controller, termWin: termWin)
         separatorBefore.isHidden = false
         specialCommandsItem.isHidden = false
         separatorAfter.isHidden = false
@@ -98,11 +112,24 @@ public final class SessionSpecialsMenu {
         separatorBefore?.isHidden = true
         specialCommandsItem?.isHidden = true
         separatorAfter?.isHidden = true
-        specialCommandsMenu?.removeAllItems()
+        clearMenuItems(specialCommandsMenu)
     }
 
-    private func rebuildMenu(termWin: OpaquePointer) {
-        specialCommandsMenu.removeAllItems()
+    /// Remove items and drop representedObjects so no stale payloads linger.
+    private func clearMenuItems(_ menu: NSMenu?) {
+        guard let menu else { return }
+        for item in menu.items {
+            if let submenu = item.submenu {
+                clearMenuItems(submenu)
+            }
+            item.representedObject = nil
+            item.target = nil
+        }
+        menu.removeAllItems()
+    }
+
+    private func rebuildMenu(for controller: SessionWindowController, termWin: OpaquePointer) {
+        clearMenuItems(specialCommandsMenu)
 
         let maxItems = 256
         var buffer = Array(
@@ -153,7 +180,7 @@ public final class SessionSpecialsMenu {
                     keyEquivalent: "")
                 item.target = commandTarget
                 item.representedObject = SpecialCommandPayload(
-                    termWin: termWin, code: spec.code, arg: spec.arg)
+                    controller: controller, code: spec.code, arg: spec.arg)
                 menuStack.last?.addItem(item)
             }
         }

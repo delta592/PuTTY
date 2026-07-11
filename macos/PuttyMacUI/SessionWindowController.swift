@@ -178,11 +178,11 @@ public final class SessionWindowController: NSWindowController, NSWindowDelegate
             putty_conf_free(conf)
         }
         /*
-         * Destroy the TermWin on the main thread while this controller (and
-         * TerminalView) are still alive. Do not rely on TerminalView.deinit:
-         * it is nonisolated and may run off the main thread (AUDIT P1.3 /
-         * app_crash_006 callback teardown).
+         * Clear Special Commands before destroying TermWin so menu items
+         * cannot retain a stale session UI, then free the bridge handle on
+         * the main thread (AUDIT P1.3 / P1.5 / app_crash_006).
          */
+        SessionSpecialsMenu.shared.sessionWillClose(self)
         scrollContainer.terminalView.destroyTermWin()
         SessionSpecialsMenu.shared.resignKeyController(self)
         SessionEventLog.shared.sessionWillClose(self)
