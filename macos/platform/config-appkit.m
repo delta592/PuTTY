@@ -549,6 +549,20 @@ static void mac_fire_handler(struct dlgparam *dp, struct MacUCtrl *uc, int event
 }
 
 /*
+ * Track dialog focus the way Win32 (SETFOCUS) and GTK (focus_in_event) do.
+ * config.c sessionsaver_handler uses dlg_last_focused() so that Open with an
+ * empty host field still loads the saved session that was just clicked in the
+ * list. Without this, list clicks never update currfocus and Open only beeps.
+ */
+static void mac_note_focus(struct dlgparam *dp, dlgcontrol *ctrl)
+{
+    if (!dp || dp->currfocus == ctrl)
+        return;
+    dp->lastfocus = dp->currfocus;
+    dp->currfocus = ctrl;
+}
+
+/*
  * Push every CTRL_FONTSELECT text field into Conf. The font panel is
  * modeless; if changeFont: was missed (target/first-responder races),
  * Save/Open/Apply would otherwise persist the stale FontSpec.
@@ -601,8 +615,10 @@ static void mac_commit_pending_edits(struct dlgparam *dp)
 {
     mac_commit_pending_edits(self.dp);
     struct MacUCtrl *uc = mac_uctrl_from_sender(sender);
-    if (uc)
+    if (uc) {
+        mac_note_focus(self.dp, uc->ctrl);
         mac_fire_handler(self.dp, uc, EVENT_ACTION);
+    }
 }
 
 - (void)checkboxToggled:(id)sender
@@ -638,6 +654,15 @@ static void mac_commit_pending_edits(struct dlgparam *dp)
  * Keep Conf in sync while typing (not only when the field resigns focus),
  * so Apply / Save cannot miss the last keystroke even if focus steal fails.
  */
+- (void)controlTextDidBeginEditing:(NSNotification *)notification
+{
+    if (!self.dp || (self.dp->flags & FLAG_IGNORING_EVENTS))
+        return;
+    struct MacUCtrl *uc = mac_uctrl_from_sender(notification.object);
+    if (uc)
+        mac_note_focus(self.dp, uc->ctrl);
+}
+
 - (void)controlTextDidChange:(NSNotification *)notification
 {
     if (!self.dp || (self.dp->flags & FLAG_IGNORING_EVENTS))
@@ -685,6 +710,7 @@ doCommandBySelector:(SEL)commandSelector
     struct MacUCtrl *uc = val ? (struct MacUCtrl *)[val pointerValue] : NULL;
     if (!uc || !self.dp)
         return;
+    mac_note_focus(self.dp, uc->ctrl);
     mac_fire_handler(self.dp, uc, EVENT_ACTION);
 }
 
@@ -697,6 +723,7 @@ doCommandBySelector:(SEL)commandSelector
         return;
     NSPopUpButton *popup = (NSPopUpButton *)uc->widget;
     uc->selectedIndex = popup.indexOfSelectedItem;
+    mac_note_focus(self.dp, uc->ctrl);
     mac_fire_handler(self.dp, uc, EVENT_SELCHANGE);
 }
 
@@ -1764,10 +1791,7 @@ void dlg_set_focus(dlgcontrol *ctrl, dlgparam *dp)
     struct MacUCtrl *uc = mac_find_uctrl(dp, ctrl);
     if (!uc || !uc->widget)
         return;
-    if (dp->currfocus != ctrl) {
-        dp->lastfocus = dp->currfocus;
-        dp->currfocus = ctrl;
-    }
+    mac_note_focus(dp, ctrl);
     [dp->window makeFirstResponder:uc->widget];
 }
 
@@ -1957,6 +1981,8 @@ bool dlg_coloursel_results(dlgcontrol *ctrl, dlgparam *dp,
         return;
     NSIndexSet *sel = tableView.selectedRowIndexes;
     uc->selectedIndex = sel.count == 1 ? (NSInteger)sel.firstIndex : -1;
+    /* Selection is the AppKit stand-in for listbox SETFOCUS / focus_in. */
+    mac_note_focus(self.dp, uc->ctrl);
     mac_fire_handler(self.dp, uc, EVENT_SELCHANGE);
 }
 
@@ -2950,6 +2976,53 @@ int mac_config_controlbox_smoke(void)
             return 14;
         }
         break;
+    }
+
+    /*
+     * Clicking a saved session then Open relies on dlg_last_focused() seeing
+     * the listbox. Programmatic dlg_listbox_select uses IGNORING_EVENTS and
+     * must not count; a real NSTableView selection must update focus.
+     */
+    {
+        dlgcontrol *list = NULL, *open = NULL;
+        struct MacUCtrl *luc = NULL;
+
+        for (i = 0; (uc = index234(dp.byctrl, i)) != NULL; i++) {
+            if (!list && uc->ctrl->type == CTRL_LISTBOX &&
+                [uc->widget isKindOfClass:[NSTableView class]]) {
+                list = uc->ctrl;
+                luc = uc;
+            }
+            if (uc->ctrl->type == CTRL_BUTTON && uc->ctrl->label &&
+                !strcmp(uc->ctrl->label, "Open"))
+                open = uc->ctrl;
+        }
+        if (list && open && luc) {
+            NSTableView *tv = (NSTableView *)luc->widget;
+            dlg_listbox_clear(list, &dp);
+            dlg_listbox_add(list, &dp, "Default Settings");
+            dlg_listbox_add(list, &dp, "intrepid");
+            [tv selectRowIndexes:[NSIndexSet indexSetWithIndex:1]
+                byExtendingSelection:NO];
+            if (dlg_last_focused(open, &dp) != list) {
+                fprintf(stderr,
+                        "mac_config_controlbox_smoke: listbox selection did "
+                        "not update dlg focus (Open-without-Load would beep)\n");
+                mac_dlg_cleanup(&dp);
+                conf_free(conf);
+                return 15;
+            }
+            /* Open click notes the button as currfocus; lastfocus must stay list. */
+            mac_note_focus(&dp, open);
+            if (dlg_last_focused(open, &dp) != list) {
+                fprintf(stderr,
+                        "mac_config_controlbox_smoke: Open button focus note "
+                        "lost prior listbox focus\n");
+                mac_dlg_cleanup(&dp);
+                conf_free(conf);
+                return 16;
+            }
+        }
     }
 
     printf("mac_config_controlbox_smoke: controls=%d "
