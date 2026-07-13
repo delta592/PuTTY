@@ -11,6 +11,7 @@ add_library(putty-macui STATIC
   PuttyBridgeError.swift
   PuttyEventLoop.swift
   PuttyHelp.swift
+  PuttyLocalNetwork.swift
   PuttyMainHop.swift
   HelpWindowController.swift
   SessionWindowController.swift

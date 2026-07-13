@@ -8,7 +8,8 @@ macOS (native GUI)” section of [`../README`](../README). Architecture
 and phase status live in [`../MACOS_GUI_PLAN.md`](../MACOS_GUI_PLAN.md).
 SSH agent behaviour is documented in [`AGENT.md`](AGENT.md).
 In-app help is documented in [`HELP.md`](HELP.md). Known feature
-parity gaps (X11, GSSAPI, serial) are in [`PARITY.md`](PARITY.md).
+Parity gaps (X11, GSSAPI, serial) are in [`PARITY.md`](PARITY.md).
+Local Network permission for LAN SSH on macOS 15+ is also covered there.
 
 ## Prerequisites
 

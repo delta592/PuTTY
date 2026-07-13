@@ -106,6 +106,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SessionMenuUpdating {
     func applicationDidFinishLaunching(_ notification: Notification) {
         _ = notification
         PuttyEventLoop.start()
+        /*
+         * macOS 15 Local Network privacy (TN3179): nudge the Allow prompt
+         * before the user opens a session. BSD connect() does not wait on
+         * the alert; the first LAN SSH after an ad-hoc rebuild otherwise
+         * fails with EHOSTUNREACH ("No route to host").
+         */
+        PuttyLocalNetwork.triggerPrivacyAlert()
         installMenus()
 
         if hostCaOnly {

@@ -173,6 +173,28 @@ suite.
 
 ---
 
+## Local Network privacy (macOS 15+)
+
+SSH to **LAN hosts**, **private IPs**, or **`.local` names** is a local
+network operation under [TN3179](https://developer.apple.com/documentation/technotes/tn3179-understanding-local-network-privacy).
+PuTTY.app ships `NSLocalNetworkUsageDescription`, triggers the privacy
+alert at launch, and retries `EHOSTUNREACH` / `ENETUNREACH` briefly
+while the Allow prompt may still be up (BSD sockets do not wait the way
+Network.framework does).
+
+**Dev / ad-hoc builds:** each rebuild changes the code identity, so
+macOS may treat Local Network privilege as undetermined again. If the
+first connect after a fresh build fails with “No route to host”, check
+**System Settings → Privacy & Security → Local Network** for PuTTY and
+Allow it, then reconnect (or wait for the in-process retry). Signing
+with an Apple Development identity (Phase 8) makes identity tracking
+more reliable than linker ad-hoc signatures.
+
+Remote internet SSH hosts are not local-network operations and should
+not require this permission.
+
+---
+
 ## Code boundary markers (`WORKAROUND:`)
 
 Agents and reviewers should find `WORKAROUND:` comments (agents.mdc §1.6)
@@ -196,6 +218,9 @@ Unix tree. Treat this document as the WORKAROUND record for those paths:
   no Quartz integration (see §1).
 - **Serial `provide_ldisc`:** unused stub; local echo/edit stay off
   (same as Unix; see §3).
+- **Local Network connect retry:** owned copy
+  `macos/platform/network.c` (not a unix/ symlink) — see § Local Network
+  privacy above.
 
 ---
 

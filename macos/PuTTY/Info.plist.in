@@ -28,6 +28,14 @@
     <string>NSApplication</string>
     <key>NSHighResolutionCapable</key>
     <true/>
+    <!--
+      macOS 15 Local Network privacy (TN3179). SSH to LAN hosts / .local
+      names requires this string so the system can show a usable prompt.
+      Without it, the first connect after an ad-hoc rebuild often fails
+      immediately with EHOSTUNREACH ("No route to host").
+    -->
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>PuTTY needs local network access to connect to SSH hosts on your LAN (including .local names and private IP addresses).</string>
     <!-- Config/session windows manage their own geometry; OS restore after a
          crash previously reopened crushed/off-screen frames and blocked
          launch with the "unexpectedly quit while reopening windows" alert. -->
