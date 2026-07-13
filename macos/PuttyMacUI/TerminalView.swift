@@ -202,6 +202,11 @@ final class TerminalView: NSView {
     private var rawMousePointer = false
     private var scrollAccumulator: CGFloat = 0
     private var clipboard: TerminalClipboard?
+    /// Repeating timer: keep extending selection + scrolling while the
+    /// pointer is held outside the vertical cell grid (mouseDragged alone
+    /// only fires on movement).
+    private var selectionAutoScrollTimer: Timer?
+    private var selectionDragButton: Int32?
 
     private lazy var contextMenu: NSMenu = buildContextMenu()
 
@@ -226,6 +231,7 @@ final class TerminalView: NSView {
      */
     func destroyTermWin() {
         guard let handle = termWin else { return }
+        stopSelectionAutoScroll()
         termWin = nil
         clipboard?.detach()
         clipboard = nil
@@ -501,11 +507,13 @@ final class TerminalView: NSView {
     // MARK: - Mouse (Phase 4.5)
 
     override func mouseDown(with event: NSEvent) {
+        stopSelectionAutoScroll()
         window?.makeFirstResponder(self)
         sendMouse(event: event, action: mouseAction(for: event))
     }
 
     override func rightMouseDown(with event: NSEvent) {
+        stopSelectionAutoScroll()
         window?.makeFirstResponder(self)
         guard let termWin else { return }
         let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
@@ -523,19 +531,23 @@ final class TerminalView: NSView {
     }
 
     override func otherMouseDown(with event: NSEvent) {
+        stopSelectionAutoScroll()
         window?.makeFirstResponder(self)
         sendMouse(event: event, button: PUTTY_BRIDGE_MBT_MIDDLE, action: PUTTY_BRIDGE_MA_CLICK)
     }
 
     override func mouseDragged(with event: NSEvent) {
         sendMouse(event: event, action: PUTTY_BRIDGE_MA_DRAG)
+        updateSelectionAutoScroll(button: PUTTY_BRIDGE_MBT_LEFT, event: event)
     }
 
     override func mouseUp(with event: NSEvent) {
+        stopSelectionAutoScroll()
         sendMouse(event: event, action: PUTTY_BRIDGE_MA_RELEASE)
     }
 
     override func rightMouseUp(with event: NSEvent) {
+        stopSelectionAutoScroll()
         guard let termWin else { return }
         let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         if putty_bridge_termwin_right_click_shows_menu(termWin, mods.contains(.control)) {
@@ -545,15 +557,18 @@ final class TerminalView: NSView {
     }
 
     override func otherMouseUp(with event: NSEvent) {
+        stopSelectionAutoScroll()
         sendMouse(event: event, button: PUTTY_BRIDGE_MBT_MIDDLE, action: PUTTY_BRIDGE_MA_RELEASE)
     }
 
     override func rightMouseDragged(with event: NSEvent) {
         sendMouse(event: event, button: PUTTY_BRIDGE_MBT_RIGHT, action: PUTTY_BRIDGE_MA_DRAG)
+        updateSelectionAutoScroll(button: PUTTY_BRIDGE_MBT_RIGHT, event: event)
     }
 
     override func otherMouseDragged(with event: NSEvent) {
         sendMouse(event: event, button: PUTTY_BRIDGE_MBT_MIDDLE, action: PUTTY_BRIDGE_MA_DRAG)
+        updateSelectionAutoScroll(button: PUTTY_BRIDGE_MBT_MIDDLE, event: event)
     }
 
     override func scrollWheel(with event: NSEvent) {
@@ -871,8 +886,15 @@ final class TerminalView: NSView {
         let cellW = putty_bridge_termwin_cell_width_pt(termWin)
         let cellH = putty_bridge_termwin_cell_height_pt(termWin)
         guard cellW > 0, cellH > 0 else { return (0, 0) }
-        let x = max(0, min(putty_bridge_termwin_cols(termWin) - 1, Int32(point.x / cellW)))
-        let y = max(0, min(putty_bridge_termwin_rows(termWin) - 1, Int32(point.y / cellH)))
+        /*
+         * Do not clamp to the visible grid. term_mouse() scrolls on MA_DRAG
+         * when y is outside [0, rows) (and treats x < 0 as the previous
+         * row for linear selection) — same contract as Windows TO_CHR_* /
+         * GTK pixel→cell conversion. floor() so a point just above the
+         * top edge yields y < 0 (toward-zero Int truncation would not).
+         */
+        let x = Int32(floor(Double(point.x) / cellW))
+        let y = Int32(floor(Double(point.y) / cellH))
         return (x, y)
     }
 
@@ -897,6 +919,81 @@ final class TerminalView: NSView {
             termWin, button, action, cell.x, cell.y,
             mods.contains(.shift), mods.contains(.control), mods.contains(.option)
         )
+    }
+
+    /// Start/stop the hold-outside auto-scroll timer from a drag event.
+    private func updateSelectionAutoScroll(button: Int32, event: NSEvent) {
+        guard let termWin else {
+            stopSelectionAutoScroll()
+            return
+        }
+        /*
+         * Raw mouse reporting owns the pointer; term_mouse will not
+         * auto-scroll in that mode either.
+         */
+        if putty_bridge_termwin_raw_mouse_active(termWin) {
+            let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+            let shift = mods.contains(.shift)
+            let overrideShift = putty_bridge_termwin_mouse_override_shift(termWin)
+            if !(shift && overrideShift) {
+                stopSelectionAutoScroll()
+                return
+            }
+        }
+        let point = convert(event.locationInWindow, from: nil)
+        let cell = cellAt(pointInView: point)
+        let rows = putty_bridge_termwin_rows(termWin)
+        if cell.y < 0 || cell.y >= rows {
+            selectionDragButton = button
+            startSelectionAutoScrollIfNeeded()
+        } else {
+            stopSelectionAutoScroll()
+        }
+    }
+
+    private func startSelectionAutoScrollIfNeeded() {
+        guard selectionAutoScrollTimer == nil else { return }
+        /*
+         * .common so ticks keep arriving during mouse tracking (default
+         * run-loop mode alone can stall while the button is held).
+         */
+        let timer = Timer(timeInterval: 0.05, repeats: true) { [weak self] _ in
+            PuttyMainHop.run { [weak self] in
+                self?.selectionAutoScrollTick()
+            }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        selectionAutoScrollTimer = timer
+    }
+
+    private func selectionAutoScrollTick() {
+        guard let termWin, let button = selectionDragButton else {
+            stopSelectionAutoScroll()
+            return
+        }
+        guard NSEvent.pressedMouseButtons != 0, let window else {
+            stopSelectionAutoScroll()
+            return
+        }
+        let windowPoint = window.convertPoint(fromScreen: NSEvent.mouseLocation)
+        let point = convert(windowPoint, from: nil)
+        let cell = cellAt(pointInView: point)
+        let rows = putty_bridge_termwin_rows(termWin)
+        guard cell.y < 0 || cell.y >= rows else {
+            stopSelectionAutoScroll()
+            return
+        }
+        let mods = NSEvent.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        putty_bridge_termwin_mouse(
+            termWin, button, PUTTY_BRIDGE_MA_DRAG, cell.x, cell.y,
+            mods.contains(.shift), mods.contains(.control), mods.contains(.option)
+        )
+    }
+
+    private func stopSelectionAutoScroll() {
+        selectionAutoScrollTimer?.invalidate()
+        selectionAutoScrollTimer = nil
+        selectionDragButton = nil
     }
 
     private func caretRectInView() -> NSRect {
