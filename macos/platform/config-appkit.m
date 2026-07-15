@@ -498,12 +498,19 @@ static void mac_stack_fill_width(NSStackView *stack, NSView *child)
     [child.widthAnchor constraintEqualToAnchor:stack.widthAnchor].active = YES;
 }
 
-static NSScrollView *mac_make_scroll_view(NSView *document)
+static NSScrollView *mac_make_scroll_view(NSView *document, BOOL flipped_clip)
 {
     NSScrollView *scroll = [[NSScrollView alloc] initWithFrame:NSZeroRect];
-    MacFlippedClipView *clip =
-        [[MacFlippedClipView alloc] initWithFrame:NSZeroRect];
-    scroll.contentView = clip;
+    /*
+     * Flipped clip is for Auto Layout document stacks that must pin to the
+     * top of a tall scroller. NSOutlineView / NSTableView expect the default
+     * bottom-left clip; flipping those rows compresses and misaligns cells.
+     */
+    if (flipped_clip) {
+        MacFlippedClipView *clip =
+            [[MacFlippedClipView alloc] initWithFrame:NSZeroRect];
+        scroll.contentView = clip;
+    }
     scroll.hasVerticalScroller = YES;
     scroll.hasHorizontalScroller = NO;
     scroll.autohidesScrollers = YES;
@@ -1121,12 +1128,19 @@ static NSView *mac_layout_one_control(
                 [grid addArrangedSubview:line];
             }
             NSButton *btn =
-                [[NSButton alloc] initWithFrame:NSZeroRect];
-            btn.buttonType = NSButtonTypeRadio;
-            btn.title = mac_ns(ctrl->radio.buttons[i]);
-            btn.target = actions;
-            btn.action = @selector(radioToggled:);
+                [NSButton radioButtonWithTitle:mac_ns(ctrl->radio.buttons[i])
+                                        target:actions
+                                        action:@selector(radioToggled:)];
             mac_prepare_view(btn);
+            /*
+             * Soft H compression (mac_prepare_view) plus a wrapping cell
+             * collapses intrinsic title width to ~one glyph ("SSH" → S/S/H
+             * stacked; long labels wrap one word per line). Keep titles on
+             * one line; clip if the column is narrower than the label.
+             */
+            NSButtonCell *cell = (NSButtonCell *)btn.cell;
+            cell.wraps = NO;
+            cell.lineBreakMode = NSLineBreakByClipping;
             objc_setAssociatedObject(btn, &mac_uctrl_key,
                                      [NSValue valueWithPointer:uc],
                                      OBJC_ASSOCIATION_RETAIN_NONATOMIC);
@@ -1399,8 +1413,9 @@ static NSView *mac_layout_one_control(
         mac_prepare_view(row);
         [dest addArrangedSubview:row];
         /* Expand container rows (stacks / scroll lists / wrapping text) to
-         * the column width. Leave NSButton at intrinsic size so checkboxes
-         * and radios stay left-justified. */
+         * the column width. Leave bare NSButton rows at intrinsic size so
+         * checkboxes stay left-justified. Radio groups are NSStackViews and
+         * do fill; their buttons stay single-line (see CTRL_RADIO). */
         if ([row isKindOfClass:[NSStackView class]] ||
             [row isKindOfClass:[NSScrollView class]] ||
             ([row isKindOfClass:[NSTextField class]] &&
@@ -2255,12 +2270,13 @@ MacConfigBox *mac_config_create_box(
     [outline addTableColumn:col];
     outline.outlineTableColumn = col;
     outline.headerView = nil;
-    outline.rowSizeStyle = NSTableViewRowSizeStyleDefault;
+    outline.rowSizeStyle = NSTableViewRowSizeStyleMedium;
     outline.columnAutoresizingStyle = NSTableViewLastColumnOnlyAutoresizingStyle;
     outline.dataSource = controller;
     outline.delegate = controller;
     outline.accessibilityLabel = @"Category";
-    NSScrollView *sideScroll = mac_make_scroll_view(outline);
+    /* Default (unflipped) clip — outline rows break under MacFlippedClipView. */
+    NSScrollView *sideScroll = mac_make_scroll_view(outline, NO);
     sideScroll.borderType = NSBezelBorder;
     box->dp.sidebar = outline;
 
@@ -2323,7 +2339,7 @@ MacConfigBox *mac_config_create_box(
         }
     }
 
-    NSScrollView *contentScroll = mac_make_scroll_view(contentHost);
+    NSScrollView *contentScroll = mac_make_scroll_view(contentHost, YES);
     contentScroll.borderType = NSBezelBorder;
     contentScroll.accessibilityLabel = @"Settings";
     /* Document matches clip width; height follows stacked content. */
@@ -2618,7 +2634,7 @@ static void make_ca_config_box(NSWindow *spawning_window, bool run_modal)
             [content addArrangedSubview:w];
     }
 
-    NSScrollView *scroll = mac_make_scroll_view(content);
+    NSScrollView *scroll = mac_make_scroll_view(content, YES);
     [content.widthAnchor
         constraintEqualToAnchor:scroll.contentView.widthAnchor].active = YES;
 
