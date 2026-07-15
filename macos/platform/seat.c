@@ -173,6 +173,19 @@ static void mac_gui_seat_queue_exit(MacGuiSeat *seat)
     queue_toplevel_callback(mac_gui_seat_exit_callback, seat);
 }
 
+/*
+ * Defer backend_free until after ssh_sw_abort returns. That path calls
+ * seat_connection_fatal then seat_notify_remote_exit on the same Ssh *;
+ * freeing the backend inside connection_fatal use-after-frees ssh
+ * (putty_crash_2026-07-15-001.txt). Match GTK/Windows.
+ */
+static void mac_gui_seat_connection_fatal_callback(void *vctx)
+{
+    MacGuiSeat *seat = (MacGuiSeat *)vctx;
+
+    mac_gui_seat_destroy_connection(seat);
+}
+
 void mac_gui_seat_flush_display(MacGuiSeat *seat)
 {
     if (!seat)
@@ -265,9 +278,13 @@ static void mac_seat_connection_fatal(Seat *seat, const char *msg)
         mac_seat_show_connection_fatal(title, msg, NULL_HELPCTX);
     sfree(title);
 
+    /*
+     * Set exited before queueing so the notify_remote_exit that
+     * ssh_sw_abort issues next becomes a no-op in exit_callback.
+     * Do not backend_free here — see connection_fatal_callback.
+     */
     mgs->exited = true;
-    mac_gui_seat_destroy_connection(mgs);
-    mac_gui_seat_queue_exit(mgs);
+    queue_toplevel_callback(mac_gui_seat_connection_fatal_callback, mgs);
 }
 
 static void mac_seat_nonfatal(Seat *seat, const char *msg)
@@ -545,7 +562,8 @@ void mac_gui_seat_free(MacGuiSeat *seat)
     memset(&seat->callbacks, 0, sizeof(seat->callbacks));
     seat->callback_ctx = NULL;
 
-    if (seat->started)
+    /* Destroy even if only exited (deferred fatal may still hold a backend). */
+    if (seat->started || seat->backend)
         mac_gui_seat_destroy_connection(seat);
 
     if (seat->term) {
@@ -562,6 +580,14 @@ void mac_gui_seat_free(MacGuiSeat *seat)
     }
 
     mac_termwin_destroy(&seat->termwin);
+
+    /*
+     * Drop pending exit / connection_fatal toplevel callbacks last —
+     * destroy_connection (and earlier free steps) may have queued more.
+     * Matches GTK delete_inst.
+     */
+    delete_callbacks_for_context(seat);
+
     sfree(seat);
 }
 

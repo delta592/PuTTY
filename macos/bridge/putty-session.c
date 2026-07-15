@@ -69,6 +69,18 @@ static void session_queue_exit(PuttySession *session)
 }
 
 /*
+ * Defer backend_free until after ssh_sw_abort returns (same UAF as
+ * MacGuiSeat connection_fatal — putty_crash_2026-07-15-001.txt).
+ */
+static void session_connection_fatal_callback(void *vctx)
+{
+    PuttySession *session = (PuttySession *)vctx;
+
+    session_destroy_connection(session);
+    session_queue_exit(session);
+}
+
+/*
  * WORKAROUND: PuttySession embeds a no-op TermWin for headless/smoke use.
  * Real drawing goes through PuttyBridgeTermWin + TerminalView (Phase 4).
  * — see .cursor/rules/agents.mdc
@@ -301,8 +313,7 @@ static void bridge_seat_connection_fatal(Seat *seat, const char *msg)
     seat_stderr_pl(seat, ptrlen_from_asciz(msg));
     seat_stderr_pl(seat, PTRLEN_LITERAL("\r\n"));
     session->exited = true;
-    session_destroy_connection(session);
-    session_queue_exit(session);
+    queue_toplevel_callback(session_connection_fatal_callback, session);
 }
 
 static void bridge_seat_nonfatal(Seat *seat, const char *msg)
@@ -461,7 +472,8 @@ void putty_session_free(PuttySession *session)
     if (!session)
         return;
 
-    if (session->started)
+    /* Destroy even if only exited (deferred fatal may still hold a backend). */
+    if (session->started || session->backend)
         session_destroy_connection(session);
 
     if (session->term) {
@@ -477,6 +489,7 @@ void putty_session_free(PuttySession *session)
         session->conf = NULL;
     }
 
+    delete_callbacks_for_context(session);
     sfree(session);
 }
 
