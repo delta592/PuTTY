@@ -3015,10 +3015,15 @@ int mac_config_controlbox_smoke(void)
         }
         if (list && open && luc) {
             NSTableView *tv = (NSTableView *)luc->widget;
+            /*
+             * Keep row 0 in sync with sesslist ("Default Settings"). Selecting
+             * a fabricated row beyond nsessions fires EVENT_SELCHANGE into
+             * sessionsaver_handler, which indexes sesslist.sessions[i].
+             */
             dlg_listbox_clear(list, &dp);
             dlg_listbox_add(list, &dp, "Default Settings");
             dlg_listbox_add(list, &dp, "intrepid");
-            [tv selectRowIndexes:[NSIndexSet indexSetWithIndex:1]
+            [tv selectRowIndexes:[NSIndexSet indexSetWithIndex:0]
                 byExtendingSelection:NO];
             if (dlg_last_focused(open, &dp) != list) {
                 fprintf(stderr,

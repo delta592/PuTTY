@@ -875,7 +875,12 @@ static void sessionsaver_handler(dlgcontrol *ctrl, dlgparam *dlg,
          */
         if (ctrl == ssd->listbox) {
             int i = dlg_listbox_index(ssd->listbox, dlg);
-            if (i < 0)
+            /*
+             * UI row count can temporarily disagree with sesslist (e.g. smoke
+             * tests rewriting the listbox, or a deferred AppKit selection).
+             * Bound-check before indexing — sessions[i] may be NULL otherwise.
+             */
+            if (i < 0 || i >= ssd->sesslist.nsessions)
                 return;
             bool isdef = !strcmp(ssd->sesslist.sessions[i], "Default Settings");
             sfree(ssd->savedsession);

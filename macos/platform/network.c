@@ -1579,8 +1579,12 @@ static void net_select_result(int fd, int event)
                          * closing while the Allow alert may still be up.
                          */
                         if (mac_lnp_is_privacy_errno(err) &&
-                            s->lnp_retries_left > 0) {
-                            START_STEP(s->addr, s->step);
+                            s->lnp_retries_left > 0 && s->addr) {
+                            /*
+                             * Do not START_STEP here: s->addr may already be
+                             * exhausted (while loop above), and
+                             * mac_lnp_retry_fire resets the step itself.
+                             */
                             mac_lnp_schedule_retry(s);
                             return;
                         }
