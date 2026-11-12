@@ -344,13 +344,21 @@ static void pfd_receive(Plug *plug, int urgent, const char *data, size_t len)
 
                     reply_code = SOCKS5_RESP_SUCCESS;
 
+                    /* In case we've been through here before with a
+                     * partial packet */
+                    sfree(pf->hostname);
+                    pf->hostname = NULL;
+
                     switch (get_byte(src)) {
                       case SOCKS5_ADDR_IPV4:
                         pf->hostname = ipv4_to_string(get_uint32(src));
                         break;
-                      case SOCKS5_ADDR_IPV6:
-                        pf->hostname = ipv6_to_string(get_data(src, 16));
+                      case SOCKS5_ADDR_IPV6: {
+                        ptrlen addr = get_data(src, 16);
+                        if (addr.len == 16) /* may not have all the data yet */
+                            pf->hostname = ipv6_to_string(addr);
                         break;
+                      }
                       case SOCKS5_ADDR_HOSTNAME:
                         pf->hostname = mkstr(get_pstring(src));
                         break;
@@ -798,10 +806,11 @@ void portfwdmgr_config(PortFwdManager *mgr, Conf *conf)
     for (val = conf_get_str_strs(conf, CONF_portfwd, NULL, &key);
          val != NULL;
          val = conf_get_str_strs(conf, CONF_portfwd, key, &key)) {
-        char *kp, *kp2, *vp, *vp2;
+        const char *kp, *kp2, *vp, *vp2;
         char address_family, type;
         int sport, dport, sserv, dserv;
-        char *sports, *dports, *saddr, *host;
+        const char *sports, *dports;
+        char *saddr, *host;
 
         kp = key;
 
@@ -1031,6 +1040,8 @@ void portfwdmgr_config(PortFwdManager *mgr, Conf *conf)
                     logeventf(mgr->cl->logctx,
                               "Duplicate remote port forwarding to %s:%d",
                               pfr->daddr, pfr->dport);
+                    del234(mgr->forwardings, pfr);
+                    i--;        /* avoid the loop skipping an entry */
                     pfr_free(pfr);
                 } else {
                     logeventf(mgr->cl->logctx, "Requesting remote port %s"
@@ -1117,7 +1128,7 @@ bool portfwdmgr_unlisten(PortFwdManager *mgr, const char *host, int port)
  * dynamically allocated error message string.
  */
 char *portfwdmgr_connect(PortFwdManager *mgr, Channel **chan_ret,
-                         char *hostname, int port, SshChannel *c,
+                         const char *hostname, int port, SshChannel *c,
                          int addressfamily)
 {
     SockAddr *addr;

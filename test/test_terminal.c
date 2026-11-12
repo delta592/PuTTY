@@ -1,3 +1,7 @@
+/* Define this before including putty.h */
+#define TEST_CLIPBOARDS(X) \
+    X(CLIP_TEST, "test clipboard id for checking rich paste attributes")
+
 #include "putty.h"
 #include "terminal.h"
 
@@ -29,9 +33,19 @@ const struct BackendVtable *const backends[] = { NULL };
 
 typedef struct Mock {
     Terminal *term;
+    Seat seat;
+    Backend *backend;
+    Ldisc *ldisc;
     Conf *conf;
     struct unicode_data ucsdata[1];
     strbuf *title;
+
+    bufchain terminal_input;
+
+    wchar_t *paste_data;
+    int *paste_attr;
+    truecolour *paste_tc;
+    int paste_len;
 
     strbuf *context;
 
@@ -54,6 +68,22 @@ static void mock_palette_get_overrides(TermWin *tw, Terminal *term) {}
 static void mock_set_title(TermWin *win, const char *title, int codepage);
 static void mock_set_icon_title(TermWin *win, const char *title, int cp) {}
 
+static void mock_clip_write(
+    TermWin *tw, int clipboard, wchar_t *data, int *attr,
+    truecolour *tc, int len, bool must_deselect)
+{
+    Mock *mk = container_of(tw, Mock, tw);
+    if (clipboard == CLIP_TEST) {
+        mk->paste_data = sresize(mk->paste_data, len, wchar_t);
+        mk->paste_attr = sresize(mk->paste_attr, len, int);
+        mk->paste_tc = sresize(mk->paste_tc, len, truecolour);
+        memcpy(mk->paste_data, data, len * sizeof(*mk->paste_data));
+        memcpy(mk->paste_attr, attr, len * sizeof(*mk->paste_attr));
+        memcpy(mk->paste_tc, tc, len * sizeof(*mk->paste_tc));
+        mk->paste_len = len;
+    }
+}
+
 static const TermWinVtable mock_termwin_vt = {
     .setup_draw_ctx = mock_setup_draw_ctx,
     .draw_text = mock_draw_text,
@@ -64,6 +94,39 @@ static const TermWinVtable mock_termwin_vt = {
     .set_raw_mouse_mode_pointer = mock_set_raw_mouse_mode_pointer,
     .palette_set = mock_palette_set,
     .palette_get_overrides = mock_palette_get_overrides,
+    .clip_write = mock_clip_write,
+};
+
+static const SeatVtable mock_seat_vt = {
+    .output = nullseat_output,
+    .eof = nullseat_eof,
+    .sent = nullseat_sent,
+    .banner = nullseat_banner,
+    .get_userpass_input = nullseat_get_userpass_input,
+    .notify_session_started = nullseat_notify_session_started,
+    .notify_remote_exit = nullseat_notify_remote_exit,
+    .notify_remote_disconnect = nullseat_notify_remote_disconnect,
+    .connection_fatal = nullseat_connection_fatal,
+    .nonfatal = nullseat_nonfatal,
+    .update_specials_menu = nullseat_update_specials_menu,
+    .get_ttymode = nullseat_get_ttymode,
+    .set_busy_status = nullseat_set_busy_status,
+    .confirm_ssh_host_key = nullseat_confirm_ssh_host_key,
+    .confirm_weak_crypto_primitive = nullseat_confirm_weak_crypto_primitive,
+    .confirm_weak_cached_hostkey = nullseat_confirm_weak_cached_hostkey,
+    .prompt_descriptions = nullseat_prompt_descriptions,
+    .is_utf8 = nullseat_is_never_utf8,
+    .echoedit_update = nullseat_echoedit_update,
+    .get_display = nullseat_get_display,
+    .get_windowid = nullseat_get_windowid,
+    .get_window_pixel_size = nullseat_get_window_pixel_size,
+    .stripctrl_new = nullseat_stripctrl_new,
+    .set_trust_status = nullseat_set_trust_status,
+    .can_set_trust_status = nullseat_can_set_trust_status_no,
+    .has_mixed_input_stream = nullseat_has_mixed_input_stream_no,
+    .verbose = nullseat_verbose_no,
+    .interactive = nullseat_interactive_no,
+    .get_cursor_position = nullseat_get_cursor_position,
 };
 
 static Mock *mock_new(void)
@@ -82,15 +145,23 @@ static Mock *mock_new(void)
 
     mk->tw.vt = &mock_termwin_vt;
 
+    bufchain_init(&mk->terminal_input);
+
     return mk;
 }
 
 static void mock_free(Mock *mk)
 {
     strbuf_free(mk->context);
+    ldisc_free(mk->ldisc);
+    backend_free(mk->backend);
     conf_free(mk->conf);
     term_free(mk->term);
     strbuf_free(mk->title);
+    bufchain_clear(&mk->terminal_input);
+    sfree(mk->paste_data);
+    sfree(mk->paste_attr);
+    sfree(mk->paste_tc);
     sfree(mk);
 }
 
@@ -153,8 +224,17 @@ static inline void check_sequal(Mock *mk, const char *file, int line,
         report_fail(mk, file, line, "'%s' != '%s'", lhs, rhs);
 }
 
+static inline void check_plequal(Mock *mk, const char *file, int line,
+                                 ptrlen lhs, ptrlen rhs)
+{
+    if (!ptrlen_eq_ptrlen(lhs, rhs))
+        report_fail(mk, file, line, "'%.*s' != '%.*s'",
+                    PTRLEN_PRINTF(lhs), PTRLEN_PRINTF(rhs));
+}
+
 #define IEQUAL(lhs, rhs) check_iequal(mk, __FILE__, __LINE__, lhs, rhs)
 #define SEQUAL(lhs, rhs) check_sequal(mk, __FILE__, __LINE__, lhs, rhs)
+#define PLEQUAL(lhs, rhs) check_plequal(mk, __FILE__, __LINE__, lhs, rhs)
 
 static inline void term_datapl(Terminal *term, ptrlen pl)
 {
@@ -528,6 +608,8 @@ static void test_wintitle(Mock *mk)
  * Feed a compact escape / UTF-8 / bidi corpus through the terminal.
  * Goal is coverage of common CSI/OSC/charset paths without asserting
  * every cell (fuzzterm covers crash-freedom separately).
+ * Fork coverage intent from 3439170b — kept alongside upstream
+ * selection/paste tests below.
  */
 static void test_escape_utf8_bidi_corpus(Mock *mk)
 {
@@ -611,15 +693,139 @@ static void test_corpus_files(Mock *mk)
 }
 #endif
 
+static strbuf *get_terminal_input(Mock *mk)
+{
+    strbuf *sb = strbuf_new();
+    size_t size = bufchain_size(&mk->terminal_input);
+    bufchain_fetch(&mk->terminal_input, strbuf_append(sb, size), size);
+    return sb;
+}
+
+static void test_selection(Mock *mk)
+{
+    reset(mk);
+    term_datapl(mk->term, PTRLEN_LITERAL("foo"));
+    term_update(mk->term);
+
+    /* Copy to CLIP_LOCAL, and then request a paste back from it to
+     * ensure it weent to our test backend */
+    {
+        int clipboards[1] = { CLIP_LOCAL };
+        term_copyall(mk->term, clipboards, 1);
+    }
+    term_request_paste(mk->term, CLIP_LOCAL);
+    while (run_toplevel_callbacks())
+        /* empty loop body */;
+    strbuf *paste = get_terminal_input(mk);
+    PLEQUAL(ptrlen_from_strbuf(paste), PTRLEN_LITERAL("foo\r"));
+    strbuf_free(paste);
+
+    /* Test rich attributes, including on combining characters */
+    mk->ucsdata->line_codepage = CP_UTF8;
+    reset(mk);
+    term_datapl(mk->term, PTRLEN_LITERAL(
+                    "\033[1;31m" /* bold red */
+                    "a\xCD\x8A" /* U+0061 + U+034A COMBINING NOT TILDE ABOVE */
+                    "\033[0;38;2;11;22;33m" /* no bold, RGB colour */
+                    "b\xCD\x93" /* U+0062 + U+0353 COMBINING X BELOW */
+                    "\033[m" /* tidy up, out of sheer habit */
+                    ));
+
+    /* Copy to CLIP_TEST so that mock_clip_write will receive all the data */
+    {
+        int clipboards[1] = { CLIP_TEST };
+        term_copyall(mk->term, clipboards, 1);
+    }
+    /*
+     * Trailing line ending is platform SEL_NL (LF on unix, CRLF on
+     * macOS/Windows). SELECTION_NUL_TERMINATED platforms also append a
+     * wide NUL that is included in paste_len. Layer this so the
+     * combining-attribute checks from e9aa905c still run on macOS.
+     */
+    {
+        static const wchar_t expected_nl[] = SEL_NL;
+        const int nl_sz = (int)(sizeof(expected_nl) / sizeof(expected_nl[0]));
+        int expected_len = 4 + nl_sz;
+        int i;
+#if SELECTION_NUL_TERMINATED
+        expected_len += 1;
+#endif
+        IEQUAL(mk->paste_len, expected_len);
+        IEQUAL(mk->paste_data[0], 0x0061);
+        IEQUAL(mk->paste_data[1], 0x034A);
+        IEQUAL(mk->paste_data[2], 0x0062);
+        IEQUAL(mk->paste_data[3], 0x0353);
+        for (i = 0; i < nl_sz; i++)
+            IEQUAL(mk->paste_data[4 + i], expected_nl[i]);
+#if SELECTION_NUL_TERMINATED
+        IEQUAL(mk->paste_data[4 + nl_sz], 0);
+#endif
+        /* Check the attributes. Each combining character should share the
+         * attributes of its principal. */
+        IEQUAL(mk->paste_attr[0],
+               (OSC4_COLOUR_red << ATTR_FGSHIFT) |
+               (OSC4_COLOUR_bg << ATTR_BGSHIFT) | ATTR_BOLD);
+        IEQUAL(mk->paste_attr[1],
+               (OSC4_COLOUR_red << ATTR_FGSHIFT) |
+               (OSC4_COLOUR_bg << ATTR_BGSHIFT) | ATTR_BOLD);
+        IEQUAL(mk->paste_attr[2],
+               (OSC4_COLOUR_fg << ATTR_FGSHIFT) |
+               (OSC4_COLOUR_bg << ATTR_BGSHIFT));
+        IEQUAL(mk->paste_attr[3],
+               (OSC4_COLOUR_fg << ATTR_FGSHIFT) |
+               (OSC4_COLOUR_bg << ATTR_BGSHIFT));
+        for (i = 0; i < nl_sz; i++)
+            IEQUAL(mk->paste_attr[4 + i], 0); /* no attributes on the NL */
+#if SELECTION_NUL_TERMINATED
+        IEQUAL(mk->paste_attr[4 + nl_sz], 0);
+#endif
+        /* Similarly, check the truecolour data. */
+        IEQUAL(mk->paste_tc[0].fg.enabled, false);
+        IEQUAL(mk->paste_tc[0].bg.enabled, false);
+        IEQUAL(mk->paste_tc[1].fg.enabled, false);
+        IEQUAL(mk->paste_tc[1].bg.enabled, false);
+        IEQUAL(mk->paste_tc[2].fg.enabled, true);
+        IEQUAL(mk->paste_tc[2].fg.r, 11);
+        IEQUAL(mk->paste_tc[2].fg.g, 22);
+        IEQUAL(mk->paste_tc[2].fg.b, 33);
+        IEQUAL(mk->paste_tc[2].bg.enabled, false);
+        IEQUAL(mk->paste_tc[3].fg.enabled, true);
+        IEQUAL(mk->paste_tc[3].fg.r, 11);
+        IEQUAL(mk->paste_tc[3].fg.g, 22);
+        IEQUAL(mk->paste_tc[3].fg.b, 33);
+        IEQUAL(mk->paste_tc[3].bg.enabled, false);
+        for (i = 0; i < nl_sz; i++) {
+            IEQUAL(mk->paste_tc[4 + i].fg.enabled, false);
+            IEQUAL(mk->paste_tc[4 + i].bg.enabled, false);
+        }
+#if SELECTION_NUL_TERMINATED
+        IEQUAL(mk->paste_tc[4 + nl_sz].fg.enabled, false);
+        IEQUAL(mk->paste_tc[4 + nl_sz].bg.enabled, false);
+#endif
+    }
+}
+
 int main(void)
 {
     Mock *mk = mock_new();
     mk->term = term_init(mk->conf, mk->ucsdata, &mk->tw);
+    mk->seat.vt = &mock_seat_vt;
+    {
+        char *realhost = NULL;
+        char *backend_error = backend_init(
+            &test_backend, &mk->seat, &mk->backend, NULL, mk->conf,
+            "dummyhost", 0, &realhost, false, false);
+        assert(!backend_error);
+        sfree(realhost);
+        test_backend_provide_output(mk->backend, &mk->terminal_input);
+    }
+    mk->ldisc = ldisc_create(mk->conf, mk->term, mk->backend, &mk->seat);
 
     test_hello_world(mk);
     test_wrap(mk);
     test_nonwrap(mk);
     test_wintitle(mk);
+    test_selection(mk);
     test_escape_utf8_bidi_corpus(mk);
 #ifdef PUTTY_TEST_DATA_DIR
     test_corpus_files(mk);

@@ -2977,7 +2977,7 @@ static void clipboard_text_received(GtkClipboard *clipboard,
     if (!text)
         return;
 
-    paste = dup_mb_to_wc(CS_UTF8, text, length, &paste_len);
+    paste = dup_mb_to_wc_c(CS_UTF8, text, strlen(text), &paste_len);
 
     term_do_paste(inst->term, paste, paste_len);
 
@@ -5248,6 +5248,7 @@ static void start_backend(GtkFrontend *inst)
                                   "Unable to open connection to %s:\n%s",
                                   conf_dest(inst->conf), error);
         }
+        sfree(realhost);
         sfree(error);
         inst->exited = true;
         return;
