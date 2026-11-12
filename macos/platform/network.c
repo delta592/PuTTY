@@ -1568,6 +1568,9 @@ static void net_select_result(int fd, int event)
                     plug_log(s->plug, &s->sock, PLUGLOG_CONNECT_FAILED,
                              &thisaddr, s->port, errmsg, err);
 
+                    /* Layer upstream fec4160a leak fix onto macos copy. */
+                    sfree(errmsg);
+
                     while (err && s->addr && sk_nextaddr(s->addr, &s->step)) {
                         err = try_connect(s);
                     }

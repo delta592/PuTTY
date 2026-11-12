@@ -85,7 +85,7 @@ static void proxy_activate(ProxySocket *ps)
 
 /* basic proxy socket functions */
 
-static Plug *sk_proxy_plug (Socket *s, Plug *p)
+static Plug *sk_proxy_plug(Socket *s, Plug *p)
 {
     ProxySocket *ps = container_of(s, ProxySocket, sock);
     Plug *ret = ps->plug;
@@ -94,19 +94,24 @@ static Plug *sk_proxy_plug (Socket *s, Plug *p)
     return ret;
 }
 
-static void sk_proxy_close (Socket *s)
+static void sk_proxy_close(Socket *s)
 {
     ProxySocket *ps = container_of(s, ProxySocket, sock);
 
-    sk_close(ps->sub_socket);
-    sk_addr_free(ps->proxy_addr);
-    sk_addr_free(ps->remote_addr);
+    if (ps->sub_socket)
+        sk_close(ps->sub_socket);
+    if (ps->proxy_addr)
+        sk_addr_free(ps->proxy_addr);
+    if (ps->remote_addr)
+        sk_addr_free(ps->remote_addr);
     proxy_negotiator_cleanup(ps);
+    bufchain_clear(&ps->pending_output_data);
     bufchain_clear(&ps->output_from_negotiator);
+    conf_free(ps->conf);
     sfree(ps);
 }
 
-static size_t sk_proxy_write (Socket *s, const void *data, size_t len)
+static size_t sk_proxy_write(Socket *s, const void *data, size_t len)
 {
     ProxySocket *ps = container_of(s, ProxySocket, sock);
 
@@ -117,7 +122,7 @@ static size_t sk_proxy_write (Socket *s, const void *data, size_t len)
     return sk_write(ps->sub_socket, data, len);
 }
 
-static size_t sk_proxy_write_oob (Socket *s, const void *data, size_t len)
+static size_t sk_proxy_write_oob(Socket *s, const void *data, size_t len)
 {
     ProxySocket *ps = container_of(s, ProxySocket, sock);
 
@@ -130,7 +135,7 @@ static size_t sk_proxy_write_oob (Socket *s, const void *data, size_t len)
     return sk_write_oob(ps->sub_socket, data, len);
 }
 
-static void sk_proxy_write_eof (Socket *s)
+static void sk_proxy_write_eof(Socket *s)
 {
     ProxySocket *ps = container_of(s, ProxySocket, sock);
 
@@ -141,7 +146,7 @@ static void sk_proxy_write_eof (Socket *s)
     sk_write_eof(ps->sub_socket);
 }
 
-static void sk_proxy_set_frozen (Socket *s, bool is_frozen)
+static void sk_proxy_set_frozen(Socket *s, bool is_frozen)
 {
     ProxySocket *ps = container_of(s, ProxySocket, sock);
 
@@ -178,7 +183,7 @@ static void sk_proxy_set_frozen (Socket *s, bool is_frozen)
     sk_set_frozen(ps->sub_socket, is_frozen);
 }
 
-static const char *sk_proxy_socket_error (Socket *s)
+static const char *sk_proxy_socket_error(Socket *s)
 {
     ProxySocket *ps = container_of(s, ProxySocket, sock);
     if (ps->error != NULL || ps->sub_socket == NULL) {
@@ -207,7 +212,7 @@ static void plug_proxy_closing(Plug *p, PlugCloseType type,
     plug_closing(ps->plug, type, error_msg);
 }
 
-static void proxy_negotiate(ProxySocket *ps)
+void proxy_negotiate(ProxySocket *ps)
 {
     assert(ps->pn);
     proxy_negotiator_process_queue(ps->pn);
@@ -268,7 +273,7 @@ static void plug_proxy_receive(
     }
 }
 
-static void plug_proxy_sent (Plug *p, size_t bufsize)
+static void plug_proxy_sent(Plug *p, size_t bufsize)
 {
     ProxySocket *ps = container_of(p, ProxySocket, plugimpl);
 
@@ -533,6 +538,7 @@ Socket *new_connection(SockAddr *addr, const char *hostname,
             return sret;
 
         ps = snew(ProxySocket);
+        memset(ps, 0, sizeof(ProxySocket));
         ps->sock.vt = &ProxySocket_sockvt;
         ps->plugimpl.vt = &ProxySocket_plugvt;
         ps->interactor.vt = &ProxySocket_interactorvt;

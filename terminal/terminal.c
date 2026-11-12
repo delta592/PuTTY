@@ -1381,7 +1381,7 @@ static void term_schedule_tblink(Terminal *term)
  */
 static void term_schedule_cblink(Terminal *term)
 {
-    int delay = CBLINK_DELAY;
+    int delay = term->cblink_delay;
     if (term->blink_cur && term->has_focus && delay > 0) {
         if (!term->cblink_pending)
             term->next_cblink = schedule_timer(delay, term_timer, term);
@@ -1498,6 +1498,7 @@ static void power_on(Terminal *term, bool clear)
         term->curs.y = 0;
     }
     term->curs.x = 0;
+    term->cblink_delay = CBLINK_DELAY;
     term_schedule_tblink(term);
     term_schedule_cblink(term);
     term_schedule_update(term);
@@ -1566,6 +1567,16 @@ void term_update(Terminal *term)
         win_set_cursor_pos(
             term->win, term->curs.x, term->curs.y - term->disptop);
         win_free_draw_ctx(term->win);
+    }
+
+    /* If the cursor is currently blinking, re-check the system blink
+     * delay, in case it's been changed in OS configuration. */
+    if (term->blink_cur) {
+        int old_delay = term->cblink_delay;
+        term->cblink_delay = CBLINK_DELAY;
+        /* If blinking was just turned on, schedule a blink to start. */
+        if (term->cblink_delay != old_delay && !term->cblink_pending)
+            term_schedule_cblink(term);
     }
 }
 
@@ -1830,9 +1841,10 @@ void term_reconfig(Terminal *term, Conf *conf)
     }
     if (palette_changed)
         term_notify_palette_changed(term);
+    term->cblink_delay = CBLINK_DELAY;
+    term_copy_stuff_from_conf(term);
     term_schedule_tblink(term);
     term_schedule_cblink(term);
-    term_copy_stuff_from_conf(term);
     term_update_raw_mouse_mode(term);
 }
 
@@ -2151,6 +2163,10 @@ void term_free(Terminal *term)
     delete_callbacks_for_context(term);
 
     conf_free(term->conf);
+
+    sfree(term->last_selected_text);
+    sfree(term->last_selected_attr);
+    sfree(term->last_selected_tc);
 
     sfree(term->window_title);
     sfree(term->icon_title);
@@ -3633,10 +3649,6 @@ unsigned long term_translate(
                 (t < 0x200000 && utf8->size >= 4) ||
                 (t < 0x4000000 && utf8->size >= 5))
                 return UCSINVALID;
-
-            /* Unicode line separator and paragraph separator are CR-LF */
-            if (t == 0x2028 || t == 0x2029)
-                return 0x85;
 
             /* High controls are probably a Baaad idea too. */
             if (t < 0xA0)
@@ -6697,10 +6709,11 @@ static void clipme(Terminal *term, pos top, pos bottom, bool rect, bool desel,
                 continue;
             }
 
+            attr = ldata->chars[x].attr;
+            tc = ldata->chars[x].truecolour;
+
             while (1) {
                 int uc = ldata->chars[x].chr;
-                attr = ldata->chars[x].attr;
-                tc = ldata->chars[x].truecolour;
 
                 switch (uc & CSET_MASK) {
                   case CSET_LINEDRW:

@@ -36,14 +36,14 @@ typedef enum {
  * Fingerprints of the current and previous PGP master keys, to
  * establish a trust path between an executable and other files.
  */
-#define PGP_MASTER_KEY_YEAR "2023"
+#define PGP_MASTER_KEY_YEAR "2026"
 #define PGP_MASTER_KEY_DETAILS "RSA, 4096-bit"
 #define PGP_MASTER_KEY_FP                                  \
-    "28D4 7C46 55E7 65A6 D827  AC66 B15D 9EFC 216B 06A1"
-#define PGP_PREV_MASTER_KEY_YEAR "2021"
-#define PGP_PREV_MASTER_KEY_DETAILS "RSA, 3072-bit"
+    "371C 662B 855F 318F F63A  D091 D732 471F 094D 5FB5"
+#define PGP_PREV_MASTER_KEY_YEAR "2023"
+#define PGP_PREV_MASTER_KEY_DETAILS "RSA, 4096-bit"
 #define PGP_PREV_MASTER_KEY_FP                                  \
-    "A872 D42F 1660 890F 0E05  223E DD43 55EA AC11 19DE"
+    "28D4 7C46 55E7 65A6 D827  AC66 B15D 9EFC 216B 06A1"
 
 /*
  * Definitions of three separate indexing schemes for colour palette
@@ -144,7 +144,7 @@ typedef enum {
      * They consist of:
      *
      *  - 216 colours forming a 6x6x6 cube, with R the most
-     *    significant colour and G the least. In other words, these
+     *    significant colour and B the least. In other words, these
      *    occupy the space of indices 16 <= i < 232, with each
      *    individual colour found as i = 16 + 36*r + 6*g + b, for all
      *    0 <= r,g,b <= 5.
@@ -1025,9 +1025,14 @@ typedef struct truecolour {
     X(CLIP_LOCAL, "last text selected in terminal")     \
     /* end of list */
 
+#ifndef TEST_CLIPBOARDS
+#define TEST_CLIPBOARDS(X)
+#endif
+
 #define ALL_CLIPBOARDS(X)                       \
     CROSS_PLATFORM_CLIPBOARDS(X)                \
     PLATFORM_CLIPBOARDS(X)                      \
+    TEST_CLIPBOARDS(X)                          \
     /* end of list */
 
 #define CLIP_ID(id,name) id,
@@ -2171,11 +2176,21 @@ void log_packet(LogContext *logctx, int direction, int type,
                 unsigned downstream_id, const char *additional_log_text);
 
 /*
- * Exports from testback.c
+ * Exports from testback.c. These backends aren't linked in to normal
+ * applications; they're used for test programs and development.
+ *
+ * null_backend does absolutely nothing - emits no output and discards
+ * all input. loop_backend echoes its input to its output, so you can
+ * use it for initial bringup of a terminal frontend by just typing
+ * into the terminal to test display of things. And test_backend
+ * writes its input on to a provided bufchain, so that you can query
+ * the bufchain to see if it received what you wanted.
  */
 
 extern const struct BackendVtable null_backend;
 extern const struct BackendVtable loop_backend;
+extern const struct BackendVtable test_backend;
+void test_backend_provide_output(Backend *be, bufchain *output);
 
 /*
  * Exports from raw.c.
@@ -2287,7 +2302,7 @@ bool is_dbcs_leadbyte(int codepage, char byte);
 wchar_t xlat_uskbd2cyrllic(int ch);
 int check_compose(int first, int second);
 int decode_codepage(const char *cp_name);
-const char *cp_enumerate (int index);
+const char *cp_enumerate(int index);
 const char *cp_name(int codepage);
 void get_unitab(int codepage, wchar_t *unitab, int ftype);
 

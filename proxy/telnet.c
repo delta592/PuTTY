@@ -52,7 +52,7 @@ static void proxy_telnet_free(ProxyNegotiator *pn)
 static void proxy_telnet_process_queue_callback(void *vctx)
 {
     TelnetProxyNegotiator *s = (TelnetProxyNegotiator *)vctx;
-    proxy_negotiator_process_queue(&s->pn);
+    proxy_negotiate(s->pn.ps);
 }
 
 static void proxy_telnet_process_queue(ProxyNegotiator *pn)
@@ -72,12 +72,11 @@ static void proxy_telnet_process_queue(ProxyNegotiator *pn)
         unsigned flags;
         s->formatted_cmd = format_telnet_command(
             pn->ps->remote_addr, pn->ps->remote_port, s->conf, &flags);
+        burnstr(s->formatted_cmd);
+        s->formatted_cmd = NULL;
 
         if (pn->itr && (flags & (TELNET_CMD_MISSING_USERNAME |
                                  TELNET_CMD_MISSING_PASSWORD))) {
-            burnstr(s->formatted_cmd);
-            s->formatted_cmd = NULL;
-
             /*
              * We're missing at least one of the two parts, and we
              * have an Interactor we can use to prompt for them, so
