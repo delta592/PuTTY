@@ -9,15 +9,18 @@
 # ~20–25 minutes on GitHub-hosted runners. We cannot remove that tracer
 # overhead. Instead we (1) keep C/Python cheap, (2) run C/Python on
 # pull_request + push to main (Security tab default-branch alerts) +
-# weekly schedule, (3) run Swift only on schedule and on PRs that touch
-# macOS/Swift sources (never on push — too expensive), (4) ccache the C
-# objects across runs, (5) cross-compile x86_64 so C/Swift match the
-# tracer (native arm64 was retried on macos-26 and still fails at link
-# time), (6) still build every Swift-bearing target so CodeQL does not
-# mark those sources as unscanned.
+# weekly schedule + workflow_dispatch, (3) run Swift on schedule,
+# workflow_dispatch, and on PR/push that touch macOS/Swift sources (so the
+# default-branch language:swift Security config stays fresh — schedule alone
+# has proven unreliable here), (4) ccache the C objects across runs,
+# (5) cross-compile x86_64 so C/Swift match the tracer (native arm64 was
+# retried on macos-26 and still fails at link time), (6) still build every
+# Swift-bearing target so CodeQL does not mark those sources as unscanned,
+# (7) isolate Swift concurrency from light jobs so a C/Python push cannot
+# cancel a long Swift scan on the same ref.
 #
-# Runner pins: ubuntu-24.04 (not ubuntu-latest) avoids the Ubuntu 26
-# migration notice / surprise image flip for the light jobs.
+# Runner pins: prefer an explicit ubuntu-XX.XX (not ubuntu-latest) so light
+# jobs do not silently flip on image renames.
 #
 # Docs:
 #   https://docs.github.com/en/code-security/code-scanning/creating-an-advanced-setup-for-code-scanning/codeql-code-scanning-for-compiled-languages
@@ -33,23 +36,28 @@ on:
   schedule:
     # Weekly full coverage (including Swift) on the default branch.
     - cron: '17 6 * * 1'
-
-concurrency:
-  group: codeql-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  workflow_dispatch:
+    inputs:
+      run_swift:
+        description: 'Run the macOS Swift CodeQL job (updates language:swift on default branch when run from main)'
+        type: boolean
+        default: true
 
 jobs:
-  # Fast path filter so PRs that only touch C/docs/etc. skip the Swift job.
-  # Push/schedule skip this job; Swift gating below does not use its outputs then.
+  # Fast path filter so push/PR that only touch C/docs/etc. skip the Swift job.
+  # Schedule / workflow_dispatch skip this job; Swift gating treats that as run.
   changes:
     name: Detect macOS / Swift paths
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
     runs-on: ubuntu-26.04
     permissions:
       contents: read
       pull-requests: read
     outputs:
       macos: ${{ steps.filter.outputs.macos }}
+    concurrency:
+      group: codeql-changes-${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: dorny/paths-filter@v4.0.3
@@ -71,6 +79,9 @@ jobs:
       contents: read
       security-events: write
       actions: read
+    concurrency:
+      group: codeql-light-${{ github.workflow }}-${{ github.ref }}-${{ matrix.language }}
+      cancel-in-progress: true
     strategy:
       fail-fast: false
       matrix:
@@ -97,14 +108,15 @@ jobs:
   analyze-swift:
     name: Analyze (swift)
     needs: changes
-    # Schedule: always. PR: only when macOS/Swift (or this workflow) changed.
-    # Push: never (C/Python on push satisfy the default-branch Security tab).
+    # Schedule / dispatch(run_swift): always.
+    # PR / push: only when macOS/Swift (or this workflow) changed.
     # needs.changes.result is 'skipped' when changes job's if: is false.
     if: |
       always() &&
       (
         github.event_name == 'schedule' ||
-        (github.event_name == 'pull_request' && needs.changes.outputs.macos == 'true')
+        (github.event_name == 'workflow_dispatch' && inputs.run_swift) ||
+        ((github.event_name == 'pull_request' || github.event_name == 'push') && needs.changes.outputs.macos == 'true')
       ) &&
       (needs.changes.result == 'success' || needs.changes.result == 'skipped')
     runs-on: macos-26
@@ -113,6 +125,10 @@ jobs:
       contents: read
       security-events: write
       actions: read
+    # Separate from light jobs: a cheap C/Python push must not cancel Swift.
+    concurrency:
+      group: codeql-swift-${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v7.0.1
 

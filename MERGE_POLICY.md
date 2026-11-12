@@ -303,6 +303,7 @@ git log --no-merges -10 --format='%s' ${BASE}..HEAD
 | Config Apply/Save writes stale values | Pending-edit macOS path lost while `config.c` took upstream | Re-port Apply/Save pending-edit intent on new dialog code |
 | Agent auth broken on macOS | Agent client no longer uses `$SSH_AUTH_SOCK` | Restore OpenSSH-agent default ([`macos/AGENT.md`](macos/AGENT.md)) |
 | CodeQL Swift job missing / always skipped | Workflow took upstream-only or lost path filters | Re-layer fork CodeQL manual Swift build |
+| Security tab `language:swift` “out of date” | Swift only on flaky `schedule`; PR scans do not refresh default-branch config | Ensure path-filtered Swift on `push` to `main` + `workflow_dispatch`; keep schedule as backup |
 | `build.sh check` no longer requires CMake ≥ 3.28 | Script / CMake floor dropped | Restore GUI CMake floor in `macos/CMakeLists.txt` + `build.sh` |
 | GitHub PR shows huge file count but tips match | History divergence, same tree region | Read **Files changed**; use `git diff main from_parent` locally |
 
@@ -544,11 +545,12 @@ background queues to clear a merge conflict.
   this tree).
 - **Absorb** useful upstream CI if upstream ever adds GitHub Actions;
   do not delete Swift tracing to “simplify”.
-- Path filters should continue to skip Swift analysis on PRs that do not
-  touch `macos/**` (and related cmake/workflow paths). Push to `main`
-  runs the cheap C/Python jobs (Security tab default-branch alerts);
-  schedule runs stay full-coverage including Swift. Do not enable Swift
-  on every push.
+- Path filters should continue to skip Swift analysis on PRs/pushes that
+  do not touch `macos/**` (and related cmake/workflow paths). Push to
+  `main` always runs cheap C/Python; Swift also runs on those path-filtered
+  pushes (and on `schedule` / `workflow_dispatch`) so the default-branch
+  `language:swift` Security config cannot go stale when cron is quiet.
+  Do not enable Swift on every unrelated push.
 
 ```bash
 # Post-merge: Swift manual build still present
