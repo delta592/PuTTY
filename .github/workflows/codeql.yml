@@ -44,8 +44,8 @@ jobs:
     outputs:
       macos: ${{ steps.filter.outputs.macos }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+      - uses: actions/checkout@v7.0.1
+      - uses: dorny/paths-filter@v4.0.3
         id: filter
         with:
           filters: |
@@ -73,17 +73,17 @@ jobs:
           - language: python
             build-mode: none
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@v7.0.1
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        uses: github/codeql-action/init@v4.39.3
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
           config-file: ./.github/codeql/codeql-config.yml
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        uses: github/codeql-action/analyze@v4.39.3
         with:
           category: "/language:${{ matrix.language }}"
 
@@ -103,10 +103,10 @@ jobs:
       security-events: write
       actions: read
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@v7.0.1
 
       - name: Cache ccache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: actions/cache@v6.1.0
         with:
           path: ~/.ccache
           key: ccache-codeql-swift-x86_64-${{ hashFiles('CMakeLists.txt', 'cmake/**/*.cmake', 'crypto/**', 'ssh/**', 'macos/**/*.c', 'macos/**/*.m') }}
@@ -146,7 +146,7 @@ jobs:
           fi
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        uses: github/codeql-action/init@v4.39.3
         with:
           languages: swift
           build-mode: manual
@@ -177,6 +177,6 @@ jobs:
           ccache -s
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        uses: github/codeql-action/analyze@v4.39.3
         with:
           category: "/language:swift"
