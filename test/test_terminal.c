@@ -736,48 +736,73 @@ static void test_selection(Mock *mk)
         int clipboards[1] = { CLIP_TEST };
         term_copyall(mk->term, clipboards, 1);
     }
-    /* Check the output paste data. This time, we expect \n, not \r,
-     * because the paste data is in the form of a text file rather
-     * than terminal input, so the translation back to \r hasn't been
-     * done. */
-    IEQUAL(mk->paste_len, 5);
-    IEQUAL(mk->paste_data[0], 0x0061);
-    IEQUAL(mk->paste_data[1], 0x034A);
-    IEQUAL(mk->paste_data[2], 0x0062);
-    IEQUAL(mk->paste_data[3], 0x0353);
-    IEQUAL(mk->paste_data[4], 0x000A);
-    /* Check the attributes. Each combining character should share the
-     * attributes of its principal. */
-    IEQUAL(mk->paste_attr[0],
-           (OSC4_COLOUR_red << ATTR_FGSHIFT) |
-           (OSC4_COLOUR_bg << ATTR_BGSHIFT) | ATTR_BOLD);
-    IEQUAL(mk->paste_attr[1],
-           (OSC4_COLOUR_red << ATTR_FGSHIFT) |
-           (OSC4_COLOUR_bg << ATTR_BGSHIFT) | ATTR_BOLD);
-    IEQUAL(mk->paste_attr[2],
-           (OSC4_COLOUR_fg << ATTR_FGSHIFT) |
-           (OSC4_COLOUR_bg << ATTR_BGSHIFT));
-    IEQUAL(mk->paste_attr[3],
-           (OSC4_COLOUR_fg << ATTR_FGSHIFT) |
-           (OSC4_COLOUR_bg << ATTR_BGSHIFT));
-    IEQUAL(mk->paste_attr[4], 0);      /* no attributes on the \n */
-    /* Similarly, check the truecolour data. */
-    IEQUAL(mk->paste_tc[0].fg.enabled, false);
-    IEQUAL(mk->paste_tc[0].bg.enabled, false);
-    IEQUAL(mk->paste_tc[1].fg.enabled, false);
-    IEQUAL(mk->paste_tc[1].bg.enabled, false);
-    IEQUAL(mk->paste_tc[2].fg.enabled, true);
-    IEQUAL(mk->paste_tc[2].fg.r, 11);
-    IEQUAL(mk->paste_tc[2].fg.g, 22);
-    IEQUAL(mk->paste_tc[2].fg.b, 33);
-    IEQUAL(mk->paste_tc[2].bg.enabled, false);
-    IEQUAL(mk->paste_tc[3].fg.enabled, true);
-    IEQUAL(mk->paste_tc[3].fg.r, 11);
-    IEQUAL(mk->paste_tc[3].fg.g, 22);
-    IEQUAL(mk->paste_tc[3].fg.b, 33);
-    IEQUAL(mk->paste_tc[3].bg.enabled, false);
-    IEQUAL(mk->paste_tc[4].fg.enabled, false);
-    IEQUAL(mk->paste_tc[4].bg.enabled, false);
+    /*
+     * Trailing line ending is platform SEL_NL (LF on unix, CRLF on
+     * macOS/Windows). SELECTION_NUL_TERMINATED platforms also append a
+     * wide NUL that is included in paste_len. Layer this so the
+     * combining-attribute checks from e9aa905c still run on macOS.
+     */
+    {
+        static const wchar_t expected_nl[] = SEL_NL;
+        const int nl_sz = (int)(sizeof(expected_nl) / sizeof(expected_nl[0]));
+        int expected_len = 4 + nl_sz;
+        int i;
+#if SELECTION_NUL_TERMINATED
+        expected_len += 1;
+#endif
+        IEQUAL(mk->paste_len, expected_len);
+        IEQUAL(mk->paste_data[0], 0x0061);
+        IEQUAL(mk->paste_data[1], 0x034A);
+        IEQUAL(mk->paste_data[2], 0x0062);
+        IEQUAL(mk->paste_data[3], 0x0353);
+        for (i = 0; i < nl_sz; i++)
+            IEQUAL(mk->paste_data[4 + i], expected_nl[i]);
+#if SELECTION_NUL_TERMINATED
+        IEQUAL(mk->paste_data[4 + nl_sz], 0);
+#endif
+        /* Check the attributes. Each combining character should share the
+         * attributes of its principal. */
+        IEQUAL(mk->paste_attr[0],
+               (OSC4_COLOUR_red << ATTR_FGSHIFT) |
+               (OSC4_COLOUR_bg << ATTR_BGSHIFT) | ATTR_BOLD);
+        IEQUAL(mk->paste_attr[1],
+               (OSC4_COLOUR_red << ATTR_FGSHIFT) |
+               (OSC4_COLOUR_bg << ATTR_BGSHIFT) | ATTR_BOLD);
+        IEQUAL(mk->paste_attr[2],
+               (OSC4_COLOUR_fg << ATTR_FGSHIFT) |
+               (OSC4_COLOUR_bg << ATTR_BGSHIFT));
+        IEQUAL(mk->paste_attr[3],
+               (OSC4_COLOUR_fg << ATTR_FGSHIFT) |
+               (OSC4_COLOUR_bg << ATTR_BGSHIFT));
+        for (i = 0; i < nl_sz; i++)
+            IEQUAL(mk->paste_attr[4 + i], 0); /* no attributes on the NL */
+#if SELECTION_NUL_TERMINATED
+        IEQUAL(mk->paste_attr[4 + nl_sz], 0);
+#endif
+        /* Similarly, check the truecolour data. */
+        IEQUAL(mk->paste_tc[0].fg.enabled, false);
+        IEQUAL(mk->paste_tc[0].bg.enabled, false);
+        IEQUAL(mk->paste_tc[1].fg.enabled, false);
+        IEQUAL(mk->paste_tc[1].bg.enabled, false);
+        IEQUAL(mk->paste_tc[2].fg.enabled, true);
+        IEQUAL(mk->paste_tc[2].fg.r, 11);
+        IEQUAL(mk->paste_tc[2].fg.g, 22);
+        IEQUAL(mk->paste_tc[2].fg.b, 33);
+        IEQUAL(mk->paste_tc[2].bg.enabled, false);
+        IEQUAL(mk->paste_tc[3].fg.enabled, true);
+        IEQUAL(mk->paste_tc[3].fg.r, 11);
+        IEQUAL(mk->paste_tc[3].fg.g, 22);
+        IEQUAL(mk->paste_tc[3].fg.b, 33);
+        IEQUAL(mk->paste_tc[3].bg.enabled, false);
+        for (i = 0; i < nl_sz; i++) {
+            IEQUAL(mk->paste_tc[4 + i].fg.enabled, false);
+            IEQUAL(mk->paste_tc[4 + i].bg.enabled, false);
+        }
+#if SELECTION_NUL_TERMINATED
+        IEQUAL(mk->paste_tc[4 + nl_sz].fg.enabled, false);
+        IEQUAL(mk->paste_tc[4 + nl_sz].bg.enabled, false);
+#endif
+    }
 }
 
 int main(void)

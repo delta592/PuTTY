@@ -247,6 +247,7 @@ add_executable(test_terminal
   ${CMAKE_SOURCE_DIR}/stubs/no-storage.c
   ${CMAKE_SOURCE_DIR}/stubs/no-timing.c
   ${CMAKE_SOURCE_DIR}/stubs/no-printing.c
+  ${CMAKE_SOURCE_DIR}/otherbackends/testback.c
   platform/unicode.c
   platform/no-gtk.c)
 target_compile_definitions(test_terminal PRIVATE
@@ -298,6 +299,7 @@ if(HAVE_ALIGNED_ALLOC)
   target_compile_definitions(overaligned_alloc PRIVATE ALLOCATION_ALIGNMENT=128)
   add_executable(testsc
     ${CMAKE_SOURCE_DIR}/test/testsc.c
+    ${CMAKE_SOURCE_DIR}/test/test_random.c
     $<TARGET_OBJECTS:overaligned_alloc>)
   target_link_libraries(testsc keygen crypto utils ${platform_libraries})
 endif()
