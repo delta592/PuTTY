@@ -7,12 +7,17 @@
 # Timing note: a native local macOS GUI build is a few minutes; the same
 # tree under CodeQL's DYLD tracer + mandatory x86_64 cross-compile is
 # ~20–25 minutes on GitHub-hosted runners. We cannot remove that tracer
-# overhead. Instead we (1) keep C/Python cheap, (2) run only on
-# pull_request + weekly schedule (no push), (3) skip Swift on PRs that do
-# not touch macOS/Swift sources, (4) ccache the C objects across runs, (5)
-# cross-compile x86_64 so C/Swift match the tracer (native arm64 was
-# retried on macos-26 and still fails at link time), (6) still build every
-# Swift-bearing target so CodeQL does not mark those sources as unscanned.
+# overhead. Instead we (1) keep C/Python cheap, (2) run C/Python on
+# pull_request + push to main (Security tab default-branch alerts) +
+# weekly schedule, (3) run Swift only on schedule and on PRs that touch
+# macOS/Swift sources (never on push — too expensive), (4) ccache the C
+# objects across runs, (5) cross-compile x86_64 so C/Swift match the
+# tracer (native arm64 was retried on macos-26 and still fails at link
+# time), (6) still build every Swift-bearing target so CodeQL does not
+# mark those sources as unscanned.
+#
+# Runner pins: ubuntu-24.04 (not ubuntu-latest) avoids the Ubuntu 26
+# migration notice / surprise image flip for the light jobs.
 #
 # Docs:
 #   https://docs.github.com/en/code-security/code-scanning/creating-an-advanced-setup-for-code-scanning/codeql-code-scanning-for-compiled-languages
@@ -21,6 +26,8 @@
 name: CodeQL
 
 on:
+  push:
+    branches: [main]
   pull_request:
     branches: [main]
   schedule:
@@ -33,11 +40,11 @@ concurrency:
 
 jobs:
   # Fast path filter so PRs that only touch C/docs/etc. skip the Swift job.
-  # Schedule always analyzes Swift (changes job is skipped on non-PR).
+  # Push/schedule skip this job; Swift gating below does not use its outputs then.
   changes:
     name: Detect macOS / Swift paths
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       pull-requests: read
@@ -58,7 +65,7 @@ jobs:
 
   analyze-light:
     name: Analyze (${{ matrix.language }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
       contents: read
@@ -90,11 +97,15 @@ jobs:
   analyze-swift:
     name: Analyze (swift)
     needs: changes
-    # Always on schedule; on PRs only when macOS/Swift (or this workflow) changed.
-    # needs.changes.result is 'skipped' when changes job's if: is false (non-PR).
+    # Schedule: always. PR: only when macOS/Swift (or this workflow) changed.
+    # Push: never (C/Python on push satisfy the default-branch Security tab).
+    # needs.changes.result is 'skipped' when changes job's if: is false.
     if: |
       always() &&
-      (github.event_name != 'pull_request' || needs.changes.outputs.macos == 'true') &&
+      (
+        github.event_name == 'schedule' ||
+        (github.event_name == 'pull_request' && needs.changes.outputs.macos == 'true')
+      ) &&
       (needs.changes.result == 'success' || needs.changes.result == 'skipped')
     runs-on: macos-26
     timeout-minutes: 90

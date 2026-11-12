@@ -545,8 +545,10 @@ background queues to clear a merge conflict.
 - **Absorb** useful upstream CI if upstream ever adds GitHub Actions;
   do not delete Swift tracing to “simplify”.
 - Path filters should continue to skip Swift analysis on PRs that do not
-  touch `macos/**` (and related cmake/workflow paths), while schedule
-  runs stay full-coverage.
+  touch `macos/**` (and related cmake/workflow paths). Push to `main`
+  runs the cheap C/Python jobs (Security tab default-branch alerts);
+  schedule runs stay full-coverage including Swift. Do not enable Swift
+  on every push.
 
 ```bash
 # Post-merge: Swift manual build still present
